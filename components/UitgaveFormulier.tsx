@@ -4,10 +4,13 @@ import { useActionState, useMemo, useState } from "react";
 import { upload } from "@vercel/blob/client";
 import BestandTegel from "./BestandTegel";
 import { formatEuro, parseEuro, verdeelRegel } from "@/lib/geld";
-import { vandaag } from "@/lib/datum";
+import { formatDatum, vandaag } from "@/lib/datum";
+import { bestandHash } from "@/lib/bestandhash";
 import {
   analyseerDocumentAction,
   bewaarBonAction,
+  zoekBonAction,
+  type BestaandeBon,
   type BewaardeBon,
   type BewaarState,
 } from "@/app/(app)/uitgaven/actions";
@@ -82,6 +85,7 @@ export default function UitgaveFormulier({
   );
   const [bonnen, setBonnen] = useState<BewaardeBon[]>(begin?.bonnen ?? []);
   const [bezigMetUpload, setBezigMetUpload] = useState(false);
+  const [dubbel, setDubbel] = useState<Dubbelvraag | null>(null);
   const [bezigMetAnalyse, setBezigMetAnalyse] = useState<number | null>(null);
   const [melding, setMelding] = useState<string | null>(null);
 
@@ -110,11 +114,34 @@ export default function UitgaveFormulier({
     );
   }
 
-  /** Uploaden en bewaren. Gebeurt altijd; het uitlezen is een aparte stap. */
-  async function verwerkBestand(bestand: File) {
+  /**
+   * Uploaden en bewaren. Gebeurt altijd; het uitlezen is een aparte stap.
+   *
+   * Eerst wordt gekeken of ditzelfde bestand er al is. Dat gaat op inhoud, dus ook een
+   * foto die je onder een andere naam nog eens kiest valt op. Met `negeerDubbel` ga je
+   * er alsnog overheen; dat is wat de knop in de waarschuwing doet.
+   */
+  async function verwerkBestand(bestand: File, negeerDubbel = false) {
     setBezigMetUpload(true);
     setMelding(null);
+    setDubbel(null);
     try {
+      const hash = await bestandHash(bestand);
+      if (hash && !negeerDubbel) {
+        const alBijgevoegd = bonnen.find((bon) => bon.hash === hash);
+        if (alBijgevoegd) {
+          setMelding(
+            `Dit bestand hangt al aan deze uitgave, als "${alBijgevoegd.naam}".`,
+          );
+          return;
+        }
+        const bestaand = await zoekBonAction(hash);
+        if (bestaand) {
+          setDubbel({ bestand, bestaand });
+          return;
+        }
+      }
+
       let url: string;
       let opslag: "blob" | "lokaal";
 
@@ -151,6 +178,7 @@ export default function UitgaveFormulier({
         naam: bestand.name,
         mime: bestand.type || "application/octet-stream",
         grootteBytes: bestand.size,
+        hash,
       });
       setBonnen((huidig) => [...huidig, bewaard]);
       setMelding(`${bestand.name} is opgeslagen.`);
@@ -159,6 +187,13 @@ export default function UitgaveFormulier({
     } finally {
       setBezigMetUpload(false);
     }
+  }
+
+  /** Het bestand dat er al staat erbij pakken in plaats van het nog eens uploaden. */
+  function gebruikBestaande(bestaand: BestaandeBon) {
+    setDubbel(null);
+    setBonnen((huidig) => [...huidig, bestaand]);
+    setMelding(`${bestaand.naam} is erbij gezet; het stond al in de app.`);
   }
 
   async function analyseer(documentId: number) {
@@ -250,6 +285,14 @@ export default function UitgaveFormulier({
         />
         {bezigMetUpload && (
           <p className="mt-3 text-sm text-gedempt">Opslaan…</p>
+        )}
+        {dubbel && (
+          <DubbelWaarschuwing
+            vraag={dubbel}
+            opnieuw={() => void verwerkBestand(dubbel.bestand, true)}
+            gebruikBestaande={() => gebruikBestaande(dubbel.bestaand)}
+            annuleer={() => setDubbel(null)}
+          />
         )}
         {melding && (
           <p className="mt-3 rounded-lg bg-accent-zacht p-3 text-sm">{melding}</p>
@@ -490,6 +533,78 @@ export default function UitgaveFormulier({
         {bewaren ? "Bezig…" : knopLabel}
       </button>
     </form>
+  );
+}
+
+/** Een gekozen bestand dat volgens de inhoud al in de app staat. */
+type Dubbelvraag = { bestand: File; bestaand: BestaandeBon };
+
+/**
+ * Weigeren zou verkeerd zijn: soms wil je twee bonnen die toevallig gelijk zijn. Dus
+ * melden wat er al staat, en jij kiest wat er gebeurt.
+ */
+function DubbelWaarschuwing({
+  vraag,
+  opnieuw,
+  gebruikBestaande,
+  annuleer,
+}: {
+  vraag: Dubbelvraag;
+  opnieuw: () => void;
+  gebruikBestaande: () => void;
+  annuleer: () => void;
+}) {
+  const { bestaand } = vraag;
+  const geupload = formatDatum(bestaand.geuploadOp.slice(0, 10));
+
+  return (
+    <div className="mt-3 flex flex-col gap-3 rounded-lg border border-rand bg-accent-zacht p-3 text-sm">
+      <p>
+        <strong>Dit bestand staat er al.</strong> Op {geupload} ingeladen als{" "}
+        <span className="break-all">{bestaand.naam}</span>
+        {bestaand.uitgave ? (
+          <>
+            , gekoppeld aan de uitgave van {formatDatum(bestaand.uitgave.datum)}
+            {bestaand.uitgave.leverancier && ` bij ${bestaand.uitgave.leverancier}`}.
+          </>
+        ) : (
+          <> in de map {bestaand.map}, nog niet aan een uitgave gekoppeld.</>
+        )}
+      </p>
+
+      <div className="flex flex-wrap items-center gap-3">
+        {bestaand.uitgave ? (
+          <a
+            href={`/uitgaven/${bestaand.uitgave.id}`}
+            className="rounded-lg border border-rand bg-paneel px-3 py-2 text-sm"
+          >
+            Naar die uitgave
+          </a>
+        ) : (
+          <button
+            type="button"
+            onClick={gebruikBestaande}
+            className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white"
+          >
+            Bestaand bestand gebruiken
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={opnieuw}
+          className="rounded-lg border border-rand bg-paneel px-3 py-2 text-sm"
+        >
+          Toch nog een keer opslaan
+        </button>
+        <button
+          type="button"
+          onClick={annuleer}
+          className="text-sm text-gedempt underline"
+        >
+          laat maar
+        </button>
+      </div>
+    </div>
   );
 }
 

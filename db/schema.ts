@@ -142,6 +142,12 @@ export const documents = pgTable(
      */
     voorbeeldUrl: text("voorbeeld_url"),
     externId: text("extern_id"),
+    /**
+     * SHA-256 van de bestandsinhoud, hexadecimaal. Daarmee herkent de app een bon
+     * die al eerder is ingeladen, ook onder een andere naam. Leeg bij bestanden van
+     * voor deze controle en bij browsers zonder `crypto.subtle`.
+     */
+    hash: text("hash"),
     expenseId: integer("expense_id").references(() => expenses.id, {
       onDelete: "cascade",
     }),
@@ -152,7 +158,10 @@ export const documents = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [index("documents_expense_idx").on(t.expenseId)],
+  (t) => [
+    index("documents_expense_idx").on(t.expenseId),
+    index("documents_hash_idx").on(t.hash),
+  ],
 );
 
 /**

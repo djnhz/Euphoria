@@ -109,7 +109,7 @@ export default function Nav({
             <Link
               key={link.href}
               href={link.href}
-              className={`block border-b border-rand px-4 py-3 text-sm transition last:border-0 ${
+              className={`block border-b border-rand px-4 py-3 text-center text-sm transition last:border-0 ${
                 isActief(link.href)
                   ? "bg-accent-zacht font-medium text-accent"
                   : "hover:bg-accent-zacht"

@@ -60,7 +60,10 @@ export default async function UitgaveBewerken({
             mime: bon.mime,
             voorbeeldUrl: bon.voorbeeldUrl,
             url: bon.url,
-            analyseerbaar: bon.voorbeeldUrl !== null,
+            hash: bon.hash,
+            // Zelfde regel als bij een nieuwe uitgave: een PDF valt ook uit te lezen.
+            analyseerbaar:
+              bon.voorbeeldUrl !== null || bon.mime === "application/pdf",
           })),
         }}
         actie={wijzigUitgaveAction.bind(null, id)}

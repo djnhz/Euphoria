@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
 import { registreerDocumentAction } from "@/app/(app)/documenten/actions";
+import { bestandHash } from "@/lib/bestandhash";
 import { MAPPEN, type DocumentMap } from "@/lib/mappen";
 
 export default function DocumentUpload({ heeftBlob }: { heeftBlob: boolean }) {
@@ -17,6 +18,9 @@ export default function DocumentUpload({ heeftBlob }: { heeftBlob: boolean }) {
     setFout(null);
     try {
       for (const bestand of Array.from(bestanden)) {
+        // Alleen vastleggen; het waarschuwen voor dubbele bestanden gebeurt bij het
+        // indienen van een bon, waar het verschil uitmaakt.
+        const hash = await bestandHash(bestand);
         let url: string;
         let opslag: "blob" | "lokaal";
 
@@ -54,6 +58,7 @@ export default function DocumentUpload({ heeftBlob }: { heeftBlob: boolean }) {
           grootteBytes: bestand.size,
           map,
           expenseId: null,
+          hash,
         });
       }
       router.refresh();

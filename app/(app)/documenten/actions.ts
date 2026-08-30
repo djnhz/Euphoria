@@ -17,6 +17,14 @@ const DocumentInvoer = z.object({
   grootteBytes: z.number().int().min(0),
   map: z.enum(MAPPEN),
   expenseId: z.number().int().positive().nullable(),
+  /**
+   * SHA-256 uit de browser, zodat de bonnencontrole ook een bestand herkent dat hier
+   * is binnengekomen. Null als de browser hem niet kon uitrekenen.
+   */
+  hash: z
+    .string()
+    .regex(/^[0-9a-f]{64}$/)
+    .nullable(),
 });
 
 export async function registreerDocumentAction(
@@ -38,6 +46,7 @@ export async function registreerDocumentAction(
     opslag: invoer.opslag,
     url: invoer.url,
     voorbeeldUrl: voorbeeld?.url ?? null,
+    hash: invoer.hash,
     expenseId: invoer.expenseId,
     geuploadDoor: gebruiker.id,
   });

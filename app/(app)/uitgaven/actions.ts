@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { db, categories, documents, expenseLines, expenses } from "@/db";
 import { vereisGebruiker } from "@/lib/auth";
@@ -156,12 +156,20 @@ export async function verwijderUitgaveAction(id: number) {
 }
 
 
+/** Hexadecimale SHA-256, precies 64 tekens. */
+const HashInvoer = z
+  .string()
+  .regex(/^[0-9a-f]{64}$/)
+  .nullable();
+
 const BestandInvoer = z.object({
   url: z.string().min(1).max(2000),
   opslag: z.enum(["blob", "lokaal", "drive"]),
   naam: z.string().trim().min(1).max(300),
   mime: z.string().max(200),
   grootteBytes: z.number().int().min(0),
+  /** SHA-256 uit de browser; null als die het niet kon uitrekenen. */
+  hash: HashInvoer,
 });
 
 export type BewaardeBon = {
@@ -170,9 +178,77 @@ export type BewaardeBon = {
   mime: string;
   url: string;
   voorbeeldUrl: string | null;
+  hash: string | null;
   /** Foto of PDF met tekst; een gescande PDF of ander bestand valt af. */
   analyseerbaar: boolean;
 };
+
+/** Een bestand met dezelfde inhoud dat al in de app staat. */
+export type BestaandeBon = BewaardeBon & {
+  map: string;
+  geuploadOp: string;
+  /** Gevuld zodra het bestand al aan een uitgave hangt. */
+  uitgave: { id: number; datum: string; leverancier: string } | null;
+};
+
+/** Alleen een foto of een PDF valt uit te lezen; de rest is opslag. */
+function isAnalyseerbaar(mime: string, voorbeeldUrl: string | null): boolean {
+  return voorbeeldUrl !== null || mime === "application/pdf";
+}
+
+/**
+ * Zoekt op inhoud, niet op naam: dezelfde foto onder een andere naam is nog steeds
+ * dezelfde bon. Wordt aangeroepen vóór het uploaden, zodat een dubbele bon niet eerst
+ * de opslag in gaat.
+ */
+export async function zoekBonAction(
+  ruweHash: string,
+): Promise<BestaandeBon | null> {
+  await vereisGebruiker();
+  const gelezen = HashInvoer.safeParse(ruweHash);
+  if (!gelezen.success || gelezen.data === null) return null;
+
+  const [rij] = await db
+    .select({
+      documentId: documents.id,
+      naam: documents.naam,
+      map: documents.map,
+      mime: documents.mime,
+      url: documents.url,
+      voorbeeldUrl: documents.voorbeeldUrl,
+      hash: documents.hash,
+      geuploadOp: documents.geuploadOp,
+      uitgaveId: expenses.id,
+      uitgaveDatum: expenses.datum,
+      uitgaveLeverancier: expenses.leverancier,
+    })
+    .from(documents)
+    .leftJoin(expenses, eq(documents.expenseId, expenses.id))
+    .where(eq(documents.hash, gelezen.data))
+    // De oudste is het origineel; wat daarna binnenkwam is de dubbele.
+    .orderBy(asc(documents.id))
+    .limit(1);
+  if (!rij) return null;
+
+  return {
+    documentId: rij.documentId,
+    naam: rij.naam,
+    map: rij.map,
+    mime: rij.mime,
+    url: rij.url,
+    voorbeeldUrl: rij.voorbeeldUrl,
+    hash: rij.hash,
+    analyseerbaar: isAnalyseerbaar(rij.mime, rij.voorbeeldUrl),
+    geuploadOp: rij.geuploadOp.toISOString(),
+    uitgave: rij.uitgaveId
+      ? {
+          id: rij.uitgaveId,
+          datum: rij.uitgaveDatum ?? "",
+          leverancier: rij.uitgaveLeverancier ?? "",
+        }
+      : null,
+  };
+}
 
 /**
  * Opslaan gebeurt altijd en staat los van de analyse: het bestand is bewaard zodra het
@@ -198,6 +274,7 @@ export async function bewaarBonAction(
       opslag: invoer.opslag,
       url: invoer.url,
       voorbeeldUrl: voorbeeld?.url ?? null,
+      hash: invoer.hash,
       geuploadDoor: gebruiker.id,
     })
     .returning({ id: documents.id });
@@ -209,7 +286,8 @@ export async function bewaarBonAction(
     mime: invoer.mime,
     url: invoer.url,
     voorbeeldUrl: voorbeeld?.url ?? null,
-    analyseerbaar: voorbeeld !== null || invoer.mime === "application/pdf",
+    hash: invoer.hash,
+    analyseerbaar: isAnalyseerbaar(invoer.mime, voorbeeld?.url ?? null),
   };
 }
 
