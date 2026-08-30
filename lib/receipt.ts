@@ -84,14 +84,20 @@ export async function voorbeeldBase64(url: string): Promise<string | null> {
  * exact — nauwkeuriger én goedkoper dan de bladzijde als plaatje laten bekijken.
  * Een gescande PDF levert niets op; dat merk je aan een (bijna) lege uitkomst.
  */
-export async function pdfTekst(url: string): Promise<string | null> {
+export type PdfResultaat =
+  | { ok: true; tekst: string }
+  | { ok: false; reden: string };
+
+export async function pdfTekst(url: string): Promise<PdfResultaat> {
   const inhoud = await leesBestand(url);
-  if (!inhoud) return null;
+  if (!inhoud) return { ok: false, reden: "Het bestand is niet op te halen." };
+
   try {
     const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+    // Geen `useSystemFonts`: een serverless omgeving heeft geen lettertypen op schijf,
+    // en voor tekst uitlezen is dat ook nergens voor nodig.
     const document = await pdfjs.getDocument({
       data: new Uint8Array(inhoud),
-      useSystemFonts: true,
     }).promise;
 
     const bladzijden: string[] = [];
@@ -99,15 +105,22 @@ export async function pdfTekst(url: string): Promise<string | null> {
       const bladzijde = await document.getPage(nummer);
       const stukken = await bladzijde.getTextContent();
       bladzijden.push(
-        stukken.items
-          .map((stuk) => ("str" in stuk ? stuk.str : ""))
-          .join(" "),
+        stukken.items.map((stuk) => ("str" in stuk ? stuk.str : "")).join(" "),
       );
     }
     const tekst = bladzijden.join("\n").replace(/\s+/g, " ").trim();
-    return tekst.length > 20 ? tekst : null;
-  } catch {
-    return null;
+
+    if (tekst.length <= 20) {
+      return {
+        ok: false,
+        reden:
+          "Deze PDF bevat geen tekst, waarschijnlijk een scan. Fotografeer hem of vul de regels zelf in.",
+      };
+    }
+    return { ok: true, tekst };
+  } catch (fout) {
+    // Bewust niet inslikken: anders lijkt elk probleem op een gescande PDF.
+    return { ok: false, reden: `PDF uitlezen mislukte: ${(fout as Error).message}` };
   }
 }
 

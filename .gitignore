@@ -46,3 +46,12 @@ next-env.d.ts
 
 # lokaal bewaarde uploads (alleen ontwikkeling)
 .uploads/
+
+.vercel
+.env*
+!.env.example
+
+# gereedschap van de Vercel/Neon-koppeling, hoort niet bij de app
+.agents/
+.claude/skills/
+skills-lock.json

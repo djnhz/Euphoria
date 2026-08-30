@@ -226,14 +226,7 @@ export async function analyseerDocumentAction(
   if (!document) return { bon: null, fout: "Dat bestand bestaat niet meer." };
 
   const bron = await kiesBron(document.mime, document.url, document.voorbeeldUrl);
-  if (!bron) {
-    return {
-      bon: null,
-      fout: document.mime === "application/pdf"
-        ? "Deze PDF bevat geen tekst, waarschijnlijk een scan. Fotografeer hem of vul de regels zelf in."
-        : "Uit dit bestand valt niets uit te lezen.",
-    };
-  }
+  if (!bron.ok) return { bon: null, fout: bron.reden };
 
   const actieveCategorieen = await db
     .select({ naam: categories.naam })
@@ -249,17 +242,24 @@ export async function analyseerDocumentAction(
     : { bon: null, fout: resultaat.fout };
 }
 
-/** Een PDF gaat als tekst naar het model, een foto als plaatje. */
+/**
+ * Een PDF gaat als tekst naar het model, een foto als plaatje. Lukt dat niet, dan komt
+ * de echte reden mee naar boven in plaats van een algemene melding.
+ */
 async function kiesBron(
   mime: string,
   url: string,
   voorbeeldUrl: string | null,
-): Promise<AnalyseBron | null> {
+): Promise<({ ok: true } & AnalyseBron) | { ok: false; reden: string }> {
   if (mime === "application/pdf") {
-    const tekst = await pdfTekst(url);
-    return tekst ? { soort: "tekst", tekst } : null;
+    const resultaat = await pdfTekst(url);
+    return resultaat.ok
+      ? { ok: true, soort: "tekst", tekst: resultaat.tekst }
+      : { ok: false, reden: resultaat.reden };
   }
   // Liever de al verkleinde kopie: die is klaar en scheelt het origineel opnieuw halen.
   const base64 = await voorbeeldBase64(voorbeeldUrl ?? url);
-  return base64 ? { soort: "afbeelding", base64 } : null;
+  return base64
+    ? { ok: true, soort: "afbeelding", base64 }
+    : { ok: false, reden: "Uit dit bestand valt geen afbeelding te halen." };
 }
