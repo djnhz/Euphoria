@@ -10,6 +10,25 @@ per categorie en een documentenopslag.
 npm install
 ```
 
+### Lokaal, zonder cloudaccount
+
+Laat `DATABASE_URL` leeg en de app valt terug op **PGlite**: echte Postgres gecompileerd
+naar WebAssembly, met de data in `.pglite/`. Geen server, geen account. Dit gebeurt alleen
+buiten productie; op Vercel is een ontbrekende `DATABASE_URL` gewoon een fout.
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"   # SESSION_SECRET
+npm run db:push
+npm run seed
+npm run dev
+```
+
+Bonnen uploaden werkt in die opzet niet — daar is een `BLOB_READ_WRITE_TOKEN` voor nodig.
+De app blijft wel gewoon werken: de upload meldt netjes dat het misging en je vult de
+regels zelf in.
+
+### Volledig, met Neon en Blob
+
 Maak `.env.local` op basis van `.env.example`:
 
 | Variabele | Waar vandaan |
@@ -48,7 +67,7 @@ afrondings- of kalenderfout geld scheeft zet.
 npm run db:smoke
 ```
 
-Draait dezelfde logica één keer tegen de echte database: een uitgave van elk huishouden,
+Draait dezelfde logica een keer tegen de database die is ingesteld (Neon of de lokale PGlite): een uitgave van elk huishouden,
 het saldo dat daaruit volgt, en een achterstallige vaste last die precies één keer
 uitrolt. Alles wat het script aanmaakt draagt het merkteken `[smoke]` en wordt daarna
 weer verwijderd, ook als er iets misgaat.

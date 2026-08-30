@@ -7,16 +7,7 @@ import { z } from "zod";
 import { db, documents } from "@/db";
 import { vereisGebruiker } from "@/lib/auth";
 import { maakVoorbeeld } from "@/lib/receipt";
-
-export const MAPPEN = [
-  "bon",
-  "factuur",
-  "verzekering",
-  "onderhoud",
-  "registratie",
-  "handleiding",
-  "overig",
-] as const;
+import { MAPPEN } from "@/lib/mappen";
 
 const DocumentInvoer = z.object({
   url: z.string().url(),

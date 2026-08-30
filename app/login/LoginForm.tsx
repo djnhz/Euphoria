@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { startTransition, useActionState, useState } from "react";
 import { inloggenAction, type LoginState } from "./actions";
 
 export type LoginGebruiker = {
@@ -50,7 +50,8 @@ export default function LoginForm({
     const velden = new FormData();
     velden.set("userId", String(gekozen!.id));
     velden.set("pin", nieuw);
-    verstuur(velden);
+    // Binnen een transition, anders werkt de bezig-vlag van useActionState niet.
+    startTransition(() => verstuur(velden));
     setPin("");
   }
 

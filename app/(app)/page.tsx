@@ -113,15 +113,18 @@ export default async function Dashboard({ searchParams }: PageProps<"/">) {
                       {budgetCent !== null && ` van ${formatEuro(budgetCent)}`}
                     </span>
                   </div>
-                  <div className="mt-1 h-2 overflow-hidden rounded-full bg-rand">
-                    <div
-                      className="h-full rounded-full"
-                      style={{
-                        width: `${Math.min(100, (deel ?? 0) * 100)}%`,
-                        background: over ? "var(--slecht)" : rij.kleur,
-                      }}
-                    />
-                  </div>
+                  {/* Zonder budget geen balk: een lege balk leest als nul procent besteed. */}
+                  {deel !== null && (
+                    <div className="mt-1 h-2 overflow-hidden rounded-full bg-rand">
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${Math.min(100, deel * 100)}%`,
+                          background: over ? "var(--slecht)" : rij.kleur,
+                        }}
+                      />
+                    </div>
+                  )}
                 </li>
               );
             })}

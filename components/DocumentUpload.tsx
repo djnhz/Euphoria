@@ -3,11 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
-import { registreerDocumentAction, MAPPEN } from "@/app/(app)/documenten/actions";
+import { registreerDocumentAction } from "@/app/(app)/documenten/actions";
+import { MAPPEN, type DocumentMap } from "@/lib/mappen";
 
 export default function DocumentUpload() {
   const router = useRouter();
-  const [map, setMap] = useState<(typeof MAPPEN)[number]>("overig");
+  const [map, setMap] = useState<DocumentMap>("overig");
   const [bezig, setBezig] = useState(false);
   const [fout, setFout] = useState<string | null>(null);
 
@@ -45,7 +46,7 @@ export default function DocumentUpload() {
           <select
             value={map}
             onChange={(e) =>
-              setMap(e.target.value as (typeof MAPPEN)[number])
+              setMap(e.target.value as DocumentMap)
             }
             className="rounded-lg border border-rand bg-achtergrond px-3 py-2 text-sm"
           >

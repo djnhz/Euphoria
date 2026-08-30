@@ -1,4 +1,6 @@
-import "server-only";
+// Geen `server-only` hier: dit bestand wordt ook door db/smoke.ts gedraaid, dat buiten
+// Next leeft. De barriere is `@/db` zelf, dat node-modules importeert en dus nooit in
+// een clientbundel past. De echte geheimen staan in lib/auth.ts, dat de guard wel heeft.
 import { and, asc, desc, eq, gte, lte, sql } from "drizzle-orm";
 import {
   db,

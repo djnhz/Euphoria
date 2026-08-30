@@ -13,7 +13,11 @@ export type GrafiekData = {
   namen: { a: string; b: string };
 };
 
-/** ECharts geeft waarden los getypeerd door; alles wat binnenkomt is een bedrag in centen. */
+/**
+ * ECharts geeft waarden los getypeerd door; alles wat binnenkomt is een bedrag in centen.
+ * `minInterval: 100` op de assen houdt de stapgrootte op hele euros, anders staat een lege
+ * grafiek vol met streepjes van een cent.
+ */
 const alsEuro = (waarde: unknown) => formatEuro(Number(waarde) || 0);
 
 export default function DashboardGrafieken({ data }: { data: GrafiekData }) {
@@ -45,7 +49,7 @@ export default function DashboardGrafieken({ data }: { data: GrafiekData }) {
       legend: { bottom: 0 },
       grid: { left: 72, right: 12, top: 16, bottom: 44 },
       xAxis: { type: "category", data: MAANDEN },
-      yAxis: { type: "value", axisLabel: { formatter: alsEuro } },
+      yAxis: { type: "value", minInterval: 100, axisLabel: { formatter: alsEuro } },
       series: [
         {
           name: data.namen.a,
@@ -71,7 +75,7 @@ export default function DashboardGrafieken({ data }: { data: GrafiekData }) {
       tooltip: { trigger: "axis", valueFormatter: alsEuro },
       grid: { left: 72, right: 12, top: 16, bottom: 28 },
       xAxis: { type: "category", data: MAANDEN },
-      yAxis: { type: "value", axisLabel: { formatter: alsEuro } },
+      yAxis: { type: "value", minInterval: 100, axisLabel: { formatter: alsEuro } },
       series: [
         {
           name: "Saldo",

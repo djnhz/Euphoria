@@ -293,7 +293,7 @@ export default function UitgaveFormulier({
       </section>
 
       <section className="rounded-xl border border-rand bg-paneel p-4">
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-1 flex items-center justify-between">
           <h2 className="text-sm font-medium">Regels</h2>
           <button
             type="button"
@@ -309,11 +309,15 @@ export default function UitgaveFormulier({
           </button>
         </div>
 
+        <p className="mb-3 text-xs text-gedempt">
+          Het percentage per regel is het deel voor {naamA}; de rest gaat naar {naamB}.
+        </p>
+
         <div className="flex flex-col gap-4">
           {regels.map((regel) => (
             <div
               key={regel.sleutel}
-              className="grid gap-2 rounded-lg border border-rand p-3 sm:grid-cols-[1fr_5rem_7rem_auto]"
+              className="grid grid-cols-2 gap-2 rounded-lg border border-rand p-3 sm:grid-cols-[1fr_5rem_7rem_auto]"
             >
               <input
                 value={regel.omschrijving}
@@ -321,7 +325,7 @@ export default function UitgaveFormulier({
                   pasRegelAan(regel.sleutel, { omschrijving: e.target.value })
                 }
                 placeholder="Omschrijving"
-                className={invoerKlasse}
+                className={`${invoerKlasse} col-span-2 sm:col-span-1`}
               />
               <input
                 type="number"
@@ -354,12 +358,12 @@ export default function UitgaveFormulier({
                       : r.filter((x) => x.sleutel !== regel.sleutel),
                   )
                 }
-                className="justify-self-start text-sm text-gedempt underline sm:self-center"
+                className="col-span-2 justify-self-start text-sm text-gedempt underline sm:col-span-1 sm:self-center"
               >
                 verwijder
               </button>
 
-              <div className="sm:col-span-4 grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center">
+              <div className="col-span-2 grid gap-2 sm:col-span-4 sm:grid-cols-[1fr_auto] sm:items-center">
                 <select
                   value={regel.categoryId}
                   onChange={(e) =>
@@ -392,11 +396,9 @@ export default function UitgaveFormulier({
                       })
                     }
                     aria-label={`Percentage voor ${naamA}`}
-                    className={`${invoerKlasse} cijfers w-20`}
+                    className={`${smalInvoerKlasse} cijfers`}
                   />
-                  <span className="text-gedempt">
-                    % {naamA}, rest {naamB}
-                  </span>
+                  <span className="text-gedempt">% {naamA}</span>
                   {regel.bron === "ai" && (
                     <span className="rounded-full bg-accent-zacht px-2 py-0.5 text-xs text-accent">
                       uit bon
@@ -438,8 +440,10 @@ export default function UitgaveFormulier({
   );
 }
 
-const invoerKlasse =
-  "w-full rounded-lg border border-rand bg-achtergrond px-3 py-2 text-sm";
+const veldStijl = "rounded-lg border border-rand bg-achtergrond px-3 py-2 text-sm";
+const invoerKlasse = `w-full ${veldStijl}`;
+// Apart, want `w-20` naast `w-full` in een klassenlijst is een gok welke wint.
+const smalInvoerKlasse = `w-20 shrink-0 ${veldStijl}`;
 
 function Veld({
   label,

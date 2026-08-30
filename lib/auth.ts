@@ -1,6 +1,7 @@
 import "server-only";
 import { getIronSession, type IronSession } from "iron-session";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db, users, couples } from "@/db";
 import { pinKlopt } from "./pin";
@@ -61,12 +62,14 @@ export async function huidigeGebruiker(): Promise<Gebruiker | null> {
 }
 
 /**
- * Voor pagina's en server actions. Layouts beschermen alleen pagina's, dus elke
- * server action roept dit zelf aan.
+ * Voor pagina's en server actions. Layouts beschermen alleen pagina's, en een pagina
+ * rendert naast zijn layout in plaats van erna, dus elke pagina en elke server action
+ * roept dit zelf aan. Omleiden in plaats van gooien: anders loopt een uitgelogde
+ * bezoeker tegen een foutscherm aan terwijl de layout hem al naar /login stuurt.
  */
 export async function vereisGebruiker(): Promise<Gebruiker> {
   const gebruiker = await huidigeGebruiker();
-  if (!gebruiker) throw new Error("Niet ingelogd");
+  if (!gebruiker) redirect("/login");
   return gebruiker;
 }
 
@@ -85,7 +88,7 @@ export async function probeerInloggen(
     );
     return {
       ok: false,
-      fout: `Geblokkeerd. Probeer het over ${minuten} minuut${minuten === 1 ? "" : "en"} opnieuw.`,
+      fout: `Geblokkeerd. Probeer het over ${minuten} ${minuten === 1 ? "minuut" : "minuten"} opnieuw.`,
     };
   }
 
