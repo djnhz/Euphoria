@@ -125,7 +125,12 @@ export default async function Dashboard({ searchParams }: PageProps<"/">) {
               return (
                 <li key={rij.id}>
                   <div className="flex items-baseline justify-between text-sm">
-                    <span>{rij.naam}</span>
+                    <Link
+                      href={`/uitgaven?jaar=${jaar}&categorie=${rij.id}`}
+                      className="hover:text-accent"
+                    >
+                      {rij.naam}
+                    </Link>
                     <span className="cijfers text-gedempt">
                       {formatEuro(rij.werkelijkCent)}
                       {budgetCent !== null && ` van ${formatEuro(budgetCent)}`}

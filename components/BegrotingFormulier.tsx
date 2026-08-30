@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useMemo, useState } from "react";
+import Link from "next/link";
 import { formatEuro, parseEuro } from "@/lib/geld";
 import {
   bewaarBegrotingAction,
@@ -90,7 +91,13 @@ export default function BegrotingFormulier({
                 key={onderdeel.id}
                 className="flex items-center gap-3 border-b border-rand py-2 last:border-0"
               >
-                <span className="flex flex-1 items-center gap-2 truncate text-sm">
+                {/* De naam leidt naar de bonnen achter dit onderdeel, gefilterd op
+                    hetzelfde jaar. Zo is te zien waar het bedrag vandaan komt. */}
+                <Link
+                  href={`/uitgaven?jaar=${jaar}&categorie=${onderdeel.id}`}
+                  title={`Uitgaven voor ${onderdeel.naam} in ${jaar}`}
+                  className="flex flex-1 items-center gap-2 truncate text-sm hover:text-accent"
+                >
                   <span
                     aria-hidden
                     className="inline-block h-3 w-3 shrink-0 rounded"
@@ -100,7 +107,7 @@ export default function BegrotingFormulier({
                   {!onderdeel.actief && (
                     <span className="shrink-0 text-xs text-gedempt">(inactief)</span>
                   )}
-                </span>
+                </Link>
                 <input
                   name={`onderdeel-${onderdeel.id}`}
                   inputMode="decimal"
