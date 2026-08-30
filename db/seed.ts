@@ -42,9 +42,13 @@ async function main() {
       .returning();
     for (const naam of huishouden.leden) {
       const pin = willekeurigePin();
-      await db
-        .insert(users)
-        .values({ coupleId: rij.id, naam, ...(await hashPin(pin)) });
+      await db.insert(users).values({
+        coupleId: rij.id,
+        naam,
+        // De eerste gebruiker is beheerder, anders kan niemand het seizoen plannen.
+        beheerder: startpins.length === 0,
+        ...(await hashPin(pin)),
+      });
       startpins.push(`  ${naam.padEnd(12)} ${pin}`);
     }
   }

@@ -52,7 +52,17 @@ export default async function VaarplanningPagina({
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-2xl font-semibold tracking-tight">Vaarplanning</h1>
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 className="text-2xl font-semibold tracking-tight">Vaarplanning</h1>
+        {gebruiker.beheerder && (
+          <Link
+            href="/vaarplanning/seizoen"
+            className="ml-auto rounded-lg border border-rand px-3 py-2 text-sm"
+          >
+            Seizoen plannen
+          </Link>
+        )}
+      </div>
       {fout && (
         <p className="rounded-xl border border-rand bg-paneel p-4 text-sm text-slecht">
           {fout}

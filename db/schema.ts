@@ -30,6 +30,8 @@ export const users = pgTable("users", {
   pinHash: text("pin_hash").notNull(),
   pinSalt: text("pin_salt").notNull(),
   failedAttempts: integer("failed_attempts").notNull().default(0),
+  /** Mag de seizoensplanning maken. Minstens een gebruiker hoort dit te zijn. */
+  beheerder: boolean("beheerder").notNull().default(false),
   lockedUntil: timestamp("locked_until", { withTimezone: true }),
 });
 

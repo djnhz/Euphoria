@@ -217,3 +217,31 @@ export async function ontkoppelAgendaAction(
   revalidatePath("/vaarplanning");
   return { gelukt: "Agenda ontkoppeld." };
 }
+
+export async function wisselBeheerderAction(
+  _vorige: MeldingState,
+  formData: FormData,
+): Promise<MeldingState> {
+  await vereisGebruiker();
+  const userId = Number(formData.get("userId"));
+  const aan = formData.get("aan") === "ja";
+  if (!Number.isInteger(userId)) return { fout: "Onbekende gebruiker." };
+
+  // Zonder beheerder kan niemand meer een seizoen plannen, dus de laatste blijft staan.
+  if (!aan) {
+    const beheerders = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.beheerder, true));
+    if (beheerders.length <= 1) {
+      return {
+        fout: "Er moet minstens één beheerder blijven. Wijs eerst iemand anders aan.",
+      };
+    }
+  }
+
+  await db.update(users).set({ beheerder: aan }).where(eq(users.id, userId));
+  revalidatePath("/instellingen");
+  revalidatePath("/vaarplanning");
+  return { gelukt: aan ? "Beheerder toegevoegd." : "Beheerder verwijderd." };
+}

@@ -8,6 +8,7 @@ import NieuweCategorie from "@/components/NieuweCategorie";
 import BonanalyseFormulier from "@/components/BonanalyseFormulier";
 import { agendaStatus, sleutelStatus } from "@/lib/instellingen";
 import AgendaFormulier from "@/components/AgendaFormulier";
+import BeheerderFormulier from "@/components/BeheerderFormulier";
 
 const invoer = "rounded-lg border border-rand bg-achtergrond px-3 py-2 text-sm";
 
@@ -18,7 +19,12 @@ export default async function InstellingenPagina() {
     db.select().from(categories).orderBy(asc(categories.naam)),
     db.select().from(couples).orderBy(asc(couples.volgorde)),
     db
-      .select({ id: users.id, naam: users.naam, coupleId: users.coupleId })
+      .select({
+        id: users.id,
+        naam: users.naam,
+        coupleId: users.coupleId,
+        beheerder: users.beheerder,
+      })
       .from(users)
       .orderBy(asc(users.id)),
   ]);
@@ -116,6 +122,15 @@ export default async function InstellingenPagina() {
           bij de uitgaven naar verwijzen.
         </p>
         <NamenFormulier huishoudens={huishoudens} gebruikers={gebruikers} />
+      </section>
+
+      <section className="rounded-xl border border-rand bg-paneel p-4">
+        <h2 className="mb-1 text-sm font-medium">Beheerder</h2>
+        <p className="mb-4 text-xs text-gedempt">
+          Alleen een beheerder kan de seizoensplanning maken en publiceren. Er blijft
+          er altijd minstens een over.
+        </p>
+        <BeheerderFormulier gebruikers={gebruikers} />
       </section>
 
       <section className="rounded-xl border border-rand bg-paneel p-4">

@@ -210,3 +210,124 @@ export async function testAgenda(): Promise<
   if (!resultaat.ok) return { fout: resultaat.fout };
   return { ok: true, melding: "Verbinding werkt en de agenda is leesbaar." };
 }
+
+/** Merkteken waaraan de app haar eigen seizoensafspraken herkent. */
+const SEIZOEN_BRON = "euphoria-seizoen";
+
+export type SeizoensBlok = {
+  van: string;
+  /** Laatste dag, inclusief. */
+  tot: string;
+  titel: string;
+  opmerking: string;
+  coupleId: number;
+};
+
+export type SeizoenStand = {
+  /** Afspraken van een eerdere seizoensplanning voor dit jaar. */
+  vanSeizoen: number;
+  /** Alles wat er verder al staat en dus met rust gelaten wordt. */
+  handmatig: number;
+};
+
+/** Wat er nu in de agenda staat over dit seizoen, voordat je iets overschrijft. */
+export async function seizoenStand(
+  jaar: number,
+  vanaf: string,
+  totEnMet: string,
+): Promise<SeizoenStand | AgendaFout> {
+  const gevonden = await haalSeizoensAfspraken(jaar, vanaf, totEnMet);
+  if ("fout" in gevonden) return gevonden;
+  return { vanSeizoen: gevonden.vanSeizoen.length, handmatig: gevonden.overig };
+}
+
+async function haalSeizoensAfspraken(
+  jaar: number,
+  vanaf: string,
+  totEnMet: string,
+): Promise<{ vanSeizoen: string[]; overig: number } | AgendaFout> {
+  const verbonden = await verbinding();
+  if (!verbonden.ok) return { fout: verbonden.fout };
+
+  const query = new URLSearchParams({
+    timeMin: `${vanaf}T00:00:00Z`,
+    timeMax: `${volgendeDag(totEnMet)}T00:00:00Z`,
+    singleEvents: "true",
+    maxResults: "2500",
+  });
+  const resultaat = await roepAan(
+    verbonden.token,
+    `/calendars/${encodeURIComponent(verbonden.agendaId)}/events?${query}`,
+  );
+  if (!resultaat.ok) return { fout: resultaat.fout };
+
+  const items = (resultaat.data as { items?: GoogleEvent[] }).items ?? [];
+  const vanSeizoen: string[] = [];
+  let overig = 0;
+  for (const item of items) {
+    const eigen = item.extendedProperties?.private ?? {};
+    if (eigen.bron === SEIZOEN_BRON && eigen.seizoen === String(jaar)) {
+      vanSeizoen.push(item.id);
+    } else {
+      overig++;
+    }
+  }
+  return { vanSeizoen, overig };
+}
+
+/**
+ * Vervangt de seizoensplanning van een jaar. Verwijdert uitsluitend afspraken met het
+ * merkteken van datzelfde jaar; handmatige reserveringen en alles wat iemand zelf in
+ * Google Agenda zette blijven staan. Dat is de belangrijkste regel hier.
+ */
+export async function publiceerSeizoen(
+  jaar: number,
+  blokken: SeizoensBlok[],
+  vanaf: string,
+  totEnMet: string,
+): Promise<{ ok: true; verwijderd: number; aangemaakt: number } | AgendaFout> {
+  const verbonden = await verbinding();
+  if (!verbonden.ok) return { fout: verbonden.fout };
+
+  const bestaand = await haalSeizoensAfspraken(jaar, vanaf, totEnMet);
+  if ("fout" in bestaand) return bestaand;
+
+  for (const id of bestaand.vanSeizoen) {
+    const weg = await roepAan(
+      verbonden.token,
+      `/calendars/${encodeURIComponent(verbonden.agendaId)}/events/${encodeURIComponent(id)}`,
+      { method: "DELETE" },
+    );
+    if (!weg.ok) return { fout: weg.fout };
+  }
+
+  for (const blok of blokken) {
+    const gemaakt = await roepAan(
+      verbonden.token,
+      `/calendars/${encodeURIComponent(verbonden.agendaId)}/events`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          summary: blok.titel,
+          description: blok.opmerking,
+          start: { date: blok.van },
+          end: { date: volgendeDag(blok.tot) },
+          extendedProperties: {
+            private: {
+              coupleId: String(blok.coupleId),
+              bron: SEIZOEN_BRON,
+              seizoen: String(jaar),
+            },
+          },
+        }),
+      },
+    );
+    if (!gemaakt.ok) return { fout: gemaakt.fout };
+  }
+
+  return {
+    ok: true,
+    verwijderd: bestaand.vanSeizoen.length,
+    aangemaakt: blokken.length,
+  };
+}

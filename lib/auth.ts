@@ -40,6 +40,7 @@ export type Gebruiker = {
   coupleId: number;
   coupleNaam: string;
   isHuishoudenA: boolean;
+  beheerder: boolean;
 };
 
 /** De ingelogde gebruiker, of null. */
@@ -53,6 +54,7 @@ export async function huidigeGebruiker(): Promise<Gebruiker | null> {
       coupleId: users.coupleId,
       coupleNaam: couples.naam,
       volgorde: couples.volgorde,
+      beheerder: users.beheerder,
     })
     .from(users)
     .innerJoin(couples, eq(users.coupleId, couples.id))
@@ -70,6 +72,13 @@ export async function huidigeGebruiker(): Promise<Gebruiker | null> {
 export async function vereisGebruiker(): Promise<Gebruiker> {
   const gebruiker = await huidigeGebruiker();
   if (!gebruiker) redirect("/login");
+  return gebruiker;
+}
+
+/** Voor schermen en acties die alleen de beheerder mag gebruiken. */
+export async function vereisBeheerder(): Promise<Gebruiker> {
+  const gebruiker = await vereisGebruiker();
+  if (!gebruiker.beheerder) redirect("/vaarplanning");
   return gebruiker;
 }
 

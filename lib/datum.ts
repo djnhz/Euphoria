@@ -34,3 +34,66 @@ export function formatDatum(iso: string): string {
   const [jaar, maand, dag] = iso.split("-");
   return `${Number(dag)} ${MAANDEN[Number(maand) - 1]} ${jaar}`;
 }
+
+/** Het seizoen waarin gevaren wordt. Weken lopen maandag tot en met zondag. */
+export const SEIZOEN_START_MAAND = 3; // maart
+export const SEIZOEN_EIND_MAAND = 10; // oktober
+
+function alsDatum(iso: string): Date {
+  return new Date(`${iso}T00:00:00Z`);
+}
+
+function alsIso(datum: Date): string {
+  return datum.toISOString().slice(0, 10);
+}
+
+export function plusDagen(iso: string, dagen: number): string {
+  const datum = alsDatum(iso);
+  datum.setUTCDate(datum.getUTCDate() + dagen);
+  return alsIso(datum);
+}
+
+/**
+ * ISO-weeknummer. Week 1 is de week met de eerste donderdag van het jaar erin, dus
+ * eind december kan al week 1 van het volgende jaar zijn en andersom.
+ */
+export function isoWeek(iso: string): number {
+  const donderdag = alsDatum(iso);
+  // Naar de donderdag van dezelfde week schuiven; die bepaalt bij welk jaar hij hoort.
+  // getUTCDay geeft zondag als 0; in ISO-telling is zondag dag 7.
+  const dagNummer = donderdag.getUTCDay() || 7;
+  donderdag.setUTCDate(donderdag.getUTCDate() + 4 - dagNummer);
+  const eersteJanuari = new Date(Date.UTC(donderdag.getUTCFullYear(), 0, 1));
+  const dagen = (donderdag.getTime() - eersteJanuari.getTime()) / 86_400_000;
+  return Math.ceil((dagen + 1) / 7);
+}
+
+/** De maandag van de week waarin deze datum valt. */
+export function maandagVanWeek(iso: string): string {
+  const datum = alsDatum(iso);
+  const verschuiving = (datum.getUTCDay() + 6) % 7;
+  return plusDagen(iso, -verschuiving);
+}
+
+/**
+ * Alle dagen van het seizoen: van de eerste maandag op of na 1 maart tot en met de
+ * laatste zondag op of voor 31 oktober. Zo bestaat het seizoen altijd uit hele weken —
+ * wat de even-onevenverdeling eenduidig maakt — en loopt het niet buiten de afgesproken
+ * maanden. Het aantal weken verschilt daardoor per jaar, meestal 34 of 35.
+ */
+export function dagenInSeizoen(jaar: number): string[] {
+  const eersteMaart = `${jaar}-${String(SEIZOEN_START_MAAND).padStart(2, "0")}-01`;
+  let dag = maandagVanWeek(eersteMaart);
+  if (dag < eersteMaart) dag = plusDagen(dag, 7);
+
+  const laatsteOktober = `${jaar}-${SEIZOEN_EIND_MAAND}-31`;
+  let laatsteZondag = plusDagen(maandagVanWeek(laatsteOktober), 6);
+  if (laatsteZondag > laatsteOktober) laatsteZondag = plusDagen(laatsteZondag, -7);
+
+  const dagen: string[] = [];
+  while (dag <= laatsteZondag) {
+    dagen.push(dag);
+    dag = plusDagen(dag, 1);
+  }
+  return dagen;
+}

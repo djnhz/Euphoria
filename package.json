@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --test test/**/*.test.ts",
+    "test": "node --import tsx --test test/**/*.test.ts",
     "db:push": "tsx db/vrij.ts && drizzle-kit push",
     "seed": "tsx db/seed.ts",
     "db:smoke": "tsx db/smoke.ts"
