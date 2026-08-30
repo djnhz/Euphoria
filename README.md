@@ -130,12 +130,12 @@ functie. Wil je naar Claude of een lokaal model, dan is dat dat ene bestand.
 
 Reserveringen staan in Google Agenda en nergens anders: geen eigen tabel ernaast, dus
 niets dat uit de pas loopt als iemand rechtstreeks in zijn agenda iets verzet. Wie
-geboekt heeft bewaart de app in de afspraak zelf ().
+geboekt heeft bewaart de app in de afspraak zelf, in extendedProperties.
 
 Koppelen gaat via een **serviceaccount**, niet via inloggen met je eigen Google-account.
 Agenda-toegang is bij Google een gevoelige machtiging: zolang de app hun verificatie niet
 doorlopen heeft verloopt zo een koppeling elke zeven dagen. Een serviceaccount is gewoon
-en adres waarmee je de agenda deelt, en dat verloopt niet.
+een adres waarmee je de agenda deelt, en dat verloopt niet.
 
 Opzetten: in Google Cloud een project maken, de Calendar API inschakelen, een
 serviceaccount aanmaken met een JSON-sleutel, en die sleutel plus het agenda-ID invullen
