@@ -75,3 +75,45 @@ export function vakantiesRakend(
     .filter((vakantie) => vakantie.van <= tot && vakantie.tot >= van)
     .sort((a, b) => (a.soort === "bouwvak" ? -1 : b.soort === "bouwvak" ? 1 : 0));
 }
+
+/**
+ * Werkdagen bepalen of een week echt vakantie is. De herfstvakantie begint op een
+ * zaterdag, dus de week ervoor heeft wel twee vakantiedagen maar geen enkele vrije
+ * werkdag — dat is geen vakantieweek.
+ */
+function isWerkdag(iso: string): boolean {
+  const dag = new Date(`${iso}T00:00:00Z`).getUTCDay();
+  return dag >= 1 && dag <= 5;
+}
+
+function loopDagen(van: string, tot: string, doe: (iso: string) => void): void {
+  const eind = Date.parse(`${tot}T00:00:00Z`);
+  for (
+    let punt = Date.parse(`${van}T00:00:00Z`);
+    punt <= eind;
+    punt += 86_400_000
+  ) {
+    doe(new Date(punt).toISOString().slice(0, 10));
+  }
+}
+
+/** Aantal werkdagen in een periode, grenzen inclusief. */
+export function werkdagen(van: string, tot: string): number {
+  let aantal = 0;
+  loopDagen(van, tot, (dag) => {
+    if (isWerkdag(dag)) aantal++;
+  });
+  return aantal;
+}
+
+/** Hoeveel werkdagen van een periode in deze vakantie vallen. */
+export function werkdagOverlap(
+  vakantie: Vakantie,
+  van: string,
+  tot: string,
+): number {
+  const start = vakantie.van > van ? vakantie.van : van;
+  const eind = vakantie.tot < tot ? vakantie.tot : tot;
+  if (start > eind) return 0;
+  return werkdagen(start, eind);
+}

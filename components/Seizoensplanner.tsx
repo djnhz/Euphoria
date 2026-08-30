@@ -3,7 +3,12 @@
 import { useActionState, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Feestdag, FeestdagCode } from "@/lib/feestdagen";
-import { vakantiesRakend, type Vakantie } from "@/lib/schoolvakanties";
+import {
+  vakantiesRakend,
+  werkdagen,
+  werkdagOverlap,
+  type Vakantie,
+} from "@/lib/schoolvakanties";
 import {
   formatDatum,
   formatDatumMetDag,
@@ -272,8 +277,21 @@ export default function Seizoensplanner({
         </div>
         <ul className="flex flex-col gap-1">
           {planning.blokken.map((blok) => {
-            const raakt = vakantiesRakend(vakanties, blok.van, blok.tot);
-            const bouwvak = raakt.some((v) => v.soort === "bouwvak");
+            // Werkdagen zijn leidend: de herfstvakantie begint op zaterdag, dus de
+            // week ervoor heeft wel twee vakantiedagen maar geen vrije werkdag. Die
+            // week is geen vakantieweek.
+            const werkdagenInBlok = werkdagen(blok.van, blok.tot);
+            const raakt = vakantiesRakend(vakanties, blok.van, blok.tot)
+              .map((vakantie) => ({
+                ...vakantie,
+                dagen: werkdagOverlap(vakantie, blok.van, blok.tot),
+              }))
+              .filter((vakantie) => vakantie.dagen > 0);
+            const heel = raakt.filter(
+              (v) => werkdagenInBlok > 0 && v.dagen === werkdagenInBlok,
+            );
+            const bouwvak = heel.some((v) => v.soort === "bouwvak");
+            const grotendeels = heel.length > 0;
             return (
             <li
               key={blok.van}
@@ -282,7 +300,7 @@ export default function Seizoensplanner({
               style={
                 bouwvak
                   ? { background: "var(--vakantie-sterk)", borderLeft: "4px solid var(--vakantie-rand)" }
-                  : raakt.length > 0
+                  : grotendeels
                     ? { background: "var(--vakantie-zacht)" }
                     : undefined
               }
@@ -309,22 +327,26 @@ export default function Seizoensplanner({
                     <span
                       key={vakantie.naam}
                       className={`rounded-full px-2 py-0.5 text-xs ${
-                        vakantie.soort === "bouwvak"
-                          ? "font-medium text-vakantie-rand"
+                        vakantie.soort === "bouwvak" && vakantie.dagen === werkdagenInBlok
+                          ? "font-medium"
                           : "text-gedempt"
                       }`}
                       style={{
                         background:
-                          vakantie.soort === "bouwvak"
+                          vakantie.soort === "bouwvak" && vakantie.dagen === werkdagenInBlok
                             ? "var(--vakantie-rand)"
                             : "var(--vakantie-zacht)",
                         color:
-                          vakantie.soort === "bouwvak"
+                          vakantie.soort === "bouwvak" && vakantie.dagen === werkdagenInBlok
                             ? "var(--paneel)"
                             : undefined,
                       }}
                     >
                       {vakantie.naam}
+                      {/* Raakt de vakantie maar een deel van het blok, zeg dan hoeveel
+                          dagen. Anders lijkt het weekend voor de herfstvakantie een
+                          volle vakantieweek. */}
+                      {vakantie.dagen < werkdagenInBlok && ` ${vakantie.dagen} van ${werkdagenInBlok} werkdagen`}
                     </span>
                   ))}
                 </span>

@@ -244,6 +244,8 @@ import {
   bouwvakIn,
   reserveVakanties,
   vakantiesRakend,
+  werkdagen,
+  werkdagOverlap,
 } from "../lib/schoolvakanties.ts";
 
 test("het vangnet klopt met de gepubliceerde data", () => {
@@ -289,4 +291,30 @@ test("een week in de bouwvak raakt zowel de bouwvak als de zomervakantie", () =>
 
 test("een week buiten elke vakantie raakt niets", () => {
   assert.deepEqual(vakantiesRakend(reserveVakanties(2027), "2027-06-07", "2027-06-13"), []);
+});
+
+test("werkdagen tellen alleen maandag tot en met vrijdag", () => {
+  assert.equal(werkdagen("2027-10-11", "2027-10-17"), 5);
+  assert.equal(werkdagen("2027-10-16", "2027-10-17"), 0);
+});
+
+test("de herfstvakantie vult alleen week 42, niet de week ervoor", () => {
+  // Herfstvakantie midden 2027: za 16 t/m zo 24 oktober.
+  const herfst = reserveVakanties(2027).find((v) => v.naam === "Herfstvakantie")!;
+  // Week 41 loopt van 11 t/m 17 oktober: alleen het weekend valt in de vakantie,
+  // en dus geen enkele werkdag.
+  assert.equal(werkdagOverlap(herfst, "2027-10-11", "2027-10-17"), 0);
+  // Week 42 loopt van 18 t/m 24 oktober: alle vijf de werkdagen zitten erin.
+  assert.equal(werkdagOverlap(herfst, "2027-10-18", "2027-10-24"), 5);
+  assert.equal(werkdagOverlap(herfst, "2027-10-25", "2027-10-31"), 0);
+});
+
+test("de zomervakantie begint pas te tellen in de week met vrije werkdagen", () => {
+  // Zomervakantie midden 2027 begint op zaterdag 17 juli.
+  const zomer = reserveVakanties(2027).find((v) => v.naam === "Zomervakantie")!;
+  assert.equal(werkdagOverlap(zomer, "2027-07-12", "2027-07-18"), 0);
+  assert.equal(werkdagOverlap(zomer, "2027-07-19", "2027-07-25"), 5);
+  // En houdt op na 29 augustus.
+  assert.equal(werkdagOverlap(zomer, "2027-08-23", "2027-08-29"), 5);
+  assert.equal(werkdagOverlap(zomer, "2027-08-30", "2027-09-05"), 0);
 });
