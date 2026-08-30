@@ -152,3 +152,16 @@ export const documents = pgTable(
   },
   (t) => [index("documents_expense_idx").on(t.expenseId)],
 );
+
+/**
+ * Kleine sleutel-waardetabel voor instellingen die niet in de code of in een
+ * omgevingsvariabele thuishoren, zoals de OpenAI-sleutel die iemand via het scherm
+ * invult. Geheimen staan hier versleuteld; zie lib/instellingen.ts.
+ */
+export const settings = pgTable("settings", {
+  sleutel: text("sleutel").primaryKey(),
+  waarde: text("waarde").notNull(),
+  gewijzigdOp: timestamp("gewijzigd_op", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});

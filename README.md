@@ -27,6 +27,10 @@ Bonnen uploaden werkt in die opzet niet — daar is een `BLOB_READ_WRITE_TOKEN` 
 De app blijft wel gewoon werken: de upload meldt netjes dat het misging en je vult de
 regels zelf in.
 
+PGlite is single-writer. Stop de dev-server voordat je `db:push`, `seed` of `db:smoke`
+draait, anders praten twee processen tegelijk tegen dezelfde map en ziet de draaiende
+server de wijziging niet.
+
 ### Volledig, met Neon en Blob
 
 Maak `.env.local` op basis van `.env.example`:
@@ -36,8 +40,8 @@ Maak `.env.local` op basis van `.env.example`:
 | `DATABASE_URL` | Neon, via Vercel → Storage → Neon Postgres |
 | `BLOB_READ_WRITE_TOKEN` | Vercel → Storage → Blob |
 | `SESSION_SECRET` | `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
-| `OPENAI_API_KEY` | je eigen OpenAI-account |
-| `OPENAI_MODEL` | een model dat afbeeldingen aankan, bijvoorbeeld `gpt-4o` |
+| `OPENAI_API_KEY` | optioneel; kan ook via Instellingen |
+| `OPENAI_MODEL` | optioneel; kan ook via Instellingen |
 
 Daarna het schema wegschrijven en vullen:
 
@@ -91,6 +95,18 @@ weer verwijderd, ook als er iets misgaat.
 - **Pincodes** worden gehasht met `crypto.scrypt`. De echte bescherming is de teller: vijf
   mislukte pogingen en het account ligt een kwartier op slot. Zonder die rem is een code
   van vier cijfers in seconden te raden.
+
+## De OpenAI-sleutel
+
+Je hoeft er geen omgevingsvariabele voor aan te raken: vul hem in bij **Instellingen →
+Bonanalyse**. Hij wordt met AES-256-GCM versleuteld opgeslagen, afgeleid van
+`SESSION_SECRET`, en gaat nooit terug naar de browser — je ziet er alleen de laatste vier
+tekens van. **Verbinding testen** haalt het ingestelde model op; dat kost geen tokens maar
+valt wel meteen door de mand bij een verkeerde sleutel of modelnaam.
+
+Staat `OPENAI_API_KEY` wél in de omgeving, dan gaat die voor en zet het scherm zichzelf op
+alleen-lezen. Verander je `SESSION_SECRET`, dan is de opgeslagen sleutel niet meer te lezen
+en vraagt het scherm om hem opnieuw in te vullen.
 
 ## Bonanalyse vervangen
 

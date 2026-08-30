@@ -4,6 +4,7 @@ import sharp from "sharp";
 import { z } from "zod";
 import { zodResponseFormat } from "openai/helpers/zod";
 import { put } from "@vercel/blob";
+import { openAiModel, openAiSleutel } from "./instellingen";
 
 /**
  * De hele koppeling met het model zit in dit bestand, achter een functie. Wil je later
@@ -75,11 +76,15 @@ export async function analyseerBon(
   afbeeldingBase64: string,
   categorieNamen: string[],
 ): Promise<AnalyseResultaat> {
-  if (!process.env.OPENAI_API_KEY) {
-    return { ok: false, fout: "OPENAI_API_KEY ontbreekt." };
+  const sleutel = await openAiSleutel();
+  if (!sleutel) {
+    return {
+      ok: false,
+      fout: "Er is nog geen OpenAI-sleutel ingesteld; dat kan bij Instellingen.",
+    };
   }
 
-  const client = new OpenAI();
+  const client = new OpenAI({ apiKey: sleutel });
   const prompt = [
     "Je leest een kassabon of factuur van een Nederlandse leverancier.",
     "Geef per artikelregel een aparte regel terug. Sla subtotalen, btw-regels,",
@@ -98,7 +103,7 @@ export async function analyseerBon(
 
   try {
     const antwoord = await client.chat.completions.parse({
-      model: process.env.OPENAI_MODEL ?? "gpt-4o",
+      model: await openAiModel(),
       messages: [
         {
           role: "user",
@@ -121,6 +126,33 @@ export async function analyseerBon(
     if (!bon) return { ok: false, fout: "Het model gaf geen bruikbaar antwoord." };
     return { ok: true, bon };
   } catch (fout) {
+    return { ok: false, fout: (fout as Error).message };
+  }
+}
+
+export type TestResultaat = { ok: true; melding: string } | { ok: false; fout: string };
+
+/**
+ * Controleert sleutel en model zonder een bon te versturen: het ophalen van een model
+ * kost geen tokens, maar faalt wel meteen bij een verkeerde sleutel of modelnaam.
+ */
+export async function testOpenAi(): Promise<TestResultaat> {
+  const sleutel = await openAiSleutel();
+  if (!sleutel) return { ok: false, fout: "Er is nog geen sleutel ingesteld." };
+
+  const model = await openAiModel();
+  try {
+    await new OpenAI({ apiKey: sleutel }).models.retrieve(model);
+    return { ok: true, melding: "Verbinding werkt en het model " + model + " bestaat." };
+  } catch (fout) {
+    const status = (fout as { status?: number }).status;
+    if (status === 401) return { ok: false, fout: "De sleutel wordt geweigerd." };
+    if (status === 404) {
+      return {
+        ok: false,
+        fout: "Het model " + model + " bestaat niet of hoort niet bij dit account.",
+      };
+    }
     return { ok: false, fout: (fout as Error).message };
   }
 }

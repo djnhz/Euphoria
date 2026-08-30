@@ -6,6 +6,13 @@ import { db, categories, couples, users } from "@/db";
 import { probeerInloggen, vereisGebruiker } from "@/lib/auth";
 import { hashPin, isGeldigePin } from "@/lib/pin";
 import { parseEuro } from "@/lib/geld";
+import {
+  sleutelZietEruitAlsSleutel,
+  verwijderOpenAiSleutel,
+  zetOpenAiModel,
+  zetOpenAiSleutel,
+} from "@/lib/instellingen";
+import { testOpenAi } from "@/lib/receipt";
 
 export type MeldingState = { fout?: string; gelukt?: string } | null;
 
@@ -109,4 +116,48 @@ export async function wijzigPinAction(
 
   await db.update(users).set(await hashPin(nieuw)).where(eq(users.id, gebruiker.id));
   return { gelukt: "Pincode gewijzigd." };
+}
+
+export async function bewaarOpenAiAction(
+  _vorige: MeldingState,
+  formData: FormData,
+): Promise<MeldingState> {
+  await vereisGebruiker();
+
+  const model = String(formData.get("model") ?? "");
+  if (model.length > 100) return { fout: "Die modelnaam is te lang." };
+  await zetOpenAiModel(model);
+
+  // Leeg sleutelveld betekent: alleen het model bijwerken, sleutel laten staan.
+  const sleutel = String(formData.get("sleutel") ?? "").trim();
+  if (sleutel === "") {
+    revalidatePath("/instellingen");
+    return { gelukt: "Model opgeslagen." };
+  }
+
+  const bezwaar = sleutelZietEruitAlsSleutel(sleutel);
+  if (bezwaar) return { fout: bezwaar };
+
+  await zetOpenAiSleutel(sleutel);
+  revalidatePath("/instellingen");
+  return { gelukt: "Sleutel opgeslagen. Controleer hem met Verbinding testen." };
+}
+
+export async function verwijderOpenAiAction(
+  _vorige: MeldingState,
+  _formData: FormData,
+): Promise<MeldingState> {
+  await vereisGebruiker();
+  await verwijderOpenAiSleutel();
+  revalidatePath("/instellingen");
+  return { gelukt: "Sleutel verwijderd. Bonanalyse staat nu uit." };
+}
+
+export async function testOpenAiAction(
+  _vorige: MeldingState,
+  _formData: FormData,
+): Promise<MeldingState> {
+  await vereisGebruiker();
+  const resultaat = await testOpenAi();
+  return resultaat.ok ? { gelukt: resultaat.melding } : { fout: resultaat.fout };
 }

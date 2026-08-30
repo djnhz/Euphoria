@@ -5,6 +5,8 @@ import { wijzigCategorieAction } from "./actions";
 import NamenFormulier from "@/components/NamenFormulier";
 import PinFormulier from "@/components/PinFormulier";
 import NieuweCategorie from "@/components/NieuweCategorie";
+import BonanalyseFormulier from "@/components/BonanalyseFormulier";
+import { sleutelStatus } from "@/lib/instellingen";
 
 const invoer = "rounded-lg border border-rand bg-achtergrond px-3 py-2 text-sm";
 
@@ -84,6 +86,16 @@ export default async function InstellingenPagina() {
         <div className="mt-4 border-t border-rand pt-4">
           <NieuweCategorie />
         </div>
+      </section>
+
+      <section className="rounded-xl border border-rand bg-paneel p-4">
+        <h2 className="mb-1 text-sm font-medium">Bonanalyse</h2>
+        <p className="mb-4 text-xs text-gedempt">
+          De sleutel wordt versleuteld opgeslagen en verlaat de server niet; je ziet
+          hem hierna alleen nog aan de laatste vier tekens. Reken op ongeveer drie
+          cent per uitgelezen bon.
+        </p>
+        <BonanalyseFormulier status={await sleutelStatus()} />
       </section>
 
       <section className="rounded-xl border border-rand bg-paneel p-4">
