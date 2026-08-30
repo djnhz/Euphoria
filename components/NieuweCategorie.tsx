@@ -30,13 +30,6 @@ export default function NieuweCategorie() {
         placeholder="Nieuwe categorie"
         className={`${invoer} min-w-0 flex-1`}
       />
-      <input
-        name="budget"
-        inputMode="decimal"
-        placeholder="jaarbudget"
-        aria-label="Jaarbudget"
-        className={`${invoer} cijfers w-28`}
-      />
       <button
         disabled={bezig}
         className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white disabled:opacity-50"

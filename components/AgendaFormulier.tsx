@@ -62,8 +62,7 @@ export default function AgendaFormulier({ status }: { status: AgendaStatus }) {
             className={`${invoer} font-mono text-xs`}
           />
           <span className="text-xs text-gedempt">
-            Het hele JSON-bestand. Wordt versleuteld opgeslagen en verlaat de server
-            niet.
+            Het hele JSON-bestand; het wordt versleuteld opgeslagen.
           </span>
         </label>
 

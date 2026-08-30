@@ -13,7 +13,7 @@ const LINKS = [
   { href: "/verrekening", label: "Verrekening" },
   { href: "/vaarplanning", label: "Vaarplanning" },
   { href: "/documenten", label: "Documenten" },
-  { href: "/vaste-lasten", label: "Vaste lasten" },
+  { href: "/begroting", label: "Begroting" },
 ] as const;
 
 export default function Nav({

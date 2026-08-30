@@ -3,9 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { db, categories, couples, users } from "@/db";
-import { probeerInloggen, vereisGebruiker } from "@/lib/auth";
+import { probeerInloggen, vereisBeheerder, vereisGebruiker } from "@/lib/auth";
 import { hashPin, isGeldigePin } from "@/lib/pin";
-import { parseEuro } from "@/lib/geld";
 import {
   sleutelZietEruitAlsSleutel,
   verwijderOpenAiSleutel,
@@ -32,11 +31,8 @@ export async function nieuweCategorieAction(
   if (naam.length < 1 || naam.length > 60) return { fout: "Vul een naam in." };
   if (!KLEUR.test(kleur)) return { fout: "Ongeldige kleur." };
 
-  const budget = parseEuro(String(formData.get("budget") ?? ""));
   try {
-    await db
-      .insert(categories)
-      .values({ naam, kleur, budgetJaarCent: budget });
+    await db.insert(categories).values({ naam, kleur });
   } catch {
     return { fout: "Die categorie bestaat al." };
   }
@@ -52,20 +48,18 @@ export async function wijzigCategorieAction(formData: FormData) {
 
   const naam = String(formData.get("naam") ?? "").trim();
   const kleur = String(formData.get("kleur") ?? "");
-  const budgetTekst = String(formData.get("budget") ?? "").trim();
 
   await db
     .update(categories)
     .set({
       ...(naam ? { naam } : {}),
       ...(KLEUR.test(kleur) ? { kleur } : {}),
-      // Leeg veld betekent expliciet "geen budget".
-      budgetJaarCent: budgetTekst === "" ? null : parseEuro(budgetTekst),
       actief: formData.get("actief") === "on",
     })
     .where(eq(categories.id, id));
 
   revalidatePath("/instellingen");
+  revalidatePath("/begroting");
   revalidatePath("/");
 }
 
@@ -120,6 +114,37 @@ export async function wijzigPinAction(
 
   await db.update(users).set(await hashPin(nieuw)).where(eq(users.id, gebruiker.id));
   return { gelukt: "Pincode gewijzigd." };
+}
+
+/**
+ * Een beheerder zet de pincode van een ander. Zonder de oude code, want die weet hij
+ * juist niet -- dat is het punt van dit formulier. Het slot en de pogingteller gaan
+ * meteen open, zodat iemand die zichzelf buitensloot er weer in kan.
+ */
+export async function zetPinAction(
+  _vorige: MeldingState,
+  formData: FormData,
+): Promise<MeldingState> {
+  await vereisBeheerder();
+
+  const userId = Number(formData.get("userId"));
+  const nieuw = String(formData.get("nieuw") ?? "");
+  if (!Number.isInteger(userId)) return { fout: "Onbekende gebruiker." };
+  if (!isGeldigePin(nieuw)) return { fout: "Een pincode is vier cijfers." };
+
+  const [doel] = await db
+    .select({ naam: users.naam })
+    .from(users)
+    .where(eq(users.id, userId));
+  if (!doel) return { fout: "Onbekende gebruiker." };
+
+  await db
+    .update(users)
+    .set({ ...(await hashPin(nieuw)), failedAttempts: 0, lockedUntil: null })
+    .where(eq(users.id, userId));
+
+  revalidatePath("/instellingen");
+  return { gelukt: `Pincode van ${doel.naam} is gezet.` };
 }
 
 export async function bewaarOpenAiAction(

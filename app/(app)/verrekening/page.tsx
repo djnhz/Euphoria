@@ -52,9 +52,7 @@ export default async function VerrekeningPagina({
           </p>
         )}
         <p className="mt-3 text-xs text-gedempt">
-          Dit is het verschil tussen wat een huishouden voorschoot en wat het volgens
-          de verdeelsleutels zelf hoort te dragen. Betalingen onderling worden niet
-          bijgehouden, dus dit bedrag telt door tot je dat wel gaat doen.
+          Onderlinge betalingen worden niet bijgehouden, dus dit bedrag telt door.
         </p>
       </section>
 

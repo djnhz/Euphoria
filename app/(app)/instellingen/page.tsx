@@ -4,6 +4,7 @@ import { vereisGebruiker } from "@/lib/auth";
 import { wijzigCategorieAction } from "./actions";
 import NamenFormulier from "@/components/NamenFormulier";
 import PinFormulier from "@/components/PinFormulier";
+import PincodeBeheer from "@/components/PincodeBeheer";
 import NieuweCategorie from "@/components/NieuweCategorie";
 import BonanalyseFormulier from "@/components/BonanalyseFormulier";
 import { agendaStatus, sleutelStatus } from "@/lib/instellingen";
@@ -34,11 +35,10 @@ export default async function InstellingenPagina() {
       <h1 className="text-2xl font-semibold tracking-tight">Instellingen</h1>
 
       <section className="rounded-xl border border-rand bg-paneel p-4">
-        <h2 className="mb-1 text-sm font-medium">Categorieën en jaarbudget</h2>
+        <h2 className="mb-1 text-sm font-medium">Categorieën</h2>
         <p className="mb-4 text-xs text-gedempt">
-          Laat het budget leeg als je een categorie niet wilt begroten. Een
-          categorie uitvinken haalt hem uit de keuzelijsten; bestaande uitgaven
-          blijven staan.
+          Uitvinken haalt een categorie uit de keuzelijsten; bestaande uitgaven
+          blijven staan. De bedragen staan bij Begroting.
         </p>
         <ul className="flex flex-col gap-2">
           {categorieLijst.map((categorie) => (
@@ -60,20 +60,6 @@ export default async function InstellingenPagina() {
                   defaultValue={categorie.naam}
                   aria-label="Naam"
                   className={`${invoer} min-w-0 flex-1`}
-                />
-                <input
-                  name="budget"
-                  inputMode="decimal"
-                  placeholder="geen budget"
-                  defaultValue={
-                    categorie.budgetJaarCent === null
-                      ? ""
-                      : (categorie.budgetJaarCent / 100)
-                          .toFixed(2)
-                          .replace(".", ",")
-                  }
-                  aria-label="Jaarbudget"
-                  className={`${invoer} cijfers w-28`}
                 />
                 <label className="flex items-center gap-1 text-sm text-gedempt">
                   <input
@@ -98,20 +84,13 @@ export default async function InstellingenPagina() {
       <section className="rounded-xl border border-rand bg-paneel p-4">
         <h2 className="mb-1 text-sm font-medium">Bonanalyse</h2>
         <p className="mb-4 text-xs text-gedempt">
-          De sleutel wordt versleuteld opgeslagen en verlaat de server niet; je ziet
-          hem hierna alleen nog aan de laatste vier tekens. Reken op ongeveer drie
-          cent per uitgelezen bon.
+          Reken op ongeveer drie cent per uitgelezen bon.
         </p>
         <BonanalyseFormulier status={await sleutelStatus()} />
       </section>
 
       <section className="rounded-xl border border-rand bg-paneel p-4">
-        <h2 className="mb-1 text-sm font-medium">Google-agenda</h2>
-        <p className="mb-4 text-xs text-gedempt">
-          Voor de vaarplanning. Een serviceaccount hoeft niet elke week opnieuw
-          toestemming te geven, in tegenstelling tot inloggen met je eigen
-          Google-account.
-        </p>
+        <h2 className="mb-4 text-sm font-medium">Google-agenda</h2>
         <AgendaFormulier status={await agendaStatus()} />
       </section>
 
@@ -127,20 +106,29 @@ export default async function InstellingenPagina() {
       <section className="rounded-xl border border-rand bg-paneel p-4">
         <h2 className="mb-1 text-sm font-medium">Beheerder</h2>
         <p className="mb-4 text-xs text-gedempt">
-          Alleen een beheerder kan de seizoensplanning maken en publiceren. Er blijft
-          er altijd minstens een over.
+          Een beheerder plant het seizoen en beheert de pincodes. Er blijft er
+          altijd minstens één over.
         </p>
         <BeheerderFormulier gebruikers={gebruikers} />
       </section>
 
       <section className="rounded-xl border border-rand bg-paneel p-4">
-        <h2 className="mb-1 text-sm font-medium">Pincode van {gebruiker.naam}</h2>
-        <p className="mb-4 text-xs text-gedempt">
-          Vier cijfers. Na vijf mislukte pogingen ligt je account een kwartier
-          op slot.
-        </p>
+        <h2 className="mb-4 text-sm font-medium">
+          Pincode van {gebruiker.naam}
+        </h2>
         <PinFormulier />
       </section>
+
+      {/* Zonder de oude code, dus alleen voor een beheerder. */}
+      {gebruiker.beheerder && (
+        <section className="rounded-xl border border-rand bg-paneel p-4">
+          <h2 className="mb-1 text-sm font-medium">Pincodes van iedereen</h2>
+          <p className="mb-4 text-xs text-gedempt">
+            Een nieuwe code haalt meteen het slot van vijf mislukte pogingen weg.
+          </p>
+          <PincodeBeheer gebruikers={gebruikers} />
+        </section>
+      )}
     </div>
   );
 }

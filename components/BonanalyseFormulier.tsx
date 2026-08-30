@@ -63,7 +63,7 @@ export default function BonanalyseFormulier({
             className={`${invoer} font-mono disabled:opacity-50 sm:w-64`}
           />
           <span className="text-xs text-gedempt">
-            Moet afbeeldingen aankunnen. De exacte naam staat in je OpenAI-dashboard.
+            Moet afbeeldingen aankunnen.
           </span>
         </label>
 

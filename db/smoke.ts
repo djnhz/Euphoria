@@ -1,23 +1,23 @@
 import "dotenv/config";
 import assert from "node:assert/strict";
-import { and, asc, eq, inArray, like } from "drizzle-orm";
+import { asc, inArray, like } from "drizzle-orm";
 import {
   db,
+  budgets,
   categories,
   couples,
   expenseLines,
   expenses,
-  recurring,
   users,
 } from "./index";
-import { genereerVasteLasten, haalRegels } from "../lib/data";
+import { budgetOverzicht, haalRegels } from "../lib/data";
 import { saldoCent } from "../lib/geld";
 import { vandaag } from "../lib/datum";
 import { vereisGeenDraaiendeServer } from "./vrij";
 
 /**
- * Draait de databasepaden een keer echt: verdelen, saldo en het lui aanmaken van
- * vaste lasten. Alles wat dit script maakt draagt het merkteken hieronder en wordt
+ * Draait de databasepaden een keer echt: verdelen, saldo en de begroting naast de
+ * werkelijke uitgaven. Alles wat dit script maakt draagt het merkteken hieronder en wordt
  * daarna weer opgeruimd, ook als er iets misgaat.
  */
 const MERK = "[smoke]";
@@ -41,7 +41,7 @@ async function ruimOp() {
       ),
     );
   }
-  await db.delete(recurring).where(like(recurring.omschrijving, `${MERK}%`));
+  // De begrotingsrijen gaan mee met de categorie dankzij de cascade.
   await db.delete(categories).where(like(categories.naam, `${MERK}%`));
 }
 
@@ -102,50 +102,26 @@ async function main() {
   assert.equal(saldoCent(regels), 2_000, "saldo moet 20,00 zijn");
   console.log("✔ verdelen en saldo kloppen tegen de echte database");
 
-  // Precies een jaar achterstallig: dat hoort twee uitgaven op te leveren, die van
-  // vorig jaar en die van vandaag.
-  const nu = vandaag();
-  const dagDeel = nu.slice(4) === "-02-29" ? "-02-28" : nu.slice(4);
-  const start = `${Number(nu.slice(0, 4)) - 1}${dagDeel}`;
-  const [post] = await db
-    .insert(recurring)
-    .values({
-      omschrijving: `${MERK} ligplaats`,
-      categoryId: categorie.id,
-      bedragCent: 5_000,
-      interval: "jaar",
-      volgendeDatum: start,
-      coupleId: huishoudenA.id,
-    })
-    .returning();
+  // Begroting: wat erin gaat moet er naast de werkelijke uitgaven weer uitkomen.
+  const jaar = Number(vandaag().slice(0, 4));
+  await db
+    .insert(budgets)
+    .values({ jaar, categoryId: categorie.id, bedragCent: 20_000 })
+    .onConflictDoUpdate({
+      target: [budgets.jaar, budgets.categoryId],
+      set: { bedragCent: 20_000 },
+    });
 
-  const aangemaakt = await genereerVasteLasten(gebruiker.id);
-  assert.equal(aangemaakt, 2, "vorig jaar en vandaag horen allebei uit te rollen");
-
-  const [na] = await db
-    .select()
-    .from(recurring)
-    .where(eq(recurring.id, post.id));
-  assert.ok(na.volgendeDatum > nu, "volgende datum moet voorbij vandaag liggen");
-
-  // Nog een keer draaien mag niets meer opleveren.
+  const overzicht = await budgetOverzicht(jaar);
+  const regel = overzicht.find((r) => r.id === categorie.id);
+  assert.ok(regel, "de begrote categorie hoort in het overzicht te staan");
+  assert.equal(regel.begrootCent, 20_000, "begroot bedrag moet terugkomen");
   assert.equal(
-    await genereerVasteLasten(gebruiker.id),
-    0,
-    "tweede keer draaien mag geen dubbele uitgave maken",
+    regel.werkelijkCent,
+    13_000,
+    "werkelijk moet de som van beide uitgaven zijn",
   );
-  console.log("✔ vaste lasten rollen een keer uit en niet twee keer");
-
-  const dubbel = await db
-    .select({ id: expenses.id })
-    .from(expenses)
-    .where(
-      and(
-        like(expenses.leverancier, `${MERK} ligplaats`),
-        eq(expenses.coupleId, huishoudenA.id),
-      ),
-    );
-  assert.equal(dubbel.length, aangemaakt, "aantal uitgaven moet kloppen");
+  console.log("✔ begroting en werkelijke uitgaven komen naast elkaar terug");
 }
 
 main()

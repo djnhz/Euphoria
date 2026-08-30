@@ -205,9 +205,8 @@ export default function Seizoensplanner({
       <section className="rounded-xl border border-rand bg-paneel p-4">
         <h2 className="text-sm font-medium">Lange weekenden</h2>
         <p className="mb-3 text-xs text-gedempt">
-          Wie een feestdag krijgt, krijgt die hele week plus de maandag erna als het
-          lange weekend daarin doorloopt. De rest van die volgende week volgt weer de
-          even-onevenregel.
+          Je krijgt de hele week plus de maandag erna; de rest van die week volgt
+          weer het even-onevenpatroon.
         </p>
         <ul className="flex flex-col gap-2">
           {feestdagen.map((feestdag) => (
@@ -271,9 +270,8 @@ export default function Seizoensplanner({
       <section className="rounded-xl border border-rand bg-paneel p-4">
         <h2 className="text-sm font-medium">Vakanties inplannen</h2>
         <p className="mb-3 text-xs text-gedempt">
-          Aaneengesloten weken voor één huishouden, dwars door het even-onevenpatroon
-          heen. Bijvoorbeeld drie zomerweken of twee weken in mei. Overlapt een nieuwe
-          periode met een bestaande, dan vervangt hij die.
+          Aaneengesloten weken dwars door het patroon heen. Een nieuwe periode
+          vervangt een bestaande waar ze elkaar overlappen.
         </p>
         <VakantieFormulier
           weken={weken}

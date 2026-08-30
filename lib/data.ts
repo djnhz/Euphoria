@@ -1,19 +1,19 @@
 // Geen `server-only` hier: dit bestand wordt ook door db/smoke.ts gedraaid, dat buiten
 // Next leeft. De barriere is `@/db` zelf, dat node-modules importeert en dus nooit in
 // een clientbundel past. De echte geheimen staan in lib/auth.ts, dat de guard wel heeft.
-import { and, asc, desc, eq, gte, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import {
   db,
+  budgets,
   categories,
   couples,
   documents,
   expenseLines,
   expenses,
-  recurring,
   users,
 } from "@/db";
 import { saldoCent, verdeelRegel, type SaldoRegel } from "./geld";
-import { vandaag, volgendeDatum } from "./datum";
+import type { Sortering } from "./sorteren";
 
 /**
  * Alle dashboardcijfers komen uit deze ene platte query. Aggregeren gebeurt daarna in
@@ -109,28 +109,82 @@ export function saldoPerMaand(regels: readonly RegelRij[]) {
   return perMaand.map((cent) => (loper += cent));
 }
 
+/**
+ * Begroot bedrag naast werkelijke uitgaven, per onderdeel voor een jaar. Onderdelen
+ * zonder begroting en zonder uitgaven blijven weg; die zeggen niets.
+ */
 export async function budgetOverzicht(jaar: number) {
-  const [regels, alleCategorieen] = await Promise.all([
+  const [regels, alleCategorieen, begroot] = await Promise.all([
     haalRegels(jaar),
     db.select().from(categories).where(eq(categories.actief, true)),
+    db.select().from(budgets).where(eq(budgets.jaar, jaar)),
   ]);
   const werkelijk = new Map(
     totaalPerCategorie(regels).map((r) => [r.categoryId, r.cent]),
   );
+  const perCategorie = new Map(begroot.map((r) => [r.categoryId, r.bedragCent]));
+
   return alleCategorieen
     .map((categorie) => ({
       ...categorie,
+      begrootCent: perCategorie.get(categorie.id) ?? null,
       werkelijkCent: werkelijk.get(categorie.id) ?? 0,
     }))
-    .filter((r) => r.budgetJaarCent !== null || r.werkelijkCent > 0)
+    .filter((r) => r.begrootCent !== null || r.werkelijkCent > 0)
     .sort((a, b) => b.werkelijkCent - a.werkelijkCent);
+}
+
+/** Alle onderdelen, ook de niet-begrote: dat is wat het begrotingsscherm invult. */
+export async function begroting(jaar: number) {
+  const [alleCategorieen, begroot, regels] = await Promise.all([
+    db.select().from(categories).orderBy(asc(categories.naam)),
+    db.select().from(budgets).where(eq(budgets.jaar, jaar)),
+    haalRegels(jaar),
+  ]);
+  const werkelijk = new Map(
+    totaalPerCategorie(regels).map((r) => [r.categoryId, r.cent]),
+  );
+  const perCategorie = new Map(begroot.map((r) => [r.categoryId, r.bedragCent]));
+
+  return alleCategorieen.map((categorie) => ({
+    id: categorie.id,
+    naam: categorie.naam,
+    kleur: categorie.kleur,
+    actief: categorie.actief,
+    begrootCent: perCategorie.get(categorie.id) ?? null,
+    werkelijkCent: werkelijk.get(categorie.id) ?? 0,
+  }));
+}
+
+/** Jaren waarvoor iets begroot is, zodat het jaaroverzicht ze kan aanbieden. */
+export async function begroteJaren(): Promise<number[]> {
+  const rijen = await db.selectDistinct({ jaar: budgets.jaar }).from(budgets);
+  return rijen.map((r) => r.jaar);
 }
 
 export type UitgaveFilter = {
   jaar?: number;
   categoryId?: number;
   coupleId?: number;
+  sortering?: Sortering;
 };
+
+/** De ORDER BY die bij een sortering hoort; het id erachter houdt hem stabiel. */
+function volgorde(sortering: Sortering) {
+  const totaal = sql`coalesce(sum(${expenseLines.bedragCent}), 0)`;
+  switch (sortering) {
+    case "datum-oud":
+      return [asc(expenses.datum), asc(expenses.id)];
+    case "bedrag-hoog":
+      return [desc(totaal), desc(expenses.id)];
+    case "bedrag-laag":
+      return [asc(totaal), desc(expenses.id)];
+    case "leverancier":
+      return [asc(expenses.leverancier), desc(expenses.datum)];
+    default:
+      return [desc(expenses.datum), desc(expenses.id)];
+  }
+}
 
 export async function uitgavenLijst(filter: UitgaveFilter = {}) {
   const voorwaarden = [];
@@ -164,19 +218,65 @@ export async function uitgavenLijst(filter: UitgaveFilter = {}) {
     .leftJoin(documents, eq(documents.expenseId, expenses.id))
     .where(voorwaarden.length ? and(...voorwaarden) : undefined)
     .groupBy(expenses.id, couples.id, users.id)
-    .orderBy(desc(expenses.datum), desc(expenses.id));
+    .orderBy(...volgorde(filter.sortering ?? "datum-nieuw"));
 
   // Categoriefilter zit op regelniveau; na het groeperen filteren houdt de query simpel.
-  if (filter.categoryId === undefined) return rijen;
-  const metCategorie = new Set(
-    (
-      await db
-        .selectDistinct({ expenseId: expenseLines.expenseId })
-        .from(expenseLines)
-        .where(eq(expenseLines.categoryId, filter.categoryId))
-    ).map((r) => r.expenseId),
-  );
-  return rijen.filter((r) => metCategorie.has(r.id));
+  // De sorteervolgorde blijft daarbij staan.
+  let gevonden = rijen;
+  if (filter.categoryId !== undefined) {
+    const metCategorie = new Set(
+      (
+        await db
+          .selectDistinct({ expenseId: expenseLines.expenseId })
+          .from(expenseLines)
+          .where(eq(expenseLines.categoryId, filter.categoryId))
+      ).map((r) => r.expenseId),
+    );
+    gevonden = rijen.filter((r) => metCategorie.has(r.id));
+  }
+
+  return metHoofdcategorie(gevonden);
+}
+
+/**
+ * Een uitgave kan regels in meerdere categorieën hebben. Voor het groeperen en voor het
+ * label in de lijst telt de categorie waar het meeste geld naartoe ging.
+ */
+async function metHoofdcategorie<T extends { id: number }>(rijen: T[]) {
+  const ids = rijen.map((r) => r.id);
+  if (ids.length === 0) {
+    return [] as (T & { hoofdcategorie: string; categorieKleur: string })[];
+  }
+
+  const perCategorie = await db
+    .select({
+      expenseId: expenseLines.expenseId,
+      naam: categories.naam,
+      kleur: categories.kleur,
+      cent: sql<number>`sum(${expenseLines.bedragCent})::int`,
+    })
+    .from(expenseLines)
+    .innerJoin(categories, eq(expenseLines.categoryId, categories.id))
+    .where(inArray(expenseLines.expenseId, ids))
+    .groupBy(expenseLines.expenseId, categories.id);
+
+  const grootste = new Map<number, { naam: string; kleur: string; cent: number }>();
+  for (const rij of perCategorie) {
+    const huidig = grootste.get(rij.expenseId);
+    if (!huidig || rij.cent > huidig.cent) {
+      grootste.set(rij.expenseId, {
+        naam: rij.naam,
+        kleur: rij.kleur,
+        cent: rij.cent,
+      });
+    }
+  }
+
+  return rijen.map((rij) => ({
+    ...rij,
+    hoofdcategorie: grootste.get(rij.id)?.naam ?? "Zonder categorie",
+    categorieKleur: grootste.get(rij.id)?.kleur ?? "#64748b",
+  }));
 }
 
 export async function uitgaveMetRegels(id: number) {
@@ -216,55 +316,3 @@ export async function beschikbareJaren(): Promise<number[]> {
   return jaren.sort((a, b) => b - a);
 }
 
-/**
- * Vaste lasten worden lui aangemaakt bij het laden van het dashboard: geen cron, geen
- * scheduler. De voorwaardelijke UPDATE is de vergrendeling. Laden twee mensen
- * tegelijk, dan wint er precies een en ziet de ander nul gewijzigde rijen.
- *
- * ponytail: lui genereren bij paginabezoek. Vercel Cron pas als de app weken
- * ongebruikt blijft en er meldingen nodig zijn.
- */
-export async function genereerVasteLasten(userId: number): Promise<number> {
-  const nu = vandaag();
-  const kandidaten = await db
-    .select()
-    .from(recurring)
-    .where(and(eq(recurring.actief, true), lte(recurring.volgendeDatum, nu)));
-
-  let aangemaakt = 0;
-  for (const post of kandidaten) {
-    let datum = post.volgendeDatum;
-    while (datum <= nu) {
-      const volgende = volgendeDatum(datum, post.interval);
-      const gewonnen = await db
-        .update(recurring)
-        .set({ volgendeDatum: volgende })
-        .where(
-          and(eq(recurring.id, post.id), eq(recurring.volgendeDatum, datum)),
-        )
-        .returning({ id: recurring.id });
-      if (gewonnen.length === 0) break; // iemand anders was ons voor
-
-      const [uitgave] = await db
-        .insert(expenses)
-        .values({
-          coupleId: post.coupleId,
-          userId,
-          datum,
-          leverancier: post.omschrijving,
-          opmerking: "Automatisch aangemaakt vanuit vaste lasten",
-        })
-        .returning({ id: expenses.id });
-      await db.insert(expenseLines).values({
-        expenseId: uitgave.id,
-        omschrijving: post.omschrijving,
-        bedragCent: post.bedragCent,
-        categoryId: post.categoryId,
-        aandeelAPct: post.aandeelAPct,
-      });
-      aangemaakt++;
-      datum = volgende;
-    }
-  }
-  return aangemaakt;
-}

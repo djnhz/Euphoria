@@ -5,7 +5,6 @@ import { vereisGebruiker } from "@/lib/auth";
 import {
   beschikbareJaren,
   budgetOverzicht,
-  genereerVasteLasten,
   haalRegels,
   perMaandPerHuishouden,
   saldoPerMaand,
@@ -20,10 +19,7 @@ import DashboardAgenda from "@/components/DashboardAgenda";
 import JaarKiezer from "@/components/JaarKiezer";
 
 export default async function Dashboard({ searchParams }: PageProps<"/">) {
-  const gebruiker = await vereisGebruiker();
-
-  // Vaste lasten worden hier lui aangemaakt; zie genereerVasteLasten.
-  await genereerVasteLasten(gebruiker.id);
+  await vereisGebruiker();
 
   const params = await searchParams;
   const jaren = await beschikbareJaren();
@@ -63,16 +59,8 @@ export default async function Dashboard({ searchParams }: PageProps<"/">) {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <Snelknop
-          href="/uitgaven/nieuw"
-          titel="Bon indienen"
-          uitleg="Foto maken, laten uitlezen, verdelen"
-        />
-        <Snelknop
-          href="/vaarplanning"
-          titel="Boot reserveren"
-          uitleg="Dagen vastleggen in de gedeelde agenda"
-        />
+        <Snelknop href="/uitgaven/nieuw" titel="Bon indienen" />
+        <Snelknop href="/vaarplanning" titel="Boot reserveren" />
       </div>
 
       <section className="rounded-xl border border-rand bg-paneel p-5">
@@ -115,19 +103,20 @@ export default async function Dashboard({ searchParams }: PageProps<"/">) {
       />
 
       <section className="rounded-xl border border-rand bg-paneel p-4">
-        <h2 className="mb-3 text-sm font-medium">Budget {jaar}</h2>
+        <div className="mb-3 flex items-baseline justify-between">
+          <h2 className="text-sm font-medium">Begroting {jaar}</h2>
+          <Link href="/begroting" className="text-sm text-accent underline">
+            bijwerken
+          </Link>
+        </div>
         {budget.length === 0 ? (
           <p className="text-sm text-gedempt">
-            Nog geen budgetten ingesteld. Dat kan bij{" "}
-            <Link href="/instellingen" className="text-accent underline">
-              Instellingen
-            </Link>
-            .
+            Nog niets begroot voor {jaar}.
           </p>
         ) : (
           <ul className="flex flex-col gap-3">
             {budget.map((rij) => {
-              const budgetCent = rij.budgetJaarCent;
+              const budgetCent = rij.begrootCent;
               const deel =
                 budgetCent && budgetCent > 0
                   ? rij.werkelijkCent / budgetCent
@@ -170,19 +159,16 @@ const HUISHOUDKLEUREN = ["#0ea5e9", "#f97316"];
 function Snelknop({
   href,
   titel,
-  uitleg,
 }: {
   href: "/uitgaven/nieuw" | "/vaarplanning";
   titel: string;
-  uitleg: string;
 }) {
   return (
     <Link
       href={href}
-      className="rounded-xl border border-rand bg-paneel p-4 transition hover:border-accent"
+      className="rounded-xl border border-rand bg-paneel p-4 font-medium transition hover:border-accent"
     >
-      <span className="block font-medium">{titel}</span>
-      <span className="block text-sm text-gedempt">{uitleg}</span>
+      {titel}
     </Link>
   );
 }

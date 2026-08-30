@@ -7,6 +7,7 @@ import {
   timestamp,
   date,
   index,
+  unique,
 } from "drizzle-orm/pg-core";
 
 /**
@@ -35,13 +36,30 @@ export const users = pgTable("users", {
   lockedUntil: timestamp("locked_until", { withTimezone: true }),
 });
 
+/** De onderdelen waarop je begroot en waarop de uitgaven verdeeld worden. */
 export const categories = pgTable("categories", {
   id: serial("id").primaryKey(),
   naam: text("naam").notNull().unique(),
   kleur: text("kleur").notNull().default("#64748b"),
-  budgetJaarCent: integer("budget_jaar_cent"),
   actief: boolean("actief").notNull().default(true),
 });
+
+/**
+ * Begroting: per jaar een bedrag per onderdeel. Een jaar zonder rijen is simpelweg
+ * niet begroot; een onderdeel zonder rij in dat jaar ook niet.
+ */
+export const budgets = pgTable(
+  "budgets",
+  {
+    id: serial("id").primaryKey(),
+    jaar: integer("jaar").notNull(),
+    categoryId: integer("category_id")
+      .notNull()
+      .references(() => categories.id, { onDelete: "cascade" }),
+    bedragCent: integer("bedrag_cent").notNull(),
+  },
+  (t) => [unique("budgets_jaar_categorie").on(t.jaar, t.categoryId)],
+);
 
 export type AnalyseStatus = "geen" | "gelukt" | "mislukt";
 
@@ -98,24 +116,6 @@ export const expenseLines = pgTable(
   },
   (t) => [index("expense_lines_expense_idx").on(t.expenseId)],
 );
-
-export type Interval = "maand" | "kwartaal" | "jaar";
-
-export const recurring = pgTable("recurring", {
-  id: serial("id").primaryKey(),
-  omschrijving: text("omschrijving").notNull(),
-  categoryId: integer("category_id")
-    .notNull()
-    .references(() => categories.id),
-  bedragCent: integer("bedrag_cent").notNull(),
-  interval: text("interval").$type<Interval>().notNull(),
-  volgendeDatum: date("volgende_datum").notNull(),
-  coupleId: integer("couple_id")
-    .notNull()
-    .references(() => couples.id),
-  aandeelAPct: integer("aandeel_a_pct").notNull().default(50),
-  actief: boolean("actief").notNull().default(true),
-});
 
 export type Opslag = "blob" | "lokaal" | "drive";
 

@@ -57,27 +57,6 @@ test("parseEuro accepteert komma, punt en rommel eromheen", () => {
   assert.equal(parseEuro("abc"), null);
 });
 
-// --- datumstappen voor vaste lasten ---
-import { volgendeDatum } from "../lib/datum.ts";
-
-test("maandstap klemt naar het maandeinde in plaats van door te lopen", () => {
-  assert.equal(volgendeDatum("2026-01-31", "maand"), "2026-02-28");
-  assert.equal(volgendeDatum("2028-01-31", "maand"), "2028-02-29");
-  assert.equal(volgendeDatum("2026-03-31", "maand"), "2026-04-30");
-});
-
-test("maandstap rolt netjes over het jaar heen", () => {
-  assert.equal(volgendeDatum("2026-12-15", "maand"), "2027-01-15");
-  assert.equal(volgendeDatum("2026-11-30", "kwartaal"), "2027-02-28");
-  assert.equal(volgendeDatum("2028-02-29", "jaar"), "2029-02-28");
-});
-
-test("gewone stappen laten de dag staan", () => {
-  assert.equal(volgendeDatum("2026-05-10", "maand"), "2026-06-10");
-  assert.equal(volgendeDatum("2026-05-10", "kwartaal"), "2026-08-10");
-  assert.equal(volgendeDatum("2026-05-10", "jaar"), "2027-05-10");
-});
-
 // --- verrekeningsoverzicht ---
 import { verrekening } from "../lib/geld.ts";
 

@@ -268,8 +268,7 @@ export default function UitgaveFormulier({
       <section className="rounded-xl border border-rand bg-paneel p-4">
         <label className="block text-sm font-medium">Bon of factuur</label>
         <p className="mb-3 text-xs text-gedempt">
-          Het bestand wordt meteen opgeslagen op volledige resolutie. Uitlezen doe je
-          daarna zelf met de knop bij het bestand.
+          Uitlezen doe je zelf, met de knop bij het bestand.
         </p>
         <input
           type="file"
@@ -346,8 +345,7 @@ export default function UitgaveFormulier({
 
         {bonnen.length > 0 && !heeftSleutel && (
           <p className="mt-3 text-xs text-gedempt">
-            Analyseren kan zodra er een OpenAI-sleutel staat bij Instellingen. De
-            bestanden zijn hoe dan ook bewaard.
+            Analyseren kan zodra er een OpenAI-sleutel staat bij Instellingen.
           </p>
         )}
       </section>

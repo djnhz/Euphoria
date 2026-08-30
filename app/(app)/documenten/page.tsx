@@ -31,8 +31,7 @@ export default async function DocumentenPagina() {
     <div className="flex flex-col gap-4">
       <h1 className="text-2xl font-semibold tracking-tight">Documenten</h1>
       <p className="text-sm text-gedempt">
-        Polissen, meetbrieven, facturen en handleidingen. Bonnen die bij een
-        uitgave horen staan hier ook.
+        Bonnen die bij een uitgave horen staan hier ook.
       </p>
       <DocumentUpload heeftBlob={heeftBlob()} />
       <DocumentLijst

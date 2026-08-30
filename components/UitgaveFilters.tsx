@@ -1,15 +1,19 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { SORTERINGEN } from "@/lib/sorteren";
 
 export default function UitgaveFilters({
   jaren,
   categorieen,
   huishoudens,
+  groepen,
 }: {
   jaren: number[];
   categorieen: { id: number; naam: string }[];
   huishoudens: { id: number; naam: string }[];
+  /** Paren van sleutel en label, zoals de pagina ze definieert. */
+  groepen: [string, string][];
 }) {
   const router = useRouter();
   const pad = usePathname();
@@ -65,6 +69,32 @@ export default function UitgaveFilters({
         {huishoudens.map((huishouden) => (
           <option key={huishouden.id} value={huishouden.id}>
             {huishouden.naam}
+          </option>
+        ))}
+      </select>
+
+      <select
+        aria-label="Sorteren"
+        value={params.get("sortering") ?? "datum-nieuw"}
+        onChange={(e) => zet("sortering", e.target.value)}
+        className={klasse}
+      >
+        {Object.entries(SORTERINGEN).map(([sleutel, label]) => (
+          <option key={sleutel} value={sleutel}>
+            {label}
+          </option>
+        ))}
+      </select>
+
+      <select
+        aria-label="Groeperen"
+        value={params.get("groep") ?? "geen"}
+        onChange={(e) => zet("groep", e.target.value === "geen" ? "" : e.target.value)}
+        className={klasse}
+      >
+        {groepen.map(([sleutel, label]) => (
+          <option key={sleutel} value={sleutel}>
+            {label}
           </option>
         ))}
       </select>
