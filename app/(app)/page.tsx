@@ -12,7 +12,11 @@ import {
   totaalPerCategorie,
 } from "@/lib/data";
 import { formatEuro, saldoCent } from "@/lib/geld";
+import { haalReserveringen } from "@/lib/agenda";
+import { agendaStatus } from "@/lib/instellingen";
+import { plusDagen, vandaag } from "@/lib/datum";
 import DashboardGrafieken from "@/components/DashboardGrafieken";
+import DashboardAgenda from "@/components/DashboardAgenda";
 import JaarKiezer from "@/components/JaarKiezer";
 
 export default async function Dashboard({ searchParams }: PageProps<"/">) {
@@ -28,12 +32,19 @@ export default async function Dashboard({ searchParams }: PageProps<"/">) {
     ? gekozenJaar
     : new Date().getFullYear();
 
-  const [alleRegels, jaarRegels, budget, huishoudens] = await Promise.all([
+  const nu = vandaag();
+  const [alleRegels, jaarRegels, budget, huishoudens, agenda] = await Promise.all([
     haalRegels(),
     haalRegels(jaar),
     budgetOverzicht(jaar),
     db.select().from(couples).orderBy(asc(couples.volgorde)),
+    agendaStatus(),
   ]);
+
+  // Drie weken vooruit; zonder koppeling heeft ophalen geen zin.
+  const reserveringen = agenda.gekoppeld
+    ? await haalReserveringen(nu, plusDagen(nu, 20))
+    : ([] as Awaited<ReturnType<typeof haalReserveringen>>);
 
   const namen = {
     a: huishoudens[0]?.naam ?? "Huishouden A",
@@ -46,15 +57,22 @@ export default async function Dashboard({ searchParams }: PageProps<"/">) {
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-        <div className="ml-auto flex items-center gap-3">
+        <div className="ml-auto">
           <JaarKiezer jaren={jaren} huidig={jaar} />
-          <Link
-            href="/uitgaven/nieuw"
-            className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white"
-          >
-            + Bon
-          </Link>
         </div>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Snelknop
+          href="/uitgaven/nieuw"
+          titel="Bon indienen"
+          uitleg="Foto maken, laten uitlezen, verdelen"
+        />
+        <Snelknop
+          href="/vaarplanning"
+          titel="Boot reserveren"
+          uitleg="Dagen vastleggen in de gedeelde agenda"
+        />
       </div>
 
       <section className="rounded-xl border border-rand bg-paneel p-5">
@@ -75,6 +93,17 @@ export default async function Dashboard({ searchParams }: PageProps<"/">) {
           <span className="cijfers text-tekst">{formatEuro(totaalJaar)}</span>
         </p>
       </section>
+
+      <DashboardAgenda
+        reserveringen={"fout" in reserveringen ? [] : reserveringen}
+        huishoudens={huishoudens.map((h, i) => ({
+          id: h.id,
+          naam: h.naam,
+          kleur: HUISHOUDKLEUREN[i] ?? "#8b5cf6",
+        }))}
+        gekoppeld={agenda.gekoppeld}
+        fout={"fout" in reserveringen ? reserveringen.fout : null}
+      />
 
       <DashboardGrafieken
         data={{
@@ -132,5 +161,28 @@ export default async function Dashboard({ searchParams }: PageProps<"/">) {
         )}
       </section>
     </div>
+  );
+}
+
+/** Zelfde kleuren als de vaarkalender en de seizoensplanner. */
+const HUISHOUDKLEUREN = ["#0ea5e9", "#f97316"];
+
+function Snelknop({
+  href,
+  titel,
+  uitleg,
+}: {
+  href: "/uitgaven/nieuw" | "/vaarplanning";
+  titel: string;
+  uitleg: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="rounded-xl border border-rand bg-paneel p-4 transition hover:border-accent"
+    >
+      <span className="block font-medium">{titel}</span>
+      <span className="block text-sm text-gedempt">{uitleg}</span>
+    </Link>
   );
 }
