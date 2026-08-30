@@ -4,6 +4,9 @@ import { db, couples, users } from "@/db";
 import { huidigeGebruiker } from "@/lib/auth";
 import LoginForm from "./LoginForm";
 
+/** Leest de sessiecookie en de gebruikerslijst; nooit vooraf te renderen. */
+export const dynamic = "force-dynamic";
+
 export default async function LoginPagina() {
   if (await huidigeGebruiker()) redirect("/");
 
