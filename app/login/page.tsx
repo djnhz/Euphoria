@@ -19,9 +19,8 @@ export default async function LoginPagina() {
 
   return (
     <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center gap-8 p-6">
-      <header className="flex flex-col items-center gap-2">
-        <Logo hoogte={82} />
-        <p className="text-sm text-gedempt">Bootfinanciën en vaarplanning</p>
+      <header className="flex justify-center">
+        <Logo hoogte={170} />
       </header>
       {gebruikers.length === 0 ? (
         <p className="rounded-xl border border-rand bg-paneel p-4 text-sm text-gedempt">
