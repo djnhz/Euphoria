@@ -7,6 +7,7 @@ import { uitloggenAction } from "@/app/login/actions";
 const LINKS = [
   { href: "/", label: "Dashboard" },
   { href: "/uitgaven", label: "Uitgaven" },
+  { href: "/verrekening", label: "Verrekening" },
   { href: "/documenten", label: "Documenten" },
   { href: "/vaste-lasten", label: "Vaste lasten" },
   { href: "/instellingen", label: "Instellingen" },

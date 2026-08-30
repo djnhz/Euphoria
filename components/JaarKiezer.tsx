@@ -5,9 +5,12 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 export default function JaarKiezer({
   jaren,
   huidig,
+  allesLabel,
 }: {
   jaren: number[];
   huidig: number;
+  /** Tekst voor de waarde 0, als "alle jaren" een geldige keuze is. */
+  allesLabel?: string;
 }) {
   const router = useRouter();
   const pad = usePathname();
@@ -26,7 +29,7 @@ export default function JaarKiezer({
     >
       {jaren.map((jaar) => (
         <option key={jaar} value={jaar}>
-          {jaar}
+          {jaar === 0 ? (allesLabel ?? "Alles") : jaar}
         </option>
       ))}
     </select>

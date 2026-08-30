@@ -77,3 +77,36 @@ test("gewone stappen laten de dag staan", () => {
   assert.equal(volgendeDatum("2026-05-10", "kwartaal"), "2026-08-10");
   assert.equal(volgendeDatum("2026-05-10", "jaar"), "2027-05-10");
 });
+
+// --- verrekeningsoverzicht ---
+import { verrekening } from "../lib/geld.ts";
+
+test("voorgeschoten min eigen aandeel is exact het saldo", () => {
+  const regels = [
+    { bedragCent: 10000, aandeelAPct: 50, betaaldDoorA: true },
+    { bedragCent: 3000, aandeelAPct: 100, betaaldDoorA: false },
+    { bedragCent: 4567, aandeelAPct: 35, betaaldDoorA: true },
+    { bedragCent: 999, aandeelAPct: 0, betaaldDoorA: false },
+  ];
+  const overzicht = verrekening(regels);
+  assert.equal(overzicht.saldo, saldoCent(regels));
+});
+
+test("de twee aandelen samen zijn het totaal, zonder zoekgeraakte cent", () => {
+  const regels = [
+    { bedragCent: 1501, aandeelAPct: 50, betaaldDoorA: true },
+    { bedragCent: 333, aandeelAPct: 33, betaaldDoorA: false },
+  ];
+  const overzicht = verrekening(regels);
+  assert.equal(overzicht.aandeelA + overzicht.aandeelB, overzicht.totaal);
+  assert.equal(overzicht.voorgeschotenA + overzicht.voorgeschotenB, overzicht.totaal);
+});
+
+test("betaalt een huishouden precies zijn eigen aandeel, dan is het saldo nul", () => {
+  const overzicht = verrekening([
+    { bedragCent: 8000, aandeelAPct: 100, betaaldDoorA: true },
+    { bedragCent: 5000, aandeelAPct: 0, betaaldDoorA: false },
+  ]);
+  assert.equal(overzicht.saldo, 0);
+  assert.equal(overzicht.voorgeschotenA, overzicht.aandeelA);
+});

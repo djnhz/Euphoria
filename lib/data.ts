@@ -24,6 +24,7 @@ export type RegelRij = {
   lineId: number;
   expenseId: number;
   datum: string;
+  leverancier: string;
   omschrijving: string;
   bedragCent: number;
   aandeelAPct: number;
@@ -47,6 +48,7 @@ export async function haalRegels(jaar?: number): Promise<RegelRij[]> {
       lineId: expenseLines.id,
       expenseId: expenses.id,
       datum: expenses.datum,
+      leverancier: expenses.leverancier,
       omschrijving: expenseLines.omschrijving,
       bedragCent: expenseLines.bedragCent,
       aandeelAPct: expenseLines.aandeelAPct,

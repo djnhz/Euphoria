@@ -51,3 +51,45 @@ export function parseEuro(invoer: string): number | null {
   if (!Number.isFinite(waarde)) return null;
   return Math.round(waarde * 100);
 }
+
+export type VerrekenRegel = SaldoRegel;
+
+export type Verrekening = {
+  /** Wat elk huishouden daadwerkelijk heeft voorgeschoten. */
+  voorgeschotenA: number;
+  voorgeschotenB: number;
+  /** Wat elk huishouden volgens de verdeelsleutels hoort te dragen. */
+  aandeelA: number;
+  aandeelB: number;
+  /** Positief: B moet dit aan A betalen. Negatief: andersom. */
+  saldo: number;
+  totaal: number;
+};
+
+/**
+ * Voorgeschoten min eigen aandeel is per definitie hetzelfde getal als `saldoCent`;
+ * die gelijkheid is de kern van de verrekening en staat in de test.
+ */
+export function verrekening(regels: readonly VerrekenRegel[]): Verrekening {
+  let voorgeschotenA = 0;
+  let voorgeschotenB = 0;
+  let aandeelA = 0;
+  let aandeelB = 0;
+
+  for (const regel of regels) {
+    const { deelA, deelB } = verdeelRegel(regel.bedragCent, regel.aandeelAPct);
+    aandeelA += deelA;
+    aandeelB += deelB;
+    if (regel.betaaldDoorA) voorgeschotenA += regel.bedragCent;
+    else voorgeschotenB += regel.bedragCent;
+  }
+
+  return {
+    voorgeschotenA,
+    voorgeschotenB,
+    aandeelA,
+    aandeelB,
+    saldo: voorgeschotenA - aandeelA,
+    totaal: voorgeschotenA + voorgeschotenB,
+  };
+}

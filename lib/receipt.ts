@@ -94,6 +94,20 @@ export async function pdfTekst(url: string): Promise<PdfResultaat> {
 
   try {
     const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+
+    // pdfjs zoekt zijn worker zelf op via een pad dat in productie anders ligt dan
+    // hier. Zelf wijzen scheelt dat gokwerk; het bestand komt mee dankzij
+    // outputFileTracingIncludes in next.config.ts.
+    const { createRequire } = await import("node:module");
+    const { pathToFileURL } = await import("node:url");
+    // Als file:-URL, want de ESM-loader weigert een kaal absoluut pad; op Windows
+    // leest hij de stationsletter zelfs als protocol.
+    pdfjs.GlobalWorkerOptions.workerSrc = pathToFileURL(
+      createRequire(import.meta.url).resolve(
+        "pdfjs-dist/legacy/build/pdf.worker.mjs",
+      ),
+    ).href;
+
     // Geen `useSystemFonts`: een serverless omgeving heeft geen lettertypen op schijf,
     // en voor tekst uitlezen is dat ook nergens voor nodig.
     const document = await pdfjs.getDocument({
