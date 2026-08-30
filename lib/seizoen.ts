@@ -21,6 +21,8 @@ export type Blok = {
   feestdag: FeestdagCode | null;
   /** Naam van de ingeplande vakantie, als die is meegegeven. */
   naam: string | null;
+  /** Gevuld bij een ingeplande vakantie: de maandag van de betrokken week. */
+  sleutel: string | null;
   aantalDagen: number;
 };
 
@@ -56,6 +58,12 @@ type DagEigenaar = {
   reden: Reden;
   feestdag: FeestdagCode | null;
   naam: string | null;
+  /**
+   * Alleen dagen met dezelfde sleutel mogen samengevoegd worden. Voor een ingeplande
+   * vakantie is dat de maandag van die week, zodat drie geboekte weken drie regels
+   * blijven in plaats van een blok van eenentwintig dagen.
+   */
+  sleutel: string | null;
 };
 
 /**
@@ -87,6 +95,7 @@ export function maakSeizoensplanning(invoer: Invoer): Planning {
       reden: oneven ? "oneven" : "even",
       feestdag: null,
       naam: null,
+      sleutel: null,
     });
   }
 
@@ -112,6 +121,7 @@ export function maakSeizoensplanning(invoer: Invoer): Planning {
         reden: "feestdag",
         feestdag: feestdag.code,
         naam: feestdag.naam,
+        sleutel: null,
       });
       geraakt.push(dag);
     }
@@ -134,6 +144,7 @@ export function maakSeizoensplanning(invoer: Invoer): Planning {
         reden: "handmatig",
         feestdag: null,
         naam: wens.naam?.trim() ? wens.naam.trim() : null,
+        sleutel: maandag,
       });
     }
   }
@@ -149,6 +160,7 @@ export function maakSeizoensplanning(invoer: Invoer): Planning {
       laatste.reden === eigenaar.reden &&
       laatste.feestdag === eigenaar.feestdag &&
       laatste.naam === eigenaar.naam &&
+      laatste.sleutel === eigenaar.sleutel &&
       plusDagen(laatste.tot, 1) === dag
     ) {
       laatste.tot = dag;
@@ -162,6 +174,7 @@ export function maakSeizoensplanning(invoer: Invoer): Planning {
       reden: eigenaar.reden,
       feestdag: eigenaar.feestdag,
       naam: eigenaar.naam,
+      sleutel: eigenaar.sleutel,
       aantalDagen: 1,
     });
   }

@@ -319,7 +319,7 @@ test("de zomervakantie begint pas te tellen in de week met vrije werkdagen", () 
   assert.equal(werkdagOverlap(zomer, "2027-08-30", "2027-09-05"), 0);
 });
 
-test("drie aaneengesloten weken worden een blok, dwars door even en oneven heen", () => {
+test("drie aaneengesloten weken blijven drie regels, dwars door even en oneven heen", () => {
   const planning = maakSeizoensplanning({
     jaar: 2027,
     onevenCoupleId: A,
@@ -331,12 +331,19 @@ test("drie aaneengesloten weken worden een blok, dwars door even en oneven heen"
       "2027-08-02": { coupleId: B, naam: "Zomerweken" },
     },
   });
-  const blok = planning.blokken.find((b) => b.naam === "Zomerweken")!;
+  // Drie geboekte weken blijven drie regels: samenvoegen maakt het overzicht juist
+  // onleesbaar, want dan zie je niet meer welke weken erin zitten.
+  const eigen = planning.blokken.filter((b) => b.naam === "Zomerweken");
+  assert.equal(eigen.length, 3);
   assert.deepEqual(
-    { van: blok.van, tot: blok.tot, dagen: blok.aantalDagen },
-    { van: "2027-07-19", tot: "2027-08-08", dagen: 21 },
+    eigen.map((b) => [b.van, b.tot, b.aantalDagen]),
+    [
+      ["2027-07-19", "2027-07-25", 7],
+      ["2027-07-26", "2027-08-01", 7],
+      ["2027-08-02", "2027-08-08", 7],
+    ],
   );
-  assert.equal(blok.coupleId, B);
+  assert.ok(eigen.every((b) => b.coupleId === B));
   // De week ervoor en erna volgen weer het gewone patroon.
   assert.equal(eigenaarOp("2027-07-18", planning)?.reden, "even");
   assert.equal(eigenaarOp("2027-08-09", planning)?.reden, "even");

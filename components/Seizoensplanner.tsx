@@ -384,18 +384,22 @@ export default function Seizoensplanner({
             );
             const bouwvak = heel.some((v) => v.soort === "bouwvak");
             const grotendeels = heel.length > 0;
+            const ingepland = blok.reden === "handmatig";
             return (
             <li
               key={blok.van}
-              // Vakantieweken krijgen een tint, de bouwvak een streep en een sterkere
-              // tint, want die is bij uitstek de week die je wilt hebben.
-              style={
-                bouwvak
-                  ? { background: "var(--vakantie-sterk)", borderLeft: "4px solid var(--vakantie-rand)" }
+              // Twee losse signalen: de tint zegt dat er schoolvakantie of bouwvak is,
+              // de streep aan de voorkant dat jij die week zelf hebt ingepland.
+              style={{
+                background: bouwvak
+                  ? "var(--vakantie-sterk)"
                   : grotendeels
-                    ? { background: "var(--vakantie-zacht)" }
-                    : undefined
-              }
+                    ? "var(--vakantie-zacht)"
+                    : undefined,
+                borderLeft: ingepland
+                  ? `6px solid ${kleurVan.get(blok.coupleId)}`
+                  : undefined,
+              }}
               className="flex flex-wrap items-center gap-3 rounded-lg border border-rand p-2 text-sm"
             >
               <span
