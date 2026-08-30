@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { uitloggenAction } from "@/app/login/actions";
+import Logo from "./Logo";
 
 const LINKS = [
   { href: "/", label: "Dashboard" },
@@ -26,8 +27,8 @@ export default function Nav({
   return (
     <header className="sticky top-0 z-20 border-b border-rand bg-paneel/95 backdrop-blur">
       <div className="mx-auto flex w-full max-w-5xl items-center gap-3 px-4 py-3">
-        <Link href="/" className="text-lg font-semibold tracking-tight">
-          Euphoria
+        <Link href="/" aria-label="Euphoria">
+          <Logo hoogte={26} />
         </Link>
         <div className="ml-auto flex items-center gap-3 text-sm">
           <span className="hidden text-gedempt sm:inline">

@@ -3,6 +3,7 @@ import { asc, eq } from "drizzle-orm";
 import { db, couples, users } from "@/db";
 import { huidigeGebruiker } from "@/lib/auth";
 import LoginForm from "./LoginForm";
+import Logo from "@/components/Logo";
 
 /** Leest de sessiecookie en de gebruikerslijst; nooit vooraf te renderen. */
 export const dynamic = "force-dynamic";
@@ -18,9 +19,9 @@ export default async function LoginPagina() {
 
   return (
     <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center gap-8 p-6">
-      <header className="text-center">
-        <h1 className="text-3xl font-semibold tracking-tight">Euphoria</h1>
-        <p className="text-sm text-gedempt">Bootfinanciën</p>
+      <header className="flex flex-col items-center gap-2">
+        <Logo hoogte={44} />
+        <p className="text-sm text-gedempt">Bootfinanciën en vaarplanning</p>
       </header>
       {gebruikers.length === 0 ? (
         <p className="rounded-xl border border-rand bg-paneel p-4 text-sm text-gedempt">

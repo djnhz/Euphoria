@@ -97,3 +97,22 @@ export function dagenInSeizoen(jaar: number): string[] {
   }
   return dagen;
 }
+
+const DAGNAMEN = [
+  "zondag",
+  "maandag",
+  "dinsdag",
+  "woensdag",
+  "donderdag",
+  "vrijdag",
+  "zaterdag",
+];
+
+export function dagnaam(iso: string): string {
+  return DAGNAMEN[alsDatum(iso).getUTCDay()];
+}
+
+/** "vrijdag 26 mrt 2027" — handig als het uitmaakt welke dag van de week het is. */
+export function formatDatumMetDag(iso: string): string {
+  return `${dagnaam(iso)} ${formatDatum(iso)}`;
+}

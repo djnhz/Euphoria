@@ -3,8 +3,19 @@
 import { useActionState, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Feestdag, FeestdagCode } from "@/lib/feestdagen";
-import { formatDatum, isoWeek, maandagVanWeek } from "@/lib/datum";
-import { maakSeizoensplanning, telling, type Blok } from "@/lib/seizoen";
+import {
+  formatDatum,
+  formatDatumMetDag,
+  dagnaam,
+  isoWeek,
+  maandagVanWeek,
+} from "@/lib/datum";
+import {
+  dagenVanFeestdag,
+  maakSeizoensplanning,
+  telling,
+  type Blok,
+} from "@/lib/seizoen";
 import {
   publiceerAction,
   standAction,
@@ -80,6 +91,23 @@ export default function Seizoensplanner({
   const verschil =
     cijfers.length === 2 ? Math.abs(cijfers[0].dagen - cijfers[1].dagen) : 0;
 
+  /**
+   * Van wie de betrokken weken zouden zijn zonder deze feestdag. Handig om te zien
+   * wat je precies weggeeft als je hem toewijst.
+   */
+  function basisEigenaars(feestdag: Feestdag) {
+    const weken: { week: number; coupleId: number }[] = [];
+    for (const dag of dagenVanFeestdag(feestdag.van, feestdag.tot)) {
+      const week = isoWeek(dag);
+      if (weken.some((w) => w.week === week)) continue;
+      weken.push({
+        week,
+        coupleId: week % 2 === 1 ? onevenCoupleId : evenCoupleId,
+      });
+    }
+    return weken;
+  }
+
   /** Een blok omzetten naar het andere huishouden, per betrokken week. */
   function wisselBlok(blok: Blok) {
     const ander = huishoudens.find((h) => h.id !== blok.coupleId)?.id;
@@ -151,13 +179,17 @@ export default function Seizoensplanner({
               <div className="min-w-0 flex-1">
                 <p className="font-medium">{feestdag.naam}</p>
                 <p className="text-sm text-gedempt">
-                  {formatDatum(feestdag.van)}
+                  {formatDatumMetDag(feestdag.van)}
                   {feestdag.tot !== feestdag.van &&
-                    ` tot en met ${formatDatum(feestdag.tot)}`}
-                  {" · week "}
-                  {isoWeek(feestdag.van)}
-                  {isoWeek(feestdag.tot) !== isoWeek(feestdag.van) &&
-                    ` en ${isoWeek(feestdag.tot)}`}
+                    ` tot en met ${formatDatumMetDag(feestdag.tot)}`}
+                </p>
+                <p className="text-xs text-gedempt">
+                  {basisEigenaars(feestdag)
+                    .map(
+                      (week) =>
+                        `week ${week.week} is normaal van ${naamVan.get(week.coupleId)}`,
+                    )
+                    .join(" · ")}
                 </p>
               </div>
               <select
@@ -234,9 +266,13 @@ export default function Seizoensplanner({
                 className="inline-block h-3 w-3 shrink-0 rounded"
                 style={{ background: kleurVan.get(blok.coupleId) }}
               />
+              {/* De weekdag alleen tonen bij blokken die geen hele maandag-zondagweek
+                  zijn; daar zit het lange weekend en dat is wat je wilt zien. */}
               <span className="cijfers min-w-0 flex-1 truncate">
+                {heelWeek(blok) ? "" : `${dagnaam(blok.van)} `}
                 {formatDatum(blok.van)}
-                {blok.tot !== blok.van && ` t/m ${formatDatum(blok.tot)}`}
+                {blok.tot !== blok.van &&
+                  ` t/m ${heelWeek(blok) ? "" : `${dagnaam(blok.tot)} `}${formatDatum(blok.tot)}`}
               </span>
               <span className="truncate">{naamVan.get(blok.coupleId)}</span>
               <span className="text-xs text-gedempt">
@@ -306,3 +342,12 @@ export default function Seizoensplanner({
 
 const invoerKlasse =
   "rounded-lg border border-rand bg-achtergrond px-3 py-2 text-sm";
+
+/** Een blok van maandag tot en met zondag; dan zeggen de weekdagen niets extras. */
+function heelWeek(blok: Blok): boolean {
+  return (
+    blok.aantalDagen === 7 &&
+    dagnaam(blok.van) === "maandag" &&
+    dagnaam(blok.tot) === "zondag"
+  );
+}
