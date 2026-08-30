@@ -10,11 +10,13 @@ import {
   type Vakantie,
 } from "@/lib/schoolvakanties";
 import {
+  dagenInSeizoen,
   formatDatum,
   formatDatumMetDag,
   dagnaam,
   isoWeek,
   maandagVanWeek,
+  plusDagen,
 } from "@/lib/datum";
 import {
   dagenVanFeestdag,
@@ -58,7 +60,7 @@ export default function Seizoensplanner({
   const [toewijzing, setToewijzing] = useState<
     Partial<Record<FeestdagCode, number>>
   >({});
-  const [overrides, setOverrides] = useState<Record<string, number>>({});
+  const [periodes, setPeriodes] = useState<Periode[]>([]);
 
   const [publiceerState, publiceer, bezig] = useActionState<
     PubliceerState,
@@ -81,6 +83,30 @@ export default function Seizoensplanner({
     () => new Map(huishoudens.map((h) => [h.id, h.naam])),
     [huishoudens],
   );
+
+  // De weken van het seizoen, als bouwstenen voor de vakantiekiezer.
+  const weken = useMemo(() => {
+    const lijst: { maandag: string; week: number; zondag: string }[] = [];
+    for (const dag of dagenInSeizoen(jaar)) {
+      const maandag = maandagVanWeek(dag);
+      if (lijst.at(-1)?.maandag === maandag) continue;
+      lijst.push({ maandag, week: isoWeek(maandag), zondag: plusDagen(maandag, 6) });
+    }
+    return lijst;
+  }, [jaar]);
+
+  // Een periode is een reeks weken; de planner wil ze per maandag.
+  const overrides = useMemo(() => {
+    const kaart: Record<string, { coupleId: number; naam?: string }> = {};
+    for (const periode of periodes) {
+      for (const week of weken) {
+        if (week.maandag >= periode.vanMaandag && week.maandag <= periode.totMaandag) {
+          kaart[week.maandag] = { coupleId: periode.coupleId, naam: periode.naam };
+        }
+      }
+    }
+    return kaart;
+  }, [periodes, weken]);
 
   const invoer = {
     jaar,
@@ -118,23 +144,26 @@ export default function Seizoensplanner({
     return weken;
   }
 
-  /** Een blok omzetten naar het andere huishouden, per betrokken week. */
+  /** Een blok omzetten is gewoon een periode van een of meer weken. */
   function wisselBlok(blok: Blok) {
     const ander = huishoudens.find((h) => h.id !== blok.coupleId)?.id;
     if (ander === undefined) return;
-    setOverrides((huidig) => {
-      const nieuw = { ...huidig };
-      let dag = blok.van;
-      while (dag <= blok.tot) {
-        nieuw[maandagVanWeek(dag)] = ander;
-        // Naar de volgende maandag.
-        const maandag = maandagVanWeek(dag);
-        const volgende = new Date(`${maandag}T00:00:00Z`);
-        volgende.setUTCDate(volgende.getUTCDate() + 7);
-        dag = volgende.toISOString().slice(0, 10);
-      }
-      return nieuw;
+    voegPeriodeToe({
+      vanMaandag: maandagVanWeek(blok.van),
+      totMaandag: maandagVanWeek(blok.tot),
+      coupleId: ander,
+      naam: "",
     });
+  }
+
+  /** Een nieuwe periode overschrijft wat er op die weken al was ingepland. */
+  function voegPeriodeToe(nieuw: Omit<Periode, "id">) {
+    setPeriodes((huidig) => [
+      ...huidig.filter(
+        (p) => p.totMaandag < nieuw.vanMaandag || p.vanMaandag > nieuw.totMaandag,
+      ),
+      { ...nieuw, id: `${nieuw.vanMaandag}-${nieuw.totMaandag}-${nieuw.coupleId}` },
+    ]);
   }
 
   return (
@@ -236,6 +265,69 @@ export default function Seizoensplanner({
               </span>
             ))}
           </p>
+        )}
+      </section>
+
+      <section className="rounded-xl border border-rand bg-paneel p-4">
+        <h2 className="text-sm font-medium">Vakanties inplannen</h2>
+        <p className="mb-3 text-xs text-gedempt">
+          Aaneengesloten weken voor één huishouden, dwars door het even-onevenpatroon
+          heen. Bijvoorbeeld drie zomerweken of twee weken in mei. Overlapt een nieuwe
+          periode met een bestaande, dan vervangt hij die.
+        </p>
+        <VakantieFormulier
+          weken={weken}
+          huishoudens={huishoudens}
+          vakanties={vakanties}
+          onToevoegen={voegPeriodeToe}
+        />
+
+        {periodes.length > 0 && (
+          <ul className="mt-3 flex flex-col gap-2">
+            {[...periodes]
+              .sort((a, b) => a.vanMaandag.localeCompare(b.vanMaandag))
+              .map((periode) => {
+                const eind = plusDagen(periode.totMaandag, 6);
+                const aantalWeken =
+                  weken.filter(
+                    (w) =>
+                      w.maandag >= periode.vanMaandag &&
+                      w.maandag <= periode.totMaandag,
+                  ).length;
+                return (
+                  <li
+                    key={periode.id}
+                    className="flex flex-wrap items-center gap-3 rounded-lg border border-rand p-2 text-sm"
+                  >
+                    <span
+                      className="inline-block h-3 w-3 shrink-0 rounded"
+                      style={{ background: kleurVan.get(periode.coupleId) }}
+                    />
+                    <span className="cijfers min-w-0 flex-1 truncate">
+                      {formatDatum(periode.vanMaandag)} t/m {formatDatum(eind)}
+                    </span>
+                    <span className="cijfers text-xs text-gedempt">
+                      {aantalWeken} {aantalWeken === 1 ? "week" : "weken"}
+                    </span>
+                    <span className="truncate">
+                      {naamVan.get(periode.coupleId)}
+                      {periode.naam && ` — ${periode.naam}`}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setPeriodes((huidig) =>
+                          huidig.filter((p) => p.id !== periode.id),
+                        )
+                      }
+                      className="text-xs text-slecht underline"
+                    >
+                      verwijderen
+                    </button>
+                  </li>
+                );
+              })}
+          </ul>
         )}
       </section>
 
@@ -351,7 +443,12 @@ export default function Seizoensplanner({
                   ))}
                 </span>
               )}
-              <span className="truncate">{naamVan.get(blok.coupleId)}</span>
+              <span className="truncate">
+                {naamVan.get(blok.coupleId)}
+                {blok.naam && blok.reden === "handmatig" && (
+                  <span className="text-gedempt"> — {blok.naam}</span>
+                )}
+              </span>
               <span className="text-xs text-gedempt">
                 {REDEN_TEKST[blok.reden]} · {blok.aantalDagen} dg
               </span>
@@ -366,15 +463,6 @@ export default function Seizoensplanner({
             );
           })}
         </ul>
-        {Object.keys(overrides).length > 0 && (
-          <button
-            type="button"
-            onClick={() => setOverrides({})}
-            className="mt-3 text-sm text-gedempt underline"
-          >
-            handmatige wissels ongedaan maken
-          </button>
-        )}
       </section>
 
       <section className="flex flex-col gap-3 rounded-xl border border-rand bg-paneel p-4">
@@ -428,11 +516,133 @@ function weekLabel(blok: Blok): string {
   return eerste === laatste ? `wk ${eerste}` : `wk ${eerste}-${laatste}`;
 }
 
-/** Een blok van maandag tot en met zondag; dan zeggen de weekdagen niets extras. */
+/**
+ * Een blok van hele weken, maandag tot en met zondag. Dan zeggen de weekdagen niets
+ * extras; ze zijn juist interessant bij een blok dat een week doormidden snijdt.
+ */
 function heelWeek(blok: Blok): boolean {
   return (
-    blok.aantalDagen === 7 &&
+    blok.aantalDagen % 7 === 0 &&
     dagnaam(blok.van) === "maandag" &&
     dagnaam(blok.tot) === "zondag"
+  );
+}
+
+export type Periode = {
+  id: string;
+  /** Maandag van de eerste week. */
+  vanMaandag: string;
+  /** Maandag van de laatste week. */
+  totMaandag: string;
+  coupleId: number;
+  naam: string;
+};
+
+type Week = { maandag: string; week: number; zondag: string };
+
+/**
+ * Een periode kiezen als reeks weken in plaats van losse datums: het seizoen is per
+ * week verdeeld, dus zo kun je geen halve week boeken. De keuzelijst noemt het
+ * weeknummer, de datums en of er vakantie is, want dat is wat je wilt weten.
+ */
+function VakantieFormulier({
+  weken,
+  huishoudens,
+  vakanties,
+  onToevoegen,
+}: {
+  weken: Week[];
+  huishoudens: { id: number; naam: string }[];
+  vakanties: Vakantie[];
+  onToevoegen: (periode: Omit<Periode, "id">) => void;
+}) {
+  const [vanMaandag, setVan] = useState(weken[0]?.maandag ?? "");
+  const [totMaandag, setTot] = useState(weken[0]?.maandag ?? "");
+  const [coupleId, setCouple] = useState(huishoudens[0]?.id ?? 0);
+  const [naam, setNaam] = useState("");
+
+  function label(week: Week): string {
+    const raakt = vakantiesRakend(vakanties, week.maandag, week.zondag).filter(
+      (vakantie) =>
+        werkdagOverlap(vakantie, week.maandag, week.zondag) ===
+        werkdagen(week.maandag, week.zondag),
+    );
+    const staart = raakt.length > 0 ? ` · ${raakt[0].naam}` : "";
+    return `wk ${week.week} — ${formatDatum(week.maandag)} t/m ${formatDatum(week.zondag)}${staart}`;
+  }
+
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto_auto]">
+      <label className="flex flex-col gap-1 text-sm">
+        <span className="text-gedempt">Van week</span>
+        <select
+          value={vanMaandag}
+          onChange={(e) => {
+            setVan(e.target.value);
+            // Einde meeschuiven zodat je nooit een omgekeerde periode kunt kiezen.
+            if (e.target.value > totMaandag) setTot(e.target.value);
+          }}
+          className={invoerKlasse}
+        >
+          {weken.map((week) => (
+            <option key={week.maandag} value={week.maandag}>
+              {label(week)}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="flex flex-col gap-1 text-sm">
+        <span className="text-gedempt">Tot en met week</span>
+        <select
+          value={totMaandag}
+          onChange={(e) => setTot(e.target.value)}
+          className={invoerKlasse}
+        >
+          {weken
+            .filter((week) => week.maandag >= vanMaandag)
+            .map((week) => (
+              <option key={week.maandag} value={week.maandag}>
+                {label(week)}
+              </option>
+            ))}
+        </select>
+      </label>
+      <label className="flex flex-col gap-1 text-sm">
+        <span className="text-gedempt">Voor</span>
+        <select
+          value={coupleId}
+          onChange={(e) => setCouple(Number(e.target.value))}
+          className={invoerKlasse}
+        >
+          {huishoudens.map((h) => (
+            <option key={h.id} value={h.id}>
+              {h.naam}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="flex flex-col gap-1 text-sm">
+        <span className="text-gedempt">Naam (optioneel)</span>
+        <div className="flex gap-2">
+          <input
+            value={naam}
+            onChange={(e) => setNaam(e.target.value)}
+            placeholder="Zomervakantie"
+            maxLength={80}
+            className={invoerKlasse}
+          />
+          <button
+            type="button"
+            onClick={() => {
+              onToevoegen({ vanMaandag, totMaandag, coupleId, naam });
+              setNaam("");
+            }}
+            className="shrink-0 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white"
+          >
+            Inplannen
+          </button>
+        </div>
+      </label>
+    </div>
   );
 }

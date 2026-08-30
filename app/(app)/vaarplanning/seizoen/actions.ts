@@ -26,7 +26,14 @@ const PubliceerInvoer = z.object({
   onevenCoupleId: z.number().int().positive(),
   evenCoupleId: z.number().int().positive(),
   feestdagToewijzing: z.record(FeestdagCodes, z.number().int().positive()),
-  overrides: z.record(z.string().regex(/^\d{4}-\d{2}-\d{2}$/), z.number().int().positive()),
+  /** Zelf ingeplande weken, per maandag: welk huishouden en hoe die vakantie heet. */
+  overrides: z.record(
+    z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    z.object({
+      coupleId: z.number().int().positive(),
+      naam: z.string().trim().max(80).optional(),
+    }),
+  ),
 });
 
 export type PubliceerState =
@@ -65,7 +72,11 @@ export async function publiceerAction(
     planning.blokken.map((blok) => ({
       van: blok.van,
       tot: blok.tot,
-      titel: naamVan.get(blok.coupleId) ?? "Gereserveerd",
+      // De naam van een ingeplande vakantie hoort in de agenda te staan, anders zie
+      // je daar alleen een huishouden en niet waarom die weken aan elkaar zitten.
+      titel: blok.naam
+        ? `${naamVan.get(blok.coupleId) ?? "Gereserveerd"} — ${blok.naam}`
+        : (naamVan.get(blok.coupleId) ?? "Gereserveerd"),
       opmerking:
         blok.reden === "feestdag"
           ? `Seizoensplanning ${invoer.jaar} — ${blok.feestdag}`

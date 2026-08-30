@@ -174,7 +174,7 @@ test("een handmatige wissel wint van alles", () => {
     onevenCoupleId: A,
     evenCoupleId: B,
     feestdagToewijzing: { hemelvaart: B },
-    overrides: { "2027-05-03": A },
+    overrides: { "2027-05-03": { coupleId: A } },
   });
   assert.deepEqual(eigenaarOp("2027-05-05", planning), {
     coupleId: A,
@@ -317,4 +317,56 @@ test("de zomervakantie begint pas te tellen in de week met vrije werkdagen", () 
   // En houdt op na 29 augustus.
   assert.equal(werkdagOverlap(zomer, "2027-08-23", "2027-08-29"), 5);
   assert.equal(werkdagOverlap(zomer, "2027-08-30", "2027-09-05"), 0);
+});
+
+test("drie aaneengesloten weken worden een blok, dwars door even en oneven heen", () => {
+  const planning = maakSeizoensplanning({
+    jaar: 2027,
+    onevenCoupleId: A,
+    evenCoupleId: B,
+    feestdagToewijzing: {},
+    overrides: {
+      "2027-07-19": { coupleId: B, naam: "Zomerweken" },
+      "2027-07-26": { coupleId: B, naam: "Zomerweken" },
+      "2027-08-02": { coupleId: B, naam: "Zomerweken" },
+    },
+  });
+  const blok = planning.blokken.find((b) => b.naam === "Zomerweken")!;
+  assert.deepEqual(
+    { van: blok.van, tot: blok.tot, dagen: blok.aantalDagen },
+    { van: "2027-07-19", tot: "2027-08-08", dagen: 21 },
+  );
+  assert.equal(blok.coupleId, B);
+  // De week ervoor en erna volgen weer het gewone patroon.
+  assert.equal(eigenaarOp("2027-07-18", planning)?.reden, "even");
+  assert.equal(eigenaarOp("2027-08-09", planning)?.reden, "even");
+});
+
+test("twee losse vakanties met verschillende namen blijven aparte blokken", () => {
+  const planning = maakSeizoensplanning({
+    jaar: 2027,
+    onevenCoupleId: A,
+    evenCoupleId: B,
+    feestdagToewijzing: {},
+    overrides: {
+      "2027-05-10": { coupleId: A, naam: "Meiweek" },
+      "2027-05-17": { coupleId: A, naam: "Hemelvaartweek" },
+    },
+  });
+  const namen = planning.blokken.map((b) => b.naam).filter(Boolean);
+  assert.deepEqual(namen, ["Meiweek", "Hemelvaartweek"]);
+});
+
+test("een ingeplande vakantie wint ook van een toegewezen feestdag", () => {
+  const planning = maakSeizoensplanning({
+    jaar: 2027,
+    onevenCoupleId: A,
+    evenCoupleId: B,
+    feestdagToewijzing: { hemelvaart: A },
+    overrides: { "2027-05-03": { coupleId: B, naam: "Werkweek" } },
+  });
+  assert.deepEqual(eigenaarOp("2027-05-05", planning), {
+    coupleId: B,
+    reden: "handmatig",
+  });
 });

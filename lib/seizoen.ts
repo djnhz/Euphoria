@@ -19,6 +19,8 @@ export type Blok = {
   reden: Reden;
   /** Gevuld als dit blok uit een feestdag voortkomt. */
   feestdag: FeestdagCode | null;
+  /** Naam van de ingeplande vakantie, als die is meegegeven. */
+  naam: string | null;
   aantalDagen: number;
 };
 
@@ -30,8 +32,11 @@ export type Invoer = {
   evenCoupleId: number;
   /** Per feestdag welk huishouden hem krijgt. Ontbreekt een feestdag, dan geldt de gewone regel. */
   feestdagToewijzing: Partial<Record<FeestdagCode, number>>;
-  /** Handmatige wissels, per maandag van de betrokken week. */
-  overrides?: Record<string, number>;
+  /**
+   * Zelf ingeplande weken, per maandag van de betrokken week. Zo boek je bijvoorbeeld
+   * drie aaneengesloten zomerweken over het even-onevenpatroon heen.
+   */
+  overrides?: Record<string, { coupleId: number; naam?: string }>;
 };
 
 export type Botsing = {
@@ -50,6 +55,7 @@ type DagEigenaar = {
   coupleId: number;
   reden: Reden;
   feestdag: FeestdagCode | null;
+  naam: string | null;
 };
 
 /**
@@ -80,6 +86,7 @@ export function maakSeizoensplanning(invoer: Invoer): Planning {
       coupleId: oneven ? invoer.onevenCoupleId : invoer.evenCoupleId,
       reden: oneven ? "oneven" : "even",
       feestdag: null,
+      naam: null,
     });
   }
 
@@ -104,6 +111,7 @@ export function maakSeizoensplanning(invoer: Invoer): Planning {
         coupleId,
         reden: "feestdag",
         feestdag: feestdag.code,
+        naam: feestdag.naam,
       });
       geraakt.push(dag);
     }
@@ -116,12 +124,17 @@ export function maakSeizoensplanning(invoer: Invoer): Planning {
     }
   }
 
-  // 3. Handmatige wissels: per week, aangeduid met de maandag van die week.
-  for (const [maandag, coupleId] of Object.entries(invoer.overrides ?? {})) {
+  // 3. Zelf ingeplande weken winnen van alles, inclusief de feestdagen.
+  for (const [maandag, wens] of Object.entries(invoer.overrides ?? {})) {
     for (let i = 0; i < 7; i++) {
       const dag = plusDagen(maandag, i);
       if (!inSeizoen.has(dag)) continue;
-      eigenaars.set(dag, { coupleId, reden: "handmatig", feestdag: null });
+      eigenaars.set(dag, {
+        coupleId: wens.coupleId,
+        reden: "handmatig",
+        feestdag: null,
+        naam: wens.naam?.trim() ? wens.naam.trim() : null,
+      });
     }
   }
 
@@ -135,6 +148,7 @@ export function maakSeizoensplanning(invoer: Invoer): Planning {
       laatste.coupleId === eigenaar.coupleId &&
       laatste.reden === eigenaar.reden &&
       laatste.feestdag === eigenaar.feestdag &&
+      laatste.naam === eigenaar.naam &&
       plusDagen(laatste.tot, 1) === dag
     ) {
       laatste.tot = dag;
@@ -147,6 +161,7 @@ export function maakSeizoensplanning(invoer: Invoer): Planning {
       coupleId: eigenaar.coupleId,
       reden: eigenaar.reden,
       feestdag: eigenaar.feestdag,
+      naam: eigenaar.naam,
       aantalDagen: 1,
     });
   }
