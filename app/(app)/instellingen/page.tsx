@@ -6,7 +6,8 @@ import NamenFormulier from "@/components/NamenFormulier";
 import PinFormulier from "@/components/PinFormulier";
 import NieuweCategorie from "@/components/NieuweCategorie";
 import BonanalyseFormulier from "@/components/BonanalyseFormulier";
-import { sleutelStatus } from "@/lib/instellingen";
+import { agendaStatus, sleutelStatus } from "@/lib/instellingen";
+import AgendaFormulier from "@/components/AgendaFormulier";
 
 const invoer = "rounded-lg border border-rand bg-achtergrond px-3 py-2 text-sm";
 
@@ -96,6 +97,16 @@ export default async function InstellingenPagina() {
           cent per uitgelezen bon.
         </p>
         <BonanalyseFormulier status={await sleutelStatus()} />
+      </section>
+
+      <section className="rounded-xl border border-rand bg-paneel p-4">
+        <h2 className="mb-1 text-sm font-medium">Google-agenda</h2>
+        <p className="mb-4 text-xs text-gedempt">
+          Voor de vaarplanning. Een serviceaccount hoeft niet elke week opnieuw
+          toestemming te geven, in tegenstelling tot inloggen met je eigen
+          Google-account.
+        </p>
+        <AgendaFormulier status={await agendaStatus()} />
       </section>
 
       <section className="rounded-xl border border-rand bg-paneel p-4">

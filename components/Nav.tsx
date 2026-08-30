@@ -8,6 +8,7 @@ const LINKS = [
   { href: "/", label: "Dashboard" },
   { href: "/uitgaven", label: "Uitgaven" },
   { href: "/verrekening", label: "Verrekening" },
+  { href: "/vaarplanning", label: "Vaarplanning" },
   { href: "/documenten", label: "Documenten" },
   { href: "/vaste-lasten", label: "Vaste lasten" },
   { href: "/instellingen", label: "Instellingen" },

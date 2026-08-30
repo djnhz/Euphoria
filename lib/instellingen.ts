@@ -172,3 +172,79 @@ export async function zetOpenAiModel(model: string) {
   if (schoon === "") await wis(SLEUTEL_MODEL);
   else await schrijf(SLEUTEL_MODEL, schoon);
 }
+
+const SLEUTEL_GOOGLE = "google_service_account";
+const SLEUTEL_AGENDA = "google_calendar_id";
+
+export type AgendaStatus = {
+  /** Serviceaccount aanwezig en leesbaar. */
+  gekoppeld: boolean;
+  /** Het e-mailadres waarmee je de agenda moet delen. */
+  serviceEmail: string | null;
+  agendaId: string | null;
+  onleesbaar: boolean;
+};
+
+type ServiceAccount = { client_email: string; private_key: string };
+
+/** De sleutel zelf; alleen voor servercode die Google aanroept. */
+export async function googleServiceAccount(): Promise<ServiceAccount | null> {
+  const opgeslagen = await leesRuw(SLEUTEL_GOOGLE);
+  if (!opgeslagen) return null;
+  const leesbaar = ontsleutel(opgeslagen);
+  if (!leesbaar) return null;
+  try {
+    const ontleed = JSON.parse(leesbaar) as Partial<ServiceAccount>;
+    if (!ontleed.client_email || !ontleed.private_key) return null;
+    return { client_email: ontleed.client_email, private_key: ontleed.private_key };
+  } catch {
+    return null;
+  }
+}
+
+export async function googleAgendaId(): Promise<string | null> {
+  return leesRuw(SLEUTEL_AGENDA);
+}
+
+export async function agendaStatus(): Promise<AgendaStatus> {
+  const agendaId = await googleAgendaId();
+  const opgeslagen = await leesRuw(SLEUTEL_GOOGLE);
+  if (!opgeslagen) {
+    return { gekoppeld: false, serviceEmail: null, agendaId, onleesbaar: false };
+  }
+  const account = await googleServiceAccount();
+  return {
+    gekoppeld: account !== null,
+    serviceEmail: account?.client_email ?? null,
+    agendaId,
+    onleesbaar: account === null,
+  };
+}
+
+/** Geeft het e-mailadres terug waarmee de agenda gedeeld moet worden. */
+export async function zetGoogleServiceAccount(json: string): Promise<string> {
+  let ontleed: Partial<ServiceAccount>;
+  try {
+    ontleed = JSON.parse(json) as Partial<ServiceAccount>;
+  } catch {
+    throw new Error("Dit is geen geldige JSON. Plak het hele sleutelbestand.");
+  }
+  if (!ontleed.client_email || !ontleed.private_key) {
+    throw new Error(
+      "In deze JSON ontbreekt client_email of private_key. Dit lijkt geen serviceaccountsleutel.",
+    );
+  }
+  await schrijf(SLEUTEL_GOOGLE, versleutel(json));
+  return ontleed.client_email;
+}
+
+export async function zetGoogleAgendaId(agendaId: string) {
+  const schoon = agendaId.trim();
+  if (schoon === "") await wis(SLEUTEL_AGENDA);
+  else await schrijf(SLEUTEL_AGENDA, schoon);
+}
+
+export async function ontkoppelGoogle() {
+  await wis(SLEUTEL_GOOGLE);
+  await wis(SLEUTEL_AGENDA);
+}

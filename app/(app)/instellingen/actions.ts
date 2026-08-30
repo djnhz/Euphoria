@@ -11,8 +11,12 @@ import {
   verwijderOpenAiSleutel,
   zetOpenAiModel,
   zetOpenAiSleutel,
+  ontkoppelGoogle,
+  zetGoogleAgendaId,
+  zetGoogleServiceAccount,
 } from "@/lib/instellingen";
 import { testOpenAi } from "@/lib/receipt";
+import { testAgenda } from "@/lib/agenda";
 
 export type MeldingState = { fout?: string; gelukt?: string } | null;
 
@@ -160,4 +164,56 @@ export async function testOpenAiAction(
   await vereisGebruiker();
   const resultaat = await testOpenAi();
   return resultaat.ok ? { gelukt: resultaat.melding } : { fout: resultaat.fout };
+}
+
+export async function bewaarAgendaAction(
+  _vorige: MeldingState,
+  formData: FormData,
+): Promise<MeldingState> {
+  await vereisGebruiker();
+
+  const agendaId = String(formData.get("agendaId") ?? "").trim();
+  if (agendaId.length > 300) return { fout: "Dat agenda-ID is wel erg lang." };
+  await zetGoogleAgendaId(agendaId);
+
+  // Leeg sleutelveld betekent: alleen het agenda-ID bijwerken.
+  const json = String(formData.get("serviceAccount") ?? "").trim();
+  if (json === "") {
+    revalidatePath("/instellingen");
+    revalidatePath("/vaarplanning");
+    return { gelukt: "Agenda-ID opgeslagen." };
+  }
+
+  try {
+    const email = await zetGoogleServiceAccount(json);
+    revalidatePath("/instellingen");
+    revalidatePath("/vaarplanning");
+    return {
+      gelukt: `Opgeslagen. Deel de agenda met ${email} en geef die rechten om afspraken te wijzigen.`,
+    };
+  } catch (fout) {
+    return { fout: (fout as Error).message };
+  }
+}
+
+export async function testAgendaAction(
+  _vorige: MeldingState,
+  _formData: FormData,
+): Promise<MeldingState> {
+  await vereisGebruiker();
+  const resultaat = await testAgenda();
+  return "fout" in resultaat
+    ? { fout: resultaat.fout }
+    : { gelukt: resultaat.melding };
+}
+
+export async function ontkoppelAgendaAction(
+  _vorige: MeldingState,
+  _formData: FormData,
+): Promise<MeldingState> {
+  await vereisGebruiker();
+  await ontkoppelGoogle();
+  revalidatePath("/instellingen");
+  revalidatePath("/vaarplanning");
+  return { gelukt: "Agenda ontkoppeld." };
 }
