@@ -79,6 +79,7 @@ export default async function VaarplanningPagina({
           volgorde: h.volgorde,
         }))}
         eigenUserId={gebruiker.id}
+        eigenNaam={gebruiker.naam}
       />
     </div>
   );

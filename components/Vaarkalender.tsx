@@ -26,6 +26,7 @@ export default function Vaarkalender({
   reserveringen,
   huishoudens,
   eigenUserId,
+  eigenNaam,
 }: {
   jaar: number;
   maand: number;
@@ -33,11 +34,14 @@ export default function Vaarkalender({
   reserveringen: Reservering[];
   huishoudens: { id: number; naam: string; volgorde: number }[];
   eigenUserId: number;
+  /** Standaardtitel voor een nieuwe reservering; je mag hem overschrijven. */
+  eigenNaam: string;
 }) {
   const [state, reserveer, bezig] = useActionState<ReserveerState, FormData>(
     reserveerAction,
     null,
   );
+  const [titel, setTitel] = useState(eigenNaam);
   const [van, setVan] = useState(vandaag);
   const [totEnMet, setTotEnMet] = useState(vandaag);
 
@@ -150,9 +154,19 @@ export default function Vaarkalender({
 
       <form
         action={reserveer}
-        className="grid gap-3 rounded-xl border border-rand bg-paneel p-4 sm:grid-cols-[1fr_1fr_2fr_auto]"
+        className="grid gap-3 rounded-xl border border-rand bg-paneel p-4 sm:grid-cols-[1.2fr_1fr_1fr_1.5fr_auto]"
       >
         <input type="hidden" name="tochDoorgaan" value={tochDoorgaan} />
+        <Veld label="Titel in de agenda">
+          <input
+            name="titel"
+            value={titel}
+            onChange={(e) => setTitel(e.target.value)}
+            required
+            maxLength={120}
+            className={invoer}
+          />
+        </Veld>
         <Veld label="Van">
           <input
             type="date"
@@ -196,7 +210,7 @@ export default function Vaarkalender({
 
         {state && (
           <p
-            className={`text-sm sm:col-span-4 ${
+            className={`text-sm sm:col-span-5 ${
               state.soort === "fout"
                 ? "text-slecht"
                 : state.soort === "overlap"

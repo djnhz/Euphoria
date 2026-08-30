@@ -10,6 +10,7 @@ import {
 } from "@/lib/agenda";
 
 const ReserveringInvoer = z.object({
+  titel: z.string().trim().min(1, "Vul een titel in").max(120),
   van: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Ongeldige begindatum"),
   totEnMet: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Ongeldige einddatum"),
   opmerking: z.string().trim().max(500),
@@ -30,6 +31,7 @@ export async function reserveerAction(
   const gebruiker = await vereisGebruiker();
 
   const gelezen = ReserveringInvoer.safeParse({
+    titel: formData.get("titel"),
     van: formData.get("van"),
     totEnMet: formData.get("totEnMet"),
     opmerking: formData.get("opmerking") ?? "",
@@ -65,7 +67,7 @@ export async function reserveerAction(
   const resultaat = await maakReservering({
     van: invoer.van,
     totEnMet: invoer.totEnMet,
-    titel: gebruiker.naam,
+    titel: invoer.titel,
     opmerking: invoer.opmerking,
     userId: gebruiker.id,
     coupleId: gebruiker.coupleId,
