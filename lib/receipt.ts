@@ -3,7 +3,7 @@ import OpenAI from "openai";
 import sharp from "sharp";
 import { z } from "zod";
 import { zodResponseFormat } from "openai/helpers/zod";
-import { put } from "@vercel/blob";
+import { bewaarBestand, leesBestand } from "./opslag";
 import { openAiModel, openAiSleutel } from "./instellingen";
 
 /**
@@ -40,13 +40,23 @@ export async function maakVoorbeeld(
   origineelUrl: string,
   basisnaam: string,
 ): Promise<{ url: string; base64: string } | null> {
-  const antwoord = await fetch(origineelUrl);
-  if (!antwoord.ok) return null;
-  const bron = Buffer.from(await antwoord.arrayBuffer());
+  const bron = await leesBestand(origineelUrl);
+  if (!bron) return null;
 
-  let klein: Buffer;
+  const klein = await verklein(bron);
+  if (!klein) return null;
+
+  const bewaard = await bewaarBestand(
+    `voorbeeld-${basisnaam}.jpg`,
+    "image/jpeg",
+    klein,
+  );
+  return { url: bewaard.url, base64: klein.toString("base64") };
+}
+
+async function verklein(bron: Buffer): Promise<Buffer | null> {
   try {
-    klein = await sharp(bron)
+    return await sharp(bron)
       .rotate() // respecteer de EXIF-oriëntatie van de telefoon
       .resize({
         width: MAX_ZIJDE_PX,
@@ -57,23 +67,61 @@ export async function maakVoorbeeld(
       .jpeg({ quality: 85 })
       .toBuffer();
   } catch {
-    return null; // geen afbeelding (bijvoorbeeld een PDF)
+    return null; // geen afbeelding, bijvoorbeeld een PDF
   }
+}
 
-  const blob = await put(`voorbeeld/${basisnaam}.jpg`, klein, {
-    access: "public",
-    contentType: "image/jpeg",
-    addRandomSuffix: true,
-  });
-  return { url: blob.url, base64: klein.toString("base64") };
+/** De base64 van de verkleinde kopie, of null als het bestand geen afbeelding is. */
+export async function voorbeeldBase64(url: string): Promise<string | null> {
+  const inhoud = await leesBestand(url);
+  if (!inhoud) return null;
+  const klein = await verklein(inhoud);
+  return klein?.toString("base64") ?? null;
+}
+
+/**
+ * Tekst uit een PDF. Een gewone factuur is digitaal opgemaakt, dus die tekst is
+ * exact — nauwkeuriger én goedkoper dan de bladzijde als plaatje laten bekijken.
+ * Een gescande PDF levert niets op; dat merk je aan een (bijna) lege uitkomst.
+ */
+export async function pdfTekst(url: string): Promise<string | null> {
+  const inhoud = await leesBestand(url);
+  if (!inhoud) return null;
+  try {
+    const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+    const document = await pdfjs.getDocument({
+      data: new Uint8Array(inhoud),
+      useSystemFonts: true,
+    }).promise;
+
+    const bladzijden: string[] = [];
+    for (let nummer = 1; nummer <= document.numPages; nummer++) {
+      const bladzijde = await document.getPage(nummer);
+      const stukken = await bladzijde.getTextContent();
+      bladzijden.push(
+        stukken.items
+          .map((stuk) => ("str" in stuk ? stuk.str : ""))
+          .join(" "),
+      );
+    }
+    const tekst = bladzijden.join("\n").replace(/\s+/g, " ").trim();
+    return tekst.length > 20 ? tekst : null;
+  } catch {
+    return null;
+  }
 }
 
 export type AnalyseResultaat =
   | { ok: true; bon: Bon }
   | { ok: false; fout: string };
 
+/** Een foto gaat als plaatje naar het model, een PDF als de tekst die erin staat. */
+export type AnalyseBron =
+  | { soort: "afbeelding"; base64: string }
+  | { soort: "tekst"; tekst: string };
+
 export async function analyseerBon(
-  afbeeldingBase64: string,
+  bron: AnalyseBron,
   categorieNamen: string[],
 ): Promise<AnalyseResultaat> {
   const sleutel = await openAiSleutel();
@@ -86,19 +134,29 @@ export async function analyseerBon(
 
   const client = new OpenAI({ apiKey: sleutel });
   const prompt = [
-    "Je leest een kassabon of factuur van een Nederlandse leverancier.",
+    bron.soort === "tekst"
+      ? "Hieronder staat de tekst van een kassabon of factuur van een Nederlandse leverancier."
+      : "Je leest een kassabon of factuur van een Nederlandse leverancier.",
     "Geef per artikelregel een aparte regel terug. Sla subtotalen, btw-regels,",
-    "kortingen op het totaal, statiegeld-teruggave en het eindtotaal over.",
+    "verzendkosten-uitsplitsingen, kortingen op het totaal, statiegeld-teruggave",
+    "en het eindtotaal over.",
     "",
     "Bedragen in hele centen als geheel getal: 12,34 euro wordt 1234.",
     "Gebruik het regelbedrag inclusief btw, dus wat er daadwerkelijk betaald is.",
-    "Bij meerdere stuks is bedragCent het totaal voor die regel, niet de stuksprijs.",
+    "Staan er per regel twee bedragen, een prijs exclusief btw en een subtotaal",
+    "inclusief btw, neem dan het bedrag inclusief btw.",
+    "De som van je regels hoort gelijk te zijn aan het eindtotaal op de bon.",
+    "Bij meerdere stuks is aantal dat aantal en bedragCent het totaal voor die regel,",
+    "niet de stuksprijs.",
     "",
-    "datum is ISO (JJJJ-MM-DD). Kun je hem niet lezen, geef dan een lege string.",
+    "datum is de bon- of factuurdatum in ISO (JJJJ-MM-DD), niet de besteldatum als",
+    "die verschilt. Kun je hem niet lezen, geef dan een lege string.",
+    "leverancier is de naam van de winkel of het bedrijf, niet de klant.",
     "",
     "Kies categorieSuggestie uit precies deze lijst:",
     categorieNamen.join(", "),
     "Weet je het niet zeker, kies dan Overig.",
+    ...(bron.soort === "tekst" ? ["", "--- begin tekst ---", bron.tekst] : []),
   ].join("\n");
 
   try {
@@ -107,16 +165,19 @@ export async function analyseerBon(
       messages: [
         {
           role: "user",
-          content: [
-            { type: "text", text: prompt },
-            {
-              type: "image_url",
-              image_url: {
-                url: `data:image/jpeg;base64,${afbeeldingBase64}`,
-                detail: "high",
-              },
-            },
-          ],
+          content:
+            bron.soort === "tekst"
+              ? prompt
+              : [
+                  { type: "text", text: prompt },
+                  {
+                    type: "image_url",
+                    image_url: {
+                      url: `data:image/jpeg;base64,${bron.base64}`,
+                      detail: "high",
+                    },
+                  },
+                ],
         },
       ],
       response_format: zodResponseFormat(BonSchema, "bon"),

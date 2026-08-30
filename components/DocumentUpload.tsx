@@ -6,7 +6,7 @@ import { upload } from "@vercel/blob/client";
 import { registreerDocumentAction } from "@/app/(app)/documenten/actions";
 import { MAPPEN, type DocumentMap } from "@/lib/mappen";
 
-export default function DocumentUpload() {
+export default function DocumentUpload({ heeftBlob }: { heeftBlob: boolean }) {
   const router = useRouter();
   const [map, setMap] = useState<DocumentMap>("overig");
   const [bezig, setBezig] = useState(false);
@@ -17,12 +17,38 @@ export default function DocumentUpload() {
     setFout(null);
     try {
       for (const bestand of Array.from(bestanden)) {
-        const blob = await upload(bestand.name, bestand, {
-          access: "public",
-          handleUploadUrl: "/api/blob",
-        });
+        let url: string;
+        let opslag: "blob" | "lokaal";
+
+        if (heeftBlob) {
+          // Rechtstreeks naar Blob, want een server mag maar 4,5 MB ontvangen.
+          const blob = await upload(bestand.name, bestand, {
+            access: "public",
+            handleUploadUrl: "/api/blob",
+          });
+          url = blob.url;
+          opslag = "blob";
+        } else {
+          const formulier = new FormData();
+          formulier.set("bestand", bestand);
+          const antwoord = await fetch("/api/upload", {
+            method: "POST",
+            body: formulier,
+          });
+          const uitkomst = (await antwoord.json()) as {
+            url?: string;
+            fout?: string;
+          };
+          if (!antwoord.ok || !uitkomst.url) {
+            throw new Error(uitkomst.fout ?? "Uploaden mislukt.");
+          }
+          url = uitkomst.url;
+          opslag = "lokaal";
+        }
+
         await registreerDocumentAction({
-          url: blob.url,
+          url,
+          opslag,
           naam: bestand.name,
           mime: bestand.type || "application/octet-stream",
           grootteBytes: bestand.size,

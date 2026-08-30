@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "node --test test/**/*.test.ts",
-    "db:push": "drizzle-kit push",
+    "db:push": "tsx db/vrij.ts && drizzle-kit push",
     "seed": "tsx db/seed.ts",
     "db:smoke": "tsx db/smoke.ts"
   },
@@ -20,6 +20,7 @@
     "iron-session": "^8.0.4",
     "next": "16.3.3",
     "openai": "^7.8.0",
+    "pdfjs-dist": "^6.3.289",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "server-only": "^0.0.1",

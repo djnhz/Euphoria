@@ -23,9 +23,10 @@ npm run seed
 npm run dev
 ```
 
-Bonnen uploaden werkt in die opzet niet — daar is een `BLOB_READ_WRITE_TOKEN` voor nodig.
-De app blijft wel gewoon werken: de upload meldt netjes dat het misging en je vult de
-regels zelf in.
+Uploads werken ook zonder `BLOB_READ_WRITE_TOKEN`: bestanden komen dan in `.uploads/`
+naast het project te staan en worden uitgeserveerd via `/api/bestand`, alleen aan wie is
+ingelogd. Op Vercel is die token wel verplicht — daar is geen schijf die een deploy
+overleeft.
 
 PGlite is single-writer. Stop de dev-server voordat je `db:push`, `seed` of `db:smoke`
 draait, anders praten twee processen tegelijk tegen dezelfde map en ziet de draaiende
@@ -95,6 +96,18 @@ weer verwijderd, ook als er iets misgaat.
 - **Pincodes** worden gehasht met `crypto.scrypt`. De echte bescherming is de teller: vijf
   mislukte pogingen en het account ligt een kwartier op slot. Zonder die rem is een code
   van vier cijfers in seconden te raden.
+
+## Bon uploaden en uitlezen
+
+Dit zijn twee losse stappen. **Uploaden slaat altijd op**: het bestand staat vast zodra het
+binnen is, ongeacht of er een OpenAI-sleutel is en of het uitlezen later lukt. Pas als je
+bij de miniatuur op **Analyseren** klikt gaat er een verkleinde kopie naar het model, en
+vult het antwoord de regels van het formulier. Dat kan zo vaak als je wilt, en de regels
+blijven daarna gewoon aanpasbaar; wat uit een bon kwam is gemerkt met "uit bon".
+
+Grote bestanden gaan met Blob rechtstreeks vanuit de browser naar de opslag, want een
+server mag maar 4,5 MB per verzoek ontvangen en een telefoonfoto is zo 12 MB. Zonder Blob
+loopt het via `/api/upload`, wat lokaal prima werkt.
 
 ## De OpenAI-sleutel
 

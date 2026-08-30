@@ -3,16 +3,19 @@ import { db, categories, couples } from "@/db";
 import { vereisGebruiker } from "@/lib/auth";
 import UitgaveFormulier from "@/components/UitgaveFormulier";
 import { bewaarUitgaveAction } from "../actions";
+import { heeftBlob } from "@/lib/opslag";
+import { sleutelStatus } from "@/lib/instellingen";
 
 export default async function NieuweUitgave() {
   const gebruiker = await vereisGebruiker();
-  const [categorieLijst, huishoudens] = await Promise.all([
+  const [categorieLijst, huishoudens, sleutel] = await Promise.all([
     db
       .select({ id: categories.id, naam: categories.naam })
       .from(categories)
       .where(eq(categories.actief, true))
       .orderBy(asc(categories.naam)),
     db.select().from(couples).orderBy(asc(couples.volgorde)),
+    sleutelStatus(),
   ]);
 
   return (
@@ -24,8 +27,9 @@ export default async function NieuweUitgave() {
         // Wie invoert, heeft meestal zelf betaald.
         begin={{ coupleId: gebruiker.coupleId }}
         actie={bewaarUitgaveAction}
-        toonUpload
         knopLabel="Opslaan"
+        heeftBlob={heeftBlob()}
+        heeftSleutel={sleutel.ingesteld}
       />
     </div>
   );

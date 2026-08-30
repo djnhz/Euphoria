@@ -115,7 +115,7 @@ export const recurring = pgTable("recurring", {
   actief: boolean("actief").notNull().default(true),
 });
 
-export type Opslag = "blob" | "drive";
+export type Opslag = "blob" | "lokaal" | "drive";
 
 /**
  * Een bon is gewoon een document met een gevulde `expenseId`. Daardoor is er een

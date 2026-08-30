@@ -6,6 +6,8 @@ import { vereisGebruiker } from "@/lib/auth";
 import { uitgaveMetRegels } from "@/lib/data";
 import UitgaveFormulier from "@/components/UitgaveFormulier";
 import { wijzigUitgaveAction } from "../../actions";
+import { heeftBlob } from "@/lib/opslag";
+import { sleutelStatus } from "@/lib/instellingen";
 
 export default async function UitgaveBewerken({
   params,
@@ -17,13 +19,14 @@ export default async function UitgaveBewerken({
   const uitgave = await uitgaveMetRegels(id);
   if (!uitgave) notFound();
 
-  const [categorieLijst, huishoudens] = await Promise.all([
+  const [categorieLijst, huishoudens, sleutel] = await Promise.all([
     db
       .select({ id: categories.id, naam: categories.naam })
       .from(categories)
       .where(eq(categories.actief, true))
       .orderBy(asc(categories.naam)),
     db.select().from(couples).orderBy(asc(couples.volgorde)),
+    sleutelStatus(),
   ]);
 
   return (
@@ -56,11 +59,13 @@ export default async function UitgaveBewerken({
             naam: bon.naam,
             voorbeeldUrl: bon.voorbeeldUrl,
             url: bon.url,
+            analyseerbaar: bon.voorbeeldUrl !== null,
           })),
         }}
         actie={wijzigUitgaveAction.bind(null, id)}
-        toonUpload={false}
         knopLabel="Wijzigingen opslaan"
+        heeftBlob={heeftBlob()}
+        heeftSleutel={sleutel.ingesteld}
       />
     </div>
   );

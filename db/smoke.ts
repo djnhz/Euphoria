@@ -13,6 +13,7 @@ import {
 import { genereerVasteLasten, haalRegels } from "../lib/data";
 import { saldoCent } from "../lib/geld";
 import { vandaag } from "../lib/datum";
+import { vereisGeenDraaiendeServer } from "./vrij";
 
 /**
  * Draait de databasepaden een keer echt: verdelen, saldo en het lui aanmaken van
@@ -45,6 +46,8 @@ async function ruimOp() {
 }
 
 async function main() {
+  await vereisGeenDraaiendeServer();
+
   const huishoudens = await db
     .select()
     .from(couples)

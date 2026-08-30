@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
-import { del } from "@vercel/blob";
+import { verwijderBestand } from "@/lib/opslag";
 import { z } from "zod";
 import { db, documents } from "@/db";
 import { vereisGebruiker } from "@/lib/auth";
@@ -10,7 +10,8 @@ import { maakVoorbeeld } from "@/lib/receipt";
 import { MAPPEN } from "@/lib/mappen";
 
 const DocumentInvoer = z.object({
-  url: z.string().url(),
+  url: z.string().min(1).max(2000),
+  opslag: z.enum(["blob", "lokaal", "drive"]),
   naam: z.string().trim().min(1).max(300),
   mime: z.string().max(200),
   grootteBytes: z.number().int().min(0),
@@ -34,6 +35,7 @@ export async function registreerDocumentAction(
     map: invoer.map,
     mime: invoer.mime,
     grootteBytes: invoer.grootteBytes,
+    opslag: invoer.opslag,
     url: invoer.url,
     voorbeeldUrl: voorbeeld?.url ?? null,
     expenseId: invoer.expenseId,
@@ -57,7 +59,7 @@ export async function verwijderDocumentAction(formData: FormData) {
   const teVerwijderen = [rij.url, rij.voorbeeldUrl].filter(
     (url): url is string => Boolean(url),
   );
-  await Promise.allSettled(teVerwijderen.map((url) => del(url)));
+  await Promise.allSettled(teVerwijderen.map((url) => verwijderBestand(url)));
 
   revalidatePath("/documenten");
 }

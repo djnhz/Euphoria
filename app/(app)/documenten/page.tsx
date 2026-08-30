@@ -3,6 +3,7 @@ import { db, documents, expenses, users } from "@/db";
 import { vereisGebruiker } from "@/lib/auth";
 import DocumentUpload from "@/components/DocumentUpload";
 import DocumentLijst from "@/components/DocumentLijst";
+import { heeftBlob } from "@/lib/opslag";
 
 export default async function DocumentenPagina() {
   await vereisGebruiker();
@@ -33,7 +34,7 @@ export default async function DocumentenPagina() {
         Polissen, meetbrieven, facturen en handleidingen. Bonnen die bij een
         uitgave horen staan hier ook.
       </p>
-      <DocumentUpload />
+      <DocumentUpload heeftBlob={heeftBlob()} />
       <DocumentLijst
         rijen={rijen.map((rij) => ({
           ...rij,

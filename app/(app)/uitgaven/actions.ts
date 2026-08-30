@@ -6,7 +6,15 @@ import { and, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { db, categories, documents, expenseLines, expenses } from "@/db";
 import { vereisGebruiker } from "@/lib/auth";
-import { analyseerBon, maakVoorbeeld, type Bon } from "@/lib/receipt";
+import { verwijderBestand } from "@/lib/opslag";
+import {
+  analyseerBon,
+  maakVoorbeeld,
+  pdfTekst,
+  voorbeeldBase64,
+  type AnalyseBron,
+  type Bon,
+} from "@/lib/receipt";
 
 /**
  * Alles wat hier binnenkomt is invoer van de browser en wordt daarom gevalideerd,
@@ -125,55 +133,105 @@ export async function wijzigUitgaveAction(
 
 export async function verwijderUitgaveAction(id: number) {
   await vereisGebruiker();
-  // Regels en gekoppelde documentrijen gaan mee via de cascade in het schema.
+
+  // De cascade in het schema ruimt de rijen op, maar niet de bestanden erachter.
+  // Die eerst ophalen, anders blijven ze voorgoed staan en kosten ze opslag.
+  const bestanden = await db
+    .select({ url: documents.url, voorbeeldUrl: documents.voorbeeldUrl })
+    .from(documents)
+    .where(eq(documents.expenseId, id));
+
   await db.delete(expenses).where(eq(expenses.id, id));
+  await Promise.allSettled(
+    bestanden
+      .flatMap((bestand) => [bestand.url, bestand.voorbeeldUrl])
+      .filter((url): url is string => Boolean(url))
+      .map((url) => verwijderBestand(url)),
+  );
+
   revalidatePath("/");
   revalidatePath("/uitgaven");
+  revalidatePath("/documenten");
   redirect("/uitgaven");
 }
 
-export type AnalyseAntwoord = {
+
+const BestandInvoer = z.object({
+  url: z.string().min(1).max(2000),
+  opslag: z.enum(["blob", "lokaal", "drive"]),
+  naam: z.string().trim().min(1).max(300),
+  mime: z.string().max(200),
+  grootteBytes: z.number().int().min(0),
+});
+
+export type BewaardeBon = {
   documentId: number;
+  naam: string;
+  url: string;
   voorbeeldUrl: string | null;
-  bon: Bon | null;
-  fout: string | null;
+  /** Foto of PDF met tekst; een gescande PDF of ander bestand valt af. */
+  analyseerbaar: boolean;
 };
 
 /**
- * Wordt aangeroepen nadat de browser het origineel naar Blob heeft gezet. Slaat het
- * document op, maakt een verkleinde kopie en laat het model de bon lezen.
+ * Opslaan gebeurt altijd en staat los van de analyse: het bestand is bewaard zodra het
+ * binnen is, ook zonder OpenAI-sleutel of als het uitlezen later misgaat.
  */
-export async function analyseerUploadAction(bestand: {
-  url: string;
-  naam: string;
-  mime: string;
-  grootteBytes: number;
-}): Promise<AnalyseAntwoord> {
+export async function bewaarBonAction(
+  ruw: z.input<typeof BestandInvoer>,
+): Promise<BewaardeBon> {
   const gebruiker = await vereisGebruiker();
+  const invoer = BestandInvoer.parse(ruw);
 
-  const voorbeeld = bestand.mime.startsWith("image/")
-    ? await maakVoorbeeld(bestand.url, bestand.naam.replace(/\.[^.]+$/, ""))
+  const voorbeeld = invoer.mime.startsWith("image/")
+    ? await maakVoorbeeld(invoer.url, invoer.naam.replace(/\.[^.]+$/, ""))
     : null;
 
   const [document] = await db
     .insert(documents)
     .values({
-      naam: bestand.naam,
+      naam: invoer.naam,
       map: "bon",
-      mime: bestand.mime,
-      grootteBytes: bestand.grootteBytes,
-      url: bestand.url,
+      mime: invoer.mime,
+      grootteBytes: invoer.grootteBytes,
+      opslag: invoer.opslag,
+      url: invoer.url,
       voorbeeldUrl: voorbeeld?.url ?? null,
       geuploadDoor: gebruiker.id,
     })
     .returning({ id: documents.id });
 
-  if (!voorbeeld) {
+  revalidatePath("/documenten");
+  return {
+    documentId: document.id,
+    naam: invoer.naam,
+    url: invoer.url,
+    voorbeeldUrl: voorbeeld?.url ?? null,
+    analyseerbaar: voorbeeld !== null || invoer.mime === "application/pdf",
+  };
+}
+
+export type AnalyseAntwoord = { bon: Bon | null; fout: string | null };
+
+/** Wordt met de hand gestart vanuit het formulier, nooit vanzelf bij het uploaden. */
+export async function analyseerDocumentAction(
+  documentId: number,
+): Promise<AnalyseAntwoord> {
+  await vereisGebruiker();
+
+  const [document] = await db
+    .select()
+    .from(documents)
+    .where(eq(documents.id, documentId));
+  if (!document) return { bon: null, fout: "Dat bestand bestaat niet meer." };
+
+  const bron = await kiesBron(document.mime, document.url, document.voorbeeldUrl);
+  if (!bron) {
     return {
-      documentId: document.id,
-      voorbeeldUrl: null,
       bon: null,
-      fout: "Dit bestand is geen afbeelding, dus vul de regels zelf in.",
+      fout: document.mime === "application/pdf"
+        ? "Deze PDF bevat geen tekst, waarschijnlijk een scan. Fotografeer hem of vul de regels zelf in."
+        : "Uit dit bestand valt niets uit te lezen.",
     };
   }
 
@@ -183,14 +241,25 @@ export async function analyseerUploadAction(bestand: {
     .where(eq(categories.actief, true));
 
   const resultaat = await analyseerBon(
-    voorbeeld.base64,
+    bron,
     actieveCategorieen.map((c) => c.naam),
   );
+  return resultaat.ok
+    ? { bon: resultaat.bon, fout: null }
+    : { bon: null, fout: resultaat.fout };
+}
 
-  return {
-    documentId: document.id,
-    voorbeeldUrl: voorbeeld.url,
-    bon: resultaat.ok ? resultaat.bon : null,
-    fout: resultaat.ok ? null : resultaat.fout,
-  };
+/** Een PDF gaat als tekst naar het model, een foto als plaatje. */
+async function kiesBron(
+  mime: string,
+  url: string,
+  voorbeeldUrl: string | null,
+): Promise<AnalyseBron | null> {
+  if (mime === "application/pdf") {
+    const tekst = await pdfTekst(url);
+    return tekst ? { soort: "tekst", tekst } : null;
+  }
+  // Liever de al verkleinde kopie: die is klaar en scheelt het origineel opnieuw halen.
+  const base64 = await voorbeeldBase64(voorbeeldUrl ?? url);
+  return base64 ? { soort: "afbeelding", base64 } : null;
 }

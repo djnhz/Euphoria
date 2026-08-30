@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { db, couples, users, categories } from "./index";
 import { hashPin } from "../lib/pin";
+import { vereisGeenDraaiendeServer } from "./vrij";
 
 /** Pas deze namen aan voordat je seedt; wijzigen kan later ook via Instellingen. */
 const HUISHOUDENS = [
@@ -24,6 +25,8 @@ function willekeurigePin() {
 }
 
 async function main() {
+  await vereisGeenDraaiendeServer();
+
   if ((await db.select().from(couples)).length > 0) {
     console.log("Er staan al huishoudens in de database. Seed overgeslagen.");
     return;

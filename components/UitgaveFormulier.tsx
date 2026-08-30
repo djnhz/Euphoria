@@ -6,7 +6,9 @@ import { upload } from "@vercel/blob/client";
 import { formatEuro, parseEuro, verdeelRegel } from "@/lib/geld";
 import { vandaag } from "@/lib/datum";
 import {
-  analyseerUploadAction,
+  analyseerDocumentAction,
+  bewaarBonAction,
+  type BewaardeBon,
   type BewaarState,
 } from "@/app/(app)/uitgaven/actions";
 
@@ -23,20 +25,13 @@ export type FormulierRegel = {
   bron: "handmatig" | "ai";
 };
 
-export type FormulierBon = {
-  documentId: number;
-  naam: string;
-  voorbeeldUrl: string | null;
-  url: string | null;
-};
-
 export type Beginwaarden = {
   datum: string;
   leverancier: string;
   opmerking: string;
   coupleId: number;
   regels: FormulierRegel[];
-  bonnen: FormulierBon[];
+  bonnen: BewaardeBon[];
 };
 
 let teller = 0;
@@ -59,15 +54,19 @@ export default function UitgaveFormulier({
   huishoudens,
   begin,
   actie,
-  toonUpload,
   knopLabel,
+  heeftBlob,
+  heeftSleutel,
 }: {
   categorieen: Categorie[];
   huishoudens: Huishouden[];
   begin?: Partial<Beginwaarden>;
   actie: (vorige: BewaarState, formData: FormData) => Promise<BewaarState>;
-  toonUpload: boolean;
   knopLabel: string;
+  /** Met Blob gaat de browser er rechtstreeks heen; anders via de eigen uploadroute. */
+  heeftBlob: boolean;
+  /** Zonder OpenAI-sleutel heeft een analyseknop geen zin. */
+  heeftSleutel: boolean;
 }) {
   const standaardCategorie =
     categorieen.find((c) => c.naam === "Overig")?.id ?? categorieen[0]?.id ?? 0;
@@ -81,9 +80,10 @@ export default function UitgaveFormulier({
   const [regels, setRegels] = useState<FormulierRegel[]>(
     begin?.regels?.length ? begin.regels : [legeRegel(standaardCategorie)],
   );
-  const [bonnen, setBonnen] = useState<FormulierBon[]>(begin?.bonnen ?? []);
-  const [bezigMetBon, setBezigMetBon] = useState(false);
-  const [analyseFout, setAnalyseFout] = useState<string | null>(null);
+  const [bonnen, setBonnen] = useState<BewaardeBon[]>(begin?.bonnen ?? []);
+  const [bezigMetUpload, setBezigMetUpload] = useState(false);
+  const [bezigMetAnalyse, setBezigMetAnalyse] = useState<number | null>(null);
+  const [melding, setMelding] = useState<string | null>(null);
 
   const [state, formAction, bewaren] = useActionState<BewaarState, FormData>(
     actie,
@@ -110,63 +110,103 @@ export default function UitgaveFormulier({
     );
   }
 
+  /** Uploaden en bewaren. Gebeurt altijd; het uitlezen is een aparte stap. */
   async function verwerkBestand(bestand: File) {
-    setBezigMetBon(true);
-    setAnalyseFout(null);
+    setBezigMetUpload(true);
+    setMelding(null);
     try {
-      // Het origineel gaat ongewijzigd naar Blob; verkleinen gebeurt pas serverside
-      // voor de kopie die het model leest.
-      const blob = await upload(bestand.name, bestand, {
-        access: "public",
-        handleUploadUrl: "/api/blob",
-      });
-      const antwoord = await analyseerUploadAction({
-        url: blob.url,
+      let url: string;
+      let opslag: "blob" | "lokaal";
+
+      if (heeftBlob) {
+        // Rechtstreeks naar Blob: dat omzeilt de limiet van 4,5 MB op wat een
+        // server-actie mag ontvangen, zodat een telefoonfoto gewoon binnenkomt.
+        const blob = await upload(bestand.name, bestand, {
+          access: "public",
+          handleUploadUrl: "/api/blob",
+        });
+        url = blob.url;
+        opslag = "blob";
+      } else {
+        const formulier = new FormData();
+        formulier.set("bestand", bestand);
+        const antwoord = await fetch("/api/upload", {
+          method: "POST",
+          body: formulier,
+        });
+        const uitkomst = (await antwoord.json()) as {
+          url?: string;
+          fout?: string;
+        };
+        if (!antwoord.ok || !uitkomst.url) {
+          throw new Error(uitkomst.fout ?? "Uploaden mislukt.");
+        }
+        url = uitkomst.url;
+        opslag = "lokaal";
+      }
+
+      const bewaard = await bewaarBonAction({
+        url,
+        opslag,
         naam: bestand.name,
         mime: bestand.type || "application/octet-stream",
         grootteBytes: bestand.size,
       });
-
-      setBonnen((huidig) => [
-        ...huidig,
-        {
-          documentId: antwoord.documentId,
-          naam: bestand.name,
-          voorbeeldUrl: antwoord.voorbeeldUrl,
-          url: blob.url,
-        },
-      ]);
-      setAnalyseFout(antwoord.fout);
-
-      if (antwoord.bon) {
-        const bon = antwoord.bon;
-        if (bon.datum) setDatum(bon.datum);
-        if (bon.leverancier) setLeverancier(bon.leverancier);
-        const uitBon = bon.regels.map<FormulierRegel>((regel) => ({
-          sleutel: nieuweSleutel(),
-          omschrijving: regel.omschrijving,
-          aantal: Math.max(1, Math.round(regel.aantal || 1)),
-          bedrag: (regel.bedragCent / 100).toFixed(2).replace(".", ","),
-          categoryId:
-            categorieen.find((c) => c.naam === regel.categorieSuggestie)?.id ??
-            standaardCategorie,
-          aandeelAPct: 50,
-          bron: "ai",
-        }));
-        if (uitBon.length > 0) {
-          // Lege beginregel weggooien, ingevulde regels behouden.
-          setRegels((huidig) => {
-            const gevuld = huidig.filter(
-              (r) => r.omschrijving.trim() !== "" || r.bedrag.trim() !== "",
-            );
-            return [...gevuld, ...uitBon];
-          });
-        }
-      }
+      setBonnen((huidig) => [...huidig, bewaard]);
+      setMelding(`${bestand.name} is opgeslagen.`);
     } catch (fout) {
-      setAnalyseFout((fout as Error).message);
+      setMelding(`Opslaan mislukt: ${(fout as Error).message}`);
     } finally {
-      setBezigMetBon(false);
+      setBezigMetUpload(false);
+    }
+  }
+
+  async function analyseer(documentId: number) {
+    setBezigMetAnalyse(documentId);
+    setMelding(null);
+    try {
+      const antwoord = await analyseerDocumentAction(documentId);
+      if (antwoord.fout || !antwoord.bon) {
+        setMelding(
+          `${antwoord.fout ?? "Uitlezen mislukt."} Je kunt de regels zelf invullen.`,
+        );
+        return;
+      }
+
+      const bon = antwoord.bon;
+      if (bon.datum) setDatum(bon.datum);
+      if (bon.leverancier) setLeverancier(bon.leverancier);
+
+      const uitBon = bon.regels.map<FormulierRegel>((regel) => ({
+        sleutel: nieuweSleutel(),
+        omschrijving: regel.omschrijving,
+        aantal: Math.max(1, Math.round(regel.aantal || 1)),
+        bedrag: (regel.bedragCent / 100).toFixed(2).replace(".", ","),
+        categoryId:
+          categorieen.find((c) => c.naam === regel.categorieSuggestie)?.id ??
+          standaardCategorie,
+        aandeelAPct: 50,
+        bron: "ai",
+      }));
+
+      if (uitBon.length === 0) {
+        setMelding("Er zijn geen regels uit deze bon te halen.");
+        return;
+      }
+      // Lege beginregels weggooien, ingevulde regels behouden.
+      setRegels((huidig) => [
+        ...huidig.filter(
+          (r) => r.omschrijving.trim() !== "" || r.bedrag.trim() !== "",
+        ),
+        ...uitBon,
+      ]);
+      setMelding(
+        `${uitBon.length} regel${uitBon.length === 1 ? "" : "s"} uitgelezen. Controleer ze even.`,
+      );
+    } catch (fout) {
+      setMelding(`Uitlezen mislukt: ${(fout as Error).message}`);
+    } finally {
+      setBezigMetAnalyse(null);
     }
   }
 
@@ -190,67 +230,89 @@ export default function UitgaveFormulier({
     <form action={formAction} className="flex flex-col gap-4">
       <input type="hidden" name="payload" value={payload} />
 
-      {toonUpload && (
-        <section className="rounded-xl border border-rand bg-paneel p-4">
-          <label className="block text-sm font-medium">Bon of factuur</label>
-          <p className="mb-3 text-xs text-gedempt">
-            Het origineel wordt op volledige resolutie bewaard. Alleen een
-            verkleinde kopie gaat naar de analyse.
-          </p>
-          <input
-            type="file"
-            accept="image/*,application/pdf"
-            capture="environment"
-            disabled={bezigMetBon}
-            onChange={(e) => {
-              const bestand = e.target.files?.[0];
-              if (bestand) void verwerkBestand(bestand);
-              e.target.value = "";
-            }}
-            className="block w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-accent file:px-3 file:py-2 file:text-white"
-          />
-          {bezigMetBon && (
-            <p className="mt-3 text-sm text-gedempt">
-              Uploaden en uitlezen… dit duurt een paar tellen.
-            </p>
-          )}
-          {analyseFout && (
-            <p className="mt-3 rounded-lg bg-accent-zacht p-3 text-sm">
-              {analyseFout} Je kunt de regels hieronder gewoon zelf invullen.
-            </p>
-          )}
-          {bonnen.length > 0 && (
-            <ul className="mt-3 flex flex-wrap gap-3">
-              {bonnen.map((bon) => (
-                <li key={bon.documentId}>
-                  <a
-                    href={bon.url ?? bon.voorbeeldUrl ?? "#"}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="block"
-                    title={`${bon.naam} — origineel openen`}
+      <section className="rounded-xl border border-rand bg-paneel p-4">
+        <label className="block text-sm font-medium">Bon of factuur</label>
+        <p className="mb-3 text-xs text-gedempt">
+          Het bestand wordt meteen opgeslagen op volledige resolutie. Uitlezen doe je
+          daarna zelf met de knop bij het bestand.
+        </p>
+        <input
+          type="file"
+          accept="image/*,application/pdf"
+          capture="environment"
+          disabled={bezigMetUpload}
+          onChange={(e) => {
+            const bestand = e.target.files?.[0];
+            if (bestand) void verwerkBestand(bestand);
+            e.target.value = "";
+          }}
+          className="block w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-accent file:px-3 file:py-2 file:text-white"
+        />
+        {bezigMetUpload && (
+          <p className="mt-3 text-sm text-gedempt">Opslaan…</p>
+        )}
+        {melding && (
+          <p className="mt-3 rounded-lg bg-accent-zacht p-3 text-sm">{melding}</p>
+        )}
+
+        {bonnen.length > 0 && (
+          <ul className="mt-3 flex flex-wrap gap-4">
+            {bonnen.map((bon) => (
+              <li key={bon.documentId} className="w-28">
+                <a
+                  href={bon.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  title={`${bon.naam} — origineel openen`}
+                >
+                  {bon.voorbeeldUrl ? (
+                    <Image
+                      src={bon.voorbeeldUrl}
+                      alt={bon.naam}
+                      width={112}
+                      height={112}
+                      unoptimized
+                      className="h-28 w-28 rounded-lg border border-rand object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-28 w-28 items-center justify-center rounded-lg border border-rand p-2 text-center text-xs text-gedempt">
+                      {bon.naam}
+                    </span>
+                  )}
+                </a>
+                {bon.analyseerbaar ? (
+                  <button
+                    type="button"
+                    disabled={bezigMetAnalyse !== null || !heeftSleutel}
+                    onClick={() => void analyseer(bon.documentId)}
+                    title={
+                      heeftSleutel
+                        ? undefined
+                        : "Stel eerst een OpenAI-sleutel in bij Instellingen"
+                    }
+                    className="mt-2 w-full rounded-lg border border-rand px-2 py-1.5 text-xs disabled:opacity-50"
                   >
-                    {bon.voorbeeldUrl ? (
-                      <Image
-                        src={bon.voorbeeldUrl}
-                        alt={bon.naam}
-                        width={80}
-                        height={80}
-                        unoptimized
-                        className="h-20 w-20 rounded-lg border border-rand object-cover"
-                      />
-                    ) : (
-                      <span className="flex h-20 w-20 items-center justify-center rounded-lg border border-rand text-xs text-gedempt">
-                        bestand
-                      </span>
-                    )}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      )}
+                    {bezigMetAnalyse === bon.documentId
+                      ? "Uitlezen…"
+                      : "Analyseren"}
+                  </button>
+                ) : (
+                  <p className="mt-2 text-center text-xs text-gedempt">
+                    niet uitleesbaar
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {bonnen.length > 0 && !heeftSleutel && (
+          <p className="mt-3 text-xs text-gedempt">
+            Analyseren kan zodra er een OpenAI-sleutel staat bij Instellingen. De
+            bestanden zijn hoe dan ook bewaard.
+          </p>
+        )}
+      </section>
 
       <section className="grid gap-3 rounded-xl border border-rand bg-paneel p-4 sm:grid-cols-2">
         <Veld label="Datum">
@@ -298,17 +360,13 @@ export default function UitgaveFormulier({
           <button
             type="button"
             onClick={() =>
-              setRegels((r) => [
-                ...r,
-                { ...legeRegel(standaardCategorie), aandeelAPct: 50 },
-              ])
+              setRegels((r) => [...r, legeRegel(standaardCategorie)])
             }
             className="text-sm text-accent underline"
           >
             + regel
           </button>
         </div>
-
         <p className="mb-3 text-xs text-gedempt">
           Het percentage per regel is het deel voor {naamA}; de rest gaat naar {naamB}.
         </p>
@@ -431,7 +489,7 @@ export default function UitgaveFormulier({
       {state?.fout && <p className="text-sm text-slecht">{state.fout}</p>}
 
       <button
-        disabled={bewaren || bezigMetBon}
+        disabled={bewaren || bezigMetUpload || bezigMetAnalyse !== null}
         className="rounded-lg bg-accent px-4 py-3 font-medium text-white disabled:opacity-50"
       >
         {bewaren ? "Bezig…" : knopLabel}
