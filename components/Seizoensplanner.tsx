@@ -3,6 +3,7 @@
 import { useActionState, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Feestdag, FeestdagCode } from "@/lib/feestdagen";
+import { vakantiesRakend, type Vakantie } from "@/lib/schoolvakanties";
 import {
   formatDatum,
   formatDatumMetDag,
@@ -36,11 +37,15 @@ export default function Seizoensplanner({
   jaar,
   huishoudens,
   feestdagen,
+  vakanties,
+  vakantieHerkomst,
   kanPubliceren,
 }: {
   jaar: number;
   huishoudens: { id: number; naam: string }[];
   feestdagen: Feestdag[];
+  vakanties: Vakantie[];
+  vakantieHerkomst: "rijksoverheid" | "reserve" | "geen";
   kanPubliceren: boolean;
 }) {
   const router = useRouter();
@@ -253,13 +258,34 @@ export default function Seizoensplanner({
       </section>
 
       <section className="rounded-xl border border-rand bg-paneel p-4">
-        <h2 className="mb-3 text-sm font-medium">
-          Concept — {planning.blokken.length} blokken
-        </h2>
+        <div className="mb-3 flex flex-wrap items-baseline gap-2">
+          <h2 className="text-sm font-medium">
+            Concept — {planning.blokken.length} blokken
+          </h2>
+          <p className="text-xs text-gedempt">
+            {vakantieHerkomst === "rijksoverheid"
+              ? "Vakantieweken (regio midden) opgehaald bij de rijksoverheid."
+              : vakantieHerkomst === "reserve"
+                ? "Vakantieweken uit de ingebouwde tabel; ophalen bij de rijksoverheid lukte niet."
+                : "Geen vakantiegegevens bekend voor dit jaar."}
+          </p>
+        </div>
         <ul className="flex flex-col gap-1">
-          {planning.blokken.map((blok) => (
+          {planning.blokken.map((blok) => {
+            const raakt = vakantiesRakend(vakanties, blok.van, blok.tot);
+            const bouwvak = raakt.some((v) => v.soort === "bouwvak");
+            return (
             <li
               key={blok.van}
+              // Vakantieweken krijgen een tint, de bouwvak een streep en een sterkere
+              // tint, want die is bij uitstek de week die je wilt hebben.
+              style={
+                bouwvak
+                  ? { background: "var(--vakantie-sterk)", borderLeft: "4px solid var(--vakantie-rand)" }
+                  : raakt.length > 0
+                    ? { background: "var(--vakantie-zacht)" }
+                    : undefined
+              }
               className="flex flex-wrap items-center gap-3 rounded-lg border border-rand p-2 text-sm"
             >
               <span
@@ -274,6 +300,35 @@ export default function Seizoensplanner({
                 {blok.tot !== blok.van &&
                   ` t/m ${heelWeek(blok) ? "" : `${dagnaam(blok.tot)} `}${formatDatum(blok.tot)}`}
               </span>
+              <span className="cijfers shrink-0 text-xs text-gedempt">
+                {weekLabel(blok)}
+              </span>
+              {raakt.length > 0 && (
+                <span className="flex shrink-0 gap-1">
+                  {raakt.map((vakantie) => (
+                    <span
+                      key={vakantie.naam}
+                      className={`rounded-full px-2 py-0.5 text-xs ${
+                        vakantie.soort === "bouwvak"
+                          ? "font-medium text-vakantie-rand"
+                          : "text-gedempt"
+                      }`}
+                      style={{
+                        background:
+                          vakantie.soort === "bouwvak"
+                            ? "var(--vakantie-rand)"
+                            : "var(--vakantie-zacht)",
+                        color:
+                          vakantie.soort === "bouwvak"
+                            ? "var(--paneel)"
+                            : undefined,
+                      }}
+                    >
+                      {vakantie.naam}
+                    </span>
+                  ))}
+                </span>
+              )}
               <span className="truncate">{naamVan.get(blok.coupleId)}</span>
               <span className="text-xs text-gedempt">
                 {REDEN_TEKST[blok.reden]} · {blok.aantalDagen} dg
@@ -286,7 +341,8 @@ export default function Seizoensplanner({
                 omzetten
               </button>
             </li>
-          ))}
+            );
+          })}
         </ul>
         {Object.keys(overrides).length > 0 && (
           <button
@@ -342,6 +398,13 @@ export default function Seizoensplanner({
 
 const invoerKlasse =
   "rounded-lg border border-rand bg-achtergrond px-3 py-2 text-sm";
+
+/** "wk 12" of "wk 12-13" voor blokken die over een weekgrens lopen. */
+function weekLabel(blok: Blok): string {
+  const eerste = isoWeek(blok.van);
+  const laatste = isoWeek(blok.tot);
+  return eerste === laatste ? `wk ${eerste}` : `wk ${eerste}-${laatste}`;
+}
 
 /** Een blok van maandag tot en met zondag; dan zeggen de weekdagen niets extras. */
 function heelWeek(blok: Blok): boolean {

@@ -5,6 +5,7 @@ import { vereisBeheerder } from "@/lib/auth";
 import { agendaStatus } from "@/lib/instellingen";
 import { feestdagenIn } from "@/lib/feestdagen";
 import { vandaag } from "@/lib/datum";
+import { haalVakanties } from "@/lib/vakantiebron";
 import Seizoensplanner from "@/components/Seizoensplanner";
 
 export default async function SeizoenPagina({
@@ -21,9 +22,10 @@ export default async function SeizoenPagina({
       ? gekozen
       : huidigJaar + 1;
 
-  const [huishoudens, status] = await Promise.all([
+  const [huishoudens, status, vakanties] = await Promise.all([
     db.select().from(couples).orderBy(asc(couples.volgorde)),
     agendaStatus(),
+    haalVakanties(jaar),
   ]);
 
   return (
@@ -51,6 +53,8 @@ export default async function SeizoenPagina({
         jaar={jaar}
         huishoudens={huishoudens.map((h) => ({ id: h.id, naam: h.naam }))}
         feestdagen={feestdagenIn(jaar)}
+        vakanties={vakanties.vakanties}
+        vakantieHerkomst={vakanties.herkomst}
         kanPubliceren={status.gekoppeld && status.agendaId !== null}
       />
     </div>

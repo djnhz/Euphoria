@@ -10,6 +10,10 @@
   --accent-zacht: #e0f2fe;
   --goed: #15803d;
   --slecht: #b91c1c;
+  /* Vakantieweken in de seizoensplanning; bouwvak krijgt de sterkere tint. */
+  --vakantie-zacht: #fef3c7;
+  --vakantie-sterk: #fde68a;
+  --vakantie-rand: #b45309;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -23,6 +27,9 @@
     --accent-zacht: #0c2740;
     --goed: #4ade80;
     --slecht: #f87171;
+    --vakantie-zacht: #2a2411;
+    --vakantie-sterk: #3d3316;
+    --vakantie-rand: #d97706;
   }
 }
 
@@ -36,6 +43,7 @@
   --color-accent-zacht: var(--accent-zacht);
   --color-goed: var(--goed);
   --color-slecht: var(--slecht);
+  --color-vakantie-rand: var(--vakantie-rand);
   --font-sans: var(--font-geist-sans);
 }
 

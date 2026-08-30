@@ -238,3 +238,55 @@ test("blokken sluiten op elkaar aan zonder gat of overlap", () => {
     assert.equal(huidige.van, dagNaVorige, "geen gat tussen blokken");
   }
 });
+
+// --- schoolvakanties en bouwvak, regio midden ---
+import {
+  bouwvakIn,
+  reserveVakanties,
+  vakantiesRakend,
+} from "../lib/schoolvakanties.ts";
+
+test("het vangnet klopt met de gepubliceerde data", () => {
+  const zomer2027 = reserveVakanties(2027).find(
+    (v) => v.naam === "Zomervakantie",
+  )!;
+  assert.deepEqual(
+    { van: zomer2027.van, tot: zomer2027.tot },
+    { van: "2027-07-17", tot: "2027-08-29" },
+  );
+});
+
+test("vakantieperiodes lopen niet achteruit en horen bij hun jaar", () => {
+  for (const jaar of [2026, 2027, 2028]) {
+    for (const vakantie of reserveVakanties(jaar)) {
+      assert.ok(vakantie.van <= vakantie.tot, `${vakantie.naam} loopt achteruit`);
+      assert.ok(vakantie.tot.startsWith(String(jaar)));
+    }
+  }
+});
+
+test("de bouwvak valt binnen de zomervakantie van dezelfde regio", () => {
+  for (const jaar of [2026, 2027]) {
+    const bouwvak = bouwvakIn(jaar)!;
+    const zomer = reserveVakanties(jaar).find((v) => v.naam === "Zomervakantie")!;
+    assert.ok(bouwvak.van >= zomer.van && bouwvak.tot <= zomer.tot);
+  }
+});
+
+test("een jaar zonder bouwvakgegevens geeft niets terug in plaats van een gok", () => {
+  assert.equal(bouwvakIn(2028), null);
+});
+
+test("een week in de bouwvak raakt zowel de bouwvak als de zomervakantie", () => {
+  const lijst = [...reserveVakanties(2027), bouwvakIn(2027)!];
+  const raakt = vakantiesRakend(lijst, "2027-08-09", "2027-08-15");
+  assert.deepEqual(
+    raakt.map((v) => v.naam),
+    ["Bouwvak", "Zomervakantie"],
+    "bouwvak hoort vooraan te staan",
+  );
+});
+
+test("een week buiten elke vakantie raakt niets", () => {
+  assert.deepEqual(vakantiesRakend(reserveVakanties(2027), "2027-06-07", "2027-06-13"), []);
+});
