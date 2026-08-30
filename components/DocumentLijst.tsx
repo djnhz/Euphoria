@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
+import BestandTegel from "./BestandTegel";
 import { verwijderDocumentAction } from "@/app/(app)/documenten/actions";
 
 export type DocumentRij = {
@@ -82,20 +82,12 @@ export default function DocumentLijst({ rijen }: { rijen: DocumentRij[] }) {
               className="flex items-center gap-3 rounded-xl border border-rand bg-paneel p-3"
             >
               <a href={rij.url} target="_blank" rel="noreferrer" className="shrink-0">
-                {rij.voorbeeldUrl ? (
-                  <Image
-                    src={rij.voorbeeldUrl}
-                    alt={rij.naam}
-                    width={56}
-                    height={56}
-                    unoptimized
-                    className="h-14 w-14 rounded-lg border border-rand object-cover"
-                  />
-                ) : (
-                  <span className="flex h-14 w-14 items-center justify-center rounded-lg border border-rand text-xs text-gedempt">
-                    {rij.mime.split("/")[1]?.slice(0, 4) ?? "?"}
-                  </span>
-                )}
+                <BestandTegel
+                  naam={rij.naam}
+                  mime={rij.mime}
+                  voorbeeldUrl={rij.voorbeeldUrl}
+                  zijde={56}
+                />
               </a>
               <div className="min-w-0 flex-1">
                 <a

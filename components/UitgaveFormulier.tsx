@@ -1,8 +1,8 @@
 "use client";
 
 import { useActionState, useMemo, useState } from "react";
-import Image from "next/image";
 import { upload } from "@vercel/blob/client";
+import BestandTegel from "./BestandTegel";
 import { formatEuro, parseEuro, verdeelRegel } from "@/lib/geld";
 import { vandaag } from "@/lib/datum";
 import {
@@ -265,21 +265,16 @@ export default function UitgaveFormulier({
                   rel="noreferrer"
                   title={`${bon.naam} — origineel openen`}
                 >
-                  {bon.voorbeeldUrl ? (
-                    <Image
-                      src={bon.voorbeeldUrl}
-                      alt={bon.naam}
-                      width={112}
-                      height={112}
-                      unoptimized
-                      className="h-28 w-28 rounded-lg border border-rand object-cover"
-                    />
-                  ) : (
-                    <span className="flex h-28 w-28 items-center justify-center rounded-lg border border-rand p-2 text-center text-xs text-gedempt">
-                      {bon.naam}
-                    </span>
-                  )}
+                  <BestandTegel
+                    naam={bon.naam}
+                    mime={bon.mime}
+                    voorbeeldUrl={bon.voorbeeldUrl}
+                    zijde={112}
+                  />
                 </a>
+                <p className="mt-1 truncate text-xs text-gedempt" title={bon.naam}>
+                  {bon.naam}
+                </p>
                 {bon.analyseerbaar ? (
                   <button
                     type="button"

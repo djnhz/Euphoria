@@ -1,5 +1,5 @@
 import Link from "next/link";
-import Image from "next/image";
+import BestandTegel from "@/components/BestandTegel";
 import { notFound } from "next/navigation";
 import { asc, inArray } from "drizzle-orm";
 import { db, categories, couples } from "@/db";
@@ -144,20 +144,12 @@ export default async function UitgaveDetail({
             {uitgave.bonnen.map((bon) => (
               <li key={bon.id}>
                 <a href={bon.url} target="_blank" rel="noreferrer">
-                  {bon.voorbeeldUrl ? (
-                    <Image
-                      src={bon.voorbeeldUrl}
-                      alt={bon.naam}
-                      width={160}
-                      height={200}
-                      unoptimized
-                      className="h-48 w-auto rounded-lg border border-rand object-cover"
-                    />
-                  ) : (
-                    <span className="flex h-48 w-32 items-center justify-center rounded-lg border border-rand p-2 text-center text-xs text-gedempt">
-                      {bon.naam}
-                    </span>
-                  )}
+                  <BestandTegel
+                    naam={bon.naam}
+                    mime={bon.mime}
+                    voorbeeldUrl={bon.voorbeeldUrl}
+                    zijde={176}
+                  />
                 </a>
                 <p className="mt-1 text-xs text-gedempt">origineel openen</p>
               </li>

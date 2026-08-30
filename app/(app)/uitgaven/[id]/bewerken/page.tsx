@@ -57,6 +57,7 @@ export default async function UitgaveBewerken({
           bonnen: uitgave.bonnen.map((bon) => ({
             documentId: bon.id,
             naam: bon.naam,
+            mime: bon.mime,
             voorbeeldUrl: bon.voorbeeldUrl,
             url: bon.url,
             analyseerbaar: bon.voorbeeldUrl !== null,

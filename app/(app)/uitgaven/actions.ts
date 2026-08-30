@@ -167,6 +167,7 @@ const BestandInvoer = z.object({
 export type BewaardeBon = {
   documentId: number;
   naam: string;
+  mime: string;
   url: string;
   voorbeeldUrl: string | null;
   /** Foto of PDF met tekst; een gescande PDF of ander bestand valt af. */
@@ -205,6 +206,7 @@ export async function bewaarBonAction(
   return {
     documentId: document.id,
     naam: invoer.naam,
+    mime: invoer.mime,
     url: invoer.url,
     voorbeeldUrl: voorbeeld?.url ?? null,
     analyseerbaar: voorbeeld !== null || invoer.mime === "application/pdf",
