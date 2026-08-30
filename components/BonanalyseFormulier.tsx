@@ -78,28 +78,32 @@ export default function BonanalyseFormulier({
         </div>
       </form>
 
-      <div className="flex flex-wrap items-center gap-3 border-t border-rand pt-3">
-        <form action={test}>
-          <button
-            disabled={testen || !status.ingesteld}
-            className="rounded-lg border border-rand px-3 py-2 text-sm disabled:opacity-50"
-          >
-            {testen ? "Testen…" : "Verbinding testen"}
-          </button>
-        </form>
-        {status.herkomst === "database" && (
-          <form action={wis}>
+      {/* Zonder sleutel valt er niets te testen of te verwijderen, dus dan ook geen
+          uitgegrijsde knoppen die alleen maar afleiden. */}
+      {status.ingesteld && (
+        <div className="flex flex-wrap items-center gap-3 border-t border-rand pt-3">
+          <form action={test}>
             <button
-              disabled={wissen}
-              className="rounded-lg border border-rand px-3 py-2 text-sm text-slecht disabled:opacity-50"
+              disabled={testen}
+              className="rounded-lg border border-rand px-3 py-2 text-sm disabled:opacity-50"
             >
-              Sleutel verwijderen
+              {testen ? "Testen…" : "Verbinding testen"}
             </button>
           </form>
-        )}
-        <Melding state={testState} />
-        <Melding state={wisState} />
-      </div>
+          {status.herkomst === "database" && (
+            <form action={wis}>
+              <button
+                disabled={wissen}
+                className="rounded-lg border border-rand px-3 py-2 text-sm text-slecht disabled:opacity-50"
+              >
+                Sleutel verwijderen
+              </button>
+            </form>
+          )}
+          <Melding state={testState} />
+          <Melding state={wisState} />
+        </div>
+      )}
     </div>
   );
 }
