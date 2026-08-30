@@ -28,15 +28,16 @@ export default function Nav({
     <header className="sticky top-0 z-20 border-b border-rand bg-paneel/95 backdrop-blur">
       {/*
         Op een breed scherm past alles op een regel: het volledige logo links, het menu
-        in het midden, jouw naam rechts. Daaronder zakt het menu naar een eigen regel,
-        want zes menu-items zijn samen breder dan wat er dan overblijft.
+        in het midden, jouw naam rechts. Daaronder zakt het menu naar een eigen regel en
+        breekt het af over meerdere regels. Geen zijwaartse schuifbalk: die verstopt
+        menu-items achter een beweging die je niet ziet aankomen.
       */}
       <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2">
         <Link href="/" aria-label="Euphoria" className="shrink-0">
           <Logo hoogte={54} />
         </Link>
 
-        <nav className="order-3 flex w-full justify-center gap-2 overflow-x-auto pb-1 lg:order-none lg:w-auto lg:flex-1 lg:pb-0">
+        <nav className="order-3 flex w-full flex-wrap justify-center gap-x-2 gap-y-1 pb-1 lg:order-none lg:w-auto lg:flex-1 lg:flex-nowrap lg:pb-0">
           {LINKS.map((link) => {
             const actief =
               link.href === "/" ? pad === "/" : pad.startsWith(link.href);
