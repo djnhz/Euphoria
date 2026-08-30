@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+:root {
+  --achtergrond: #f1f5f9;
+  --paneel: #ffffff;
+  --rand: #e2e8f0;
+  --tekst: #0f172a;
+  --gedempt: #64748b;
+  --accent: #0369a1;
+  --accent-zacht: #e0f2fe;
+  --goed: #15803d;
+  --slecht: #b91c1c;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --achtergrond: #0b1220;
+    --paneel: #111c2e;
+    --rand: #1e293b;
+    --tekst: #e2e8f0;
+    --gedempt: #94a3b8;
+    --accent: #38bdf8;
+    --accent-zacht: #0c2740;
+    --goed: #4ade80;
+    --slecht: #f87171;
+  }
+}
+
+@theme inline {
+  --color-achtergrond: var(--achtergrond);
+  --color-paneel: var(--paneel);
+  --color-rand: var(--rand);
+  --color-tekst: var(--tekst);
+  --color-gedempt: var(--gedempt);
+  --color-accent: var(--accent);
+  --color-accent-zacht: var(--accent-zacht);
+  --color-goed: var(--goed);
+  --color-slecht: var(--slecht);
+  --font-sans: var(--font-geist-sans);
+}
+
+body {
+  background: var(--achtergrond);
+  color: var(--tekst);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+/* Getallen in tabellen en bedragen netjes onder elkaar. */
+.cijfers {
+  font-variant-numeric: tabular-nums;
+}

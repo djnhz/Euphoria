@@ -1,0 +1,31 @@
+import { redirect } from "next/navigation";
+import { asc, eq } from "drizzle-orm";
+import { db, couples, users } from "@/db";
+import { huidigeGebruiker } from "@/lib/auth";
+import LoginForm from "./LoginForm";
+
+export default async function LoginPagina() {
+  if (await huidigeGebruiker()) redirect("/");
+
+  const gebruikers = await db
+    .select({ id: users.id, naam: users.naam, coupleNaam: couples.naam })
+    .from(users)
+    .innerJoin(couples, eq(users.coupleId, couples.id))
+    .orderBy(asc(couples.volgorde), asc(users.id));
+
+  return (
+    <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center gap-8 p-6">
+      <header className="text-center">
+        <h1 className="text-3xl font-semibold tracking-tight">Euphoria</h1>
+        <p className="text-sm text-gedempt">Bootfinanciën</p>
+      </header>
+      {gebruikers.length === 0 ? (
+        <p className="rounded-xl border border-rand bg-paneel p-4 text-sm text-gedempt">
+          Nog geen gebruikers. Draai eerst <code>npm run seed</code>.
+        </p>
+      ) : (
+        <LoginForm gebruikers={gebruikers} />
+      )}
+    </main>
+  );
+}
