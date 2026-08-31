@@ -7,6 +7,7 @@ import {
   bewaarBegrotingAction,
   neemVorigJaarOverAction,
   nieuwePostAction,
+  verwijderPostAction,
   wijzigPostAction,
   type BegrotingState,
 } from "@/app/(app)/begroting/actions";
@@ -165,57 +166,10 @@ export default function BegrotingFormulier({
         </div>
 
         {beheer && (
-          <ul className="mt-4 flex flex-col gap-2 border-t border-rand pt-4">
+          <ul className="mt-4 flex flex-col gap-3 border-t border-rand pt-4">
             {alle.map((post) => (
               <li key={post.id}>
-                <form
-                  action={wijzigPostAction}
-                  className="flex flex-wrap items-center gap-2"
-                >
-                  <input type="hidden" name="id" value={post.id} />
-                  <input
-                    type="color"
-                    name="kleur"
-                    defaultValue={post.kleur}
-                    aria-label={`Kleur voor ${post.naam}`}
-                    className="h-9 w-9 shrink-0 rounded border border-rand bg-transparent"
-                  />
-                  <input
-                    name="naam"
-                    defaultValue={post.naam}
-                    aria-label="Naam"
-                    className={`${invoer} min-w-0 flex-1`}
-                  />
-                  {/* Sleutel op de huidige plek, anders blijft na opslaan de oude
-                      keuze in beeld staan. */}
-                  <select
-                    name="ouder"
-                    key={post.ouderId ?? 0}
-                    defaultValue={post.ouderId ?? 0}
-                    aria-label={`Hoofdpost van ${post.naam}`}
-                    className={`${invoer} min-w-0 flex-1`}
-                  >
-                    <option value={0}>eigen hoofdpost</option>
-                    {posten
-                      .filter((h) => h.id !== post.id)
-                      .map((hoofd) => (
-                        <option key={hoofd.id} value={hoofd.id}>
-                          onder {hoofd.naam}
-                        </option>
-                      ))}
-                  </select>
-                  <label className="flex items-center gap-1 text-sm text-gedempt">
-                    <input
-                      type="checkbox"
-                      name="actief"
-                      defaultChecked={post.actief}
-                    />
-                    actief
-                  </label>
-                  <button className="rounded-lg border border-rand px-3 py-2 text-sm">
-                    Opslaan
-                  </button>
-                </form>
+                <BeheerRegel post={post} hoofdposten={posten} />
               </li>
             ))}
           </ul>
@@ -336,6 +290,95 @@ function Subtotaal({
         {formatEuro(verschil)}
       </span>
     </li>
+  );
+}
+
+/** Een post hernoemen, verkleuren, verhangen, uitvinken of weghalen. */
+function BeheerRegel({
+  post,
+  hoofdposten,
+}: {
+  post: Post;
+  hoofdposten: Post[];
+}) {
+  const [wisState, wis, wissen] = useActionState<BegrotingState, FormData>(
+    verwijderPostAction,
+    null,
+  );
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <form
+        action={wijzigPostAction}
+        className="flex flex-1 flex-wrap items-center gap-2"
+      >
+        <input type="hidden" name="id" value={post.id} />
+        <input
+          type="color"
+          name="kleur"
+          defaultValue={post.kleur}
+          aria-label={`Kleur voor ${post.naam}`}
+          className="h-9 w-9 shrink-0 rounded border border-rand bg-transparent"
+        />
+        <input
+          name="naam"
+          defaultValue={post.naam}
+          aria-label="Naam"
+          className={`${invoer} min-w-0 flex-1`}
+        />
+        {/* Sleutel op de huidige plek, anders blijft na opslaan de oude keuze
+            in beeld staan. */}
+        <select
+          name="ouder"
+          key={post.ouderId ?? 0}
+          defaultValue={post.ouderId ?? 0}
+          aria-label={`Hoofdpost van ${post.naam}`}
+          className={`${invoer} min-w-0 flex-1`}
+        >
+          <option value={0}>eigen hoofdpost</option>
+          {hoofdposten
+            .filter((h) => h.id !== post.id)
+            .map((hoofd) => (
+              <option key={hoofd.id} value={hoofd.id}>
+                onder {hoofd.naam}
+              </option>
+            ))}
+        </select>
+        <label className="flex items-center gap-1 text-sm text-gedempt">
+          <input type="checkbox" name="actief" defaultChecked={post.actief} />
+          actief
+        </label>
+        <button className="rounded-lg border border-rand px-3 py-2 text-sm">
+          Opslaan
+        </button>
+      </form>
+
+      <form action={wis}>
+        <input type="hidden" name="id" value={post.id} />
+        <button
+          disabled={wissen}
+          // Weghalen kan niet ongedaan; even vragen scheelt een ongeluk.
+          onClick={(e) => {
+            if (
+              !confirm(
+                `${post.naam} verwijderen?${
+                  post.subposten.length > 0
+                    ? " De subposten eronder worden zelf hoofdpost."
+                    : ""
+                }`,
+              )
+            ) {
+              e.preventDefault();
+            }
+          }}
+          className="rounded-lg px-3 py-2 text-sm text-slecht underline disabled:opacity-50"
+        >
+          verwijderen
+        </button>
+      </form>
+
+      <Uitkomst state={wisState} />
+    </div>
   );
 }
 

@@ -1,8 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, eq, inArray } from "drizzle-orm";
-import { db, budgets, posten } from "@/db";
+import { and, count, eq, inArray } from "drizzle-orm";
+import { db, budgets, expenseLines, posten } from "@/db";
 import { vereisGebruiker } from "@/lib/auth";
 import { parseEuro } from "@/lib/geld";
 
@@ -141,6 +141,45 @@ export async function wijzigPostAction(formData: FormData) {
   revalidatePath("/begroting");
   revalidatePath("/uitgaven");
   revalidatePath("/");
+}
+
+/**
+ * Een post weghalen. Alleen als er geen bonregel meer op staat: die regels stilletjes
+ * ergens anders heen schuiven zou de cijfers veranderen zonder dat je het ziet.
+ * Subposten eronder worden zelf hoofdpost, en begrote bedragen gaan mee weg.
+ */
+export async function verwijderPostAction(
+  _vorige: BegrotingState,
+  formData: FormData,
+): Promise<BegrotingState> {
+  await vereisGebruiker();
+
+  const id = Number(formData.get("id"));
+  if (!Number.isInteger(id)) return { fout: "Onbekende post." };
+
+  const [post] = await db
+    .select({ naam: posten.naam })
+    .from(posten)
+    .where(eq(posten.id, id));
+  if (!post) return { fout: "Die post bestaat niet meer." };
+
+  const [telling] = await db
+    .select({ aantal: count() })
+    .from(expenseLines)
+    .where(eq(expenseLines.postId, id));
+  if (telling.aantal > 0) {
+    const aantal = telling.aantal;
+    return {
+      fout: `Er ${aantal === 1 ? "staat" : "staan"} ${aantal} bonregel${aantal === 1 ? "" : "s"} op ${post.naam}. Zet die eerst op een andere post, of vink hem uit zodat hij niet meer te kiezen is.`,
+    };
+  }
+
+  await db.delete(posten).where(eq(posten.id, id));
+
+  revalidatePath("/begroting");
+  revalidatePath("/uitgaven");
+  revalidatePath("/");
+  return { gelukt: `${post.naam} verwijderd.` };
 }
 
 /** Vorig jaar als startpunt overnemen; bestaande bedragen blijven staan. */
