@@ -2,7 +2,7 @@
 
 import { useActionState, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { Feestdag, FeestdagCode } from "@/lib/feestdagen";
+import { feestdagenRakend, type Feestdag, type FeestdagCode } from "@/lib/feestdagen";
 import {
   vakantiesRakend,
   werkdagen,
@@ -383,6 +383,9 @@ export default function Seizoensplanner({
             const bouwvak = heel.some((v) => v.soort === "bouwvak");
             const grotendeels = heel.length > 0;
             const ingepland = blok.reden === "handmatig";
+            // Ook een week die niet aan een feestdag is toegewezen kan er een
+            // bevatten -- Koningsdag valt zo midden in een gewone week.
+            const raaktFeestdagen = feestdagenRakend(feestdagen, blok.van, blok.tot);
             return (
             <li
               key={blok.van}
@@ -415,6 +418,23 @@ export default function Seizoensplanner({
               <span className="cijfers shrink-0 text-xs text-gedempt">
                 {weekLabel(blok)}
               </span>
+              {raaktFeestdagen.length > 0 && (
+                <span className="flex shrink-0 gap-1">
+                  {raaktFeestdagen.map((feestdag) => (
+                    <span
+                      key={feestdag.code}
+                      title={`${formatDatumMetDag(feestdag.van)}${
+                        feestdag.tot === feestdag.van
+                          ? ""
+                          : ` tot en met ${formatDatumMetDag(feestdag.tot)}`
+                      }`}
+                      className="rounded-full bg-accent-zacht px-2 py-0.5 text-xs text-accent"
+                    >
+                      {feestdag.naam}
+                    </span>
+                  ))}
+                </span>
+              )}
               {raakt.length > 0 && (
                 <span className="flex shrink-0 gap-1">
                   {raakt.map((vakantie) => (

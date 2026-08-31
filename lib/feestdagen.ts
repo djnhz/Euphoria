@@ -93,3 +93,16 @@ export function feestdagenIn(jaar: number): Feestdag[] {
 
   return dagen.sort((a, b) => a.van.localeCompare(b.van));
 }
+
+/**
+ * De feestdagen die binnen een blok vallen, ook als het blok maar een deel ervan
+ * raakt. Gebruikt om ze in het weekoverzicht te laten zien: ook een week die je niet
+ * aan een feestdag hebt toegewezen kan er een bevatten, en dat wil je zien.
+ */
+export function feestdagenRakend(
+  feestdagen: readonly Feestdag[],
+  van: string,
+  tot: string,
+): Feestdag[] {
+  return feestdagen.filter((dag) => dag.van <= tot && dag.tot >= van);
+}

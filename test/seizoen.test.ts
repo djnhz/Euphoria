@@ -377,3 +377,23 @@ test("een ingeplande vakantie wint ook van een toegewezen feestdag", () => {
     reden: "handmatig",
   });
 });
+
+// --- feestdagen in het weekoverzicht ---
+import { feestdagenRakend } from "../lib/feestdagen.ts";
+
+test("een week toont de feestdag die erin valt, ook een halve", () => {
+  const feestdagen = feestdagenIn(2027);
+  // Hemelvaart 2027 is do 6 t/m zo 9 mei; die week loopt van maandag 3 mei.
+  const inWeek = feestdagenRakend(feestdagen, "2027-05-03", "2027-05-09");
+  assert.deepEqual(
+    inWeek.map((f) => f.code),
+    ["hemelvaart"],
+  );
+
+  // Het paasblok loopt door tot en met maandag; die maandag hoort er ook bij.
+  const pasen = feestdagen.find((f) => f.code === "pasen")!;
+  assert.equal(feestdagenRakend(feestdagen, pasen.tot, pasen.tot).length, 1);
+
+  // Een week ver van elke feestdag levert niets op.
+  assert.deepEqual(feestdagenRakend(feestdagen, "2027-08-02", "2027-08-08"), []);
+});
