@@ -51,7 +51,6 @@ export default async function UitgaveBewerken({
             aantal: regel.aantal,
             bedrag: (regel.bedragCent / 100).toFixed(2).replace(".", ","),
             postId: regel.postId,
-            aandeelAPct: regel.aandeelAPct,
             bron: regel.bron,
           })),
           bonnen: uitgave.bonnen.map((bon) => ({

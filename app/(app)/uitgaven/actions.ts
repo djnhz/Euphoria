@@ -26,7 +26,8 @@ const RegelInvoer = z.object({
   bedragCent: z.number().int().min(-10_000_000).max(10_000_000),
   /** De post waarop de regel drukt: hoofdpost of subpost. */
   postId: z.number().int().positive(),
-  aandeelAPct: z.number().int().min(0).max(100),
+  // Geen aandeel: kosten gaan altijd half om half. De kolom houdt zijn standaard 50,
+  // zodat de verrekening blijft rekenen zoals ze deed.
   bron: z.enum(["handmatig", "ai"]),
 });
 
