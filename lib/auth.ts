@@ -78,7 +78,7 @@ export async function vereisGebruiker(): Promise<Gebruiker> {
 /** Voor schermen en acties die alleen de beheerder mag gebruiken. */
 export async function vereisBeheerder(): Promise<Gebruiker> {
   const gebruiker = await vereisGebruiker();
-  if (!gebruiker.beheerder) redirect("/vaarplanning");
+  if (!gebruiker.beheerder) redirect("/");
   return gebruiker;
 }
 

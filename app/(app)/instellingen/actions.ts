@@ -23,7 +23,7 @@ export async function wijzigNamenAction(
   _vorige: MeldingState,
   formData: FormData,
 ): Promise<MeldingState> {
-  await vereisGebruiker();
+  await vereisBeheerder();
 
   for (const [sleutel, waarde] of formData.entries()) {
     const tekst = String(waarde).trim();
@@ -107,7 +107,7 @@ export async function bewaarOpenAiAction(
   _vorige: MeldingState,
   formData: FormData,
 ): Promise<MeldingState> {
-  await vereisGebruiker();
+  await vereisBeheerder();
 
   const model = String(formData.get("model") ?? "");
   if (model.length > 100) return { fout: "Die modelnaam is te lang." };
@@ -132,7 +132,7 @@ export async function verwijderOpenAiAction(
   _vorige: MeldingState,
   _formData: FormData,
 ): Promise<MeldingState> {
-  await vereisGebruiker();
+  await vereisBeheerder();
   await verwijderOpenAiSleutel();
   revalidatePath("/instellingen");
   return { gelukt: "Sleutel verwijderd. Bonanalyse staat nu uit." };
@@ -142,7 +142,7 @@ export async function testOpenAiAction(
   _vorige: MeldingState,
   _formData: FormData,
 ): Promise<MeldingState> {
-  await vereisGebruiker();
+  await vereisBeheerder();
   const resultaat = await testOpenAi();
   return resultaat.ok ? { gelukt: resultaat.melding } : { fout: resultaat.fout };
 }
@@ -151,7 +151,7 @@ export async function bewaarAgendaAction(
   _vorige: MeldingState,
   formData: FormData,
 ): Promise<MeldingState> {
-  await vereisGebruiker();
+  await vereisBeheerder();
 
   const agendaId = String(formData.get("agendaId") ?? "").trim();
   if (agendaId.length > 300) return { fout: "Dat agenda-ID is wel erg lang." };
@@ -181,7 +181,7 @@ export async function testAgendaAction(
   _vorige: MeldingState,
   _formData: FormData,
 ): Promise<MeldingState> {
-  await vereisGebruiker();
+  await vereisBeheerder();
   const resultaat = await testAgenda();
   return "fout" in resultaat
     ? { fout: resultaat.fout }
@@ -192,7 +192,7 @@ export async function ontkoppelAgendaAction(
   _vorige: MeldingState,
   _formData: FormData,
 ): Promise<MeldingState> {
-  await vereisGebruiker();
+  await vereisBeheerder();
   await ontkoppelGoogle();
   revalidatePath("/instellingen");
   revalidatePath("/vaarplanning");
@@ -203,7 +203,7 @@ export async function wisselBeheerderAction(
   _vorige: MeldingState,
   formData: FormData,
 ): Promise<MeldingState> {
-  await vereisGebruiker();
+  await vereisBeheerder();
   const userId = Number(formData.get("userId"));
   const aan = formData.get("aan") === "ja";
   if (!Number.isInteger(userId)) return { fout: "Onbekende gebruiker." };

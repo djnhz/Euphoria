@@ -12,6 +12,28 @@ import BeheerderFormulier from "@/components/BeheerderFormulier";
 export default async function InstellingenPagina() {
   const gebruiker = await vereisGebruiker();
 
+  // Zonder beheerdersrechten valt er hier maar een ding te doen, dus dan halen we de
+  // rest ook niet op.
+  if (!gebruiker.beheerder) {
+    return (
+      <div className="flex flex-col gap-6">
+        <h1 className="text-2xl font-semibold tracking-tight">Instellingen</h1>
+
+        <section className="rounded-xl border border-rand bg-paneel p-4">
+          <h2 className="mb-4 text-sm font-medium">
+            Pincode van {gebruiker.naam}
+          </h2>
+          <PinFormulier />
+        </section>
+
+        <p className="text-sm text-gedempt">
+          De rest — namen, de koppelingen en de pincodes van iedereen — beheert de
+          beheerder.
+        </p>
+      </div>
+    );
+  }
+
   const [huishoudens, gebruikers] = await Promise.all([
     db.select().from(couples).orderBy(asc(couples.volgorde)),
     db
@@ -30,6 +52,29 @@ export default async function InstellingenPagina() {
       <h1 className="text-2xl font-semibold tracking-tight">Instellingen</h1>
 
       <section className="rounded-xl border border-rand bg-paneel p-4">
+        <h2 className="mb-4 text-sm font-medium">
+          Pincode van {gebruiker.naam}
+        </h2>
+        <PinFormulier />
+      </section>
+
+      <section className="rounded-xl border border-rand bg-paneel p-4">
+        <h2 className="mb-1 text-sm font-medium">Pincodes van iedereen</h2>
+        <p className="mb-4 text-xs text-gedempt">
+          Een nieuwe code haalt meteen het slot van vijf mislukte pogingen weg.
+        </p>
+        <PincodeBeheer gebruikers={gebruikers} />
+      </section>
+
+      <section className="rounded-xl border border-rand bg-paneel p-4">
+        <h2 className="mb-1 text-sm font-medium">Namen</h2>
+        <p className="mb-4 text-xs text-gedempt">
+          Het huishouden dat als eerste staat, telt in de app als huishouden A.
+        </p>
+        <NamenFormulier huishoudens={huishoudens} gebruikers={gebruikers} />
+      </section>
+
+      <section className="rounded-xl border border-rand bg-paneel p-4">
         <h2 className="mb-1 text-sm font-medium">Bonanalyse</h2>
         <p className="mb-4 text-xs text-gedempt">
           Reken op ongeveer drie cent per uitgelezen bon.
@@ -43,40 +88,13 @@ export default async function InstellingenPagina() {
       </section>
 
       <section className="rounded-xl border border-rand bg-paneel p-4">
-        <h2 className="mb-1 text-sm font-medium">Namen</h2>
-        <p className="mb-4 text-xs text-gedempt">
-          Het huishouden dat als eerste staat, is de kant waar de percentages
-          bij de uitgaven naar verwijzen.
-        </p>
-        <NamenFormulier huishoudens={huishoudens} gebruikers={gebruikers} />
-      </section>
-
-      <section className="rounded-xl border border-rand bg-paneel p-4">
         <h2 className="mb-1 text-sm font-medium">Beheerder</h2>
         <p className="mb-4 text-xs text-gedempt">
-          Een beheerder beheert de pincodes van iedereen. Er blijft er altijd
-          minstens één over.
+          Alleen een beheerder kan deze instellingen aanpassen en pincodes
+          terugzetten. Er blijft er altijd minstens één over.
         </p>
         <BeheerderFormulier gebruikers={gebruikers} />
       </section>
-
-      <section className="rounded-xl border border-rand bg-paneel p-4">
-        <h2 className="mb-4 text-sm font-medium">
-          Pincode van {gebruiker.naam}
-        </h2>
-        <PinFormulier />
-      </section>
-
-      {/* Zonder de oude code, dus alleen voor een beheerder. */}
-      {gebruiker.beheerder && (
-        <section className="rounded-xl border border-rand bg-paneel p-4">
-          <h2 className="mb-1 text-sm font-medium">Pincodes van iedereen</h2>
-          <p className="mb-4 text-xs text-gedempt">
-            Een nieuwe code haalt meteen het slot van vijf mislukte pogingen weg.
-          </p>
-          <PincodeBeheer gebruikers={gebruikers} />
-        </section>
-      )}
     </div>
   );
 }
