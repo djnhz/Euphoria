@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { asc, eq } from "drizzle-orm";
-import { db, categories, couples } from "@/db";
+import { db, budgetItems, categories, couples } from "@/db";
 import { vereisGebruiker } from "@/lib/auth";
 import { uitgaveMetRegels } from "@/lib/data";
 import UitgaveFormulier from "@/components/UitgaveFormulier";
@@ -19,12 +19,17 @@ export default async function UitgaveBewerken({
   const uitgave = await uitgaveMetRegels(id);
   if (!uitgave) notFound();
 
-  const [categorieLijst, huishoudens, sleutel] = await Promise.all([
+  const [categorieLijst, postenLijst, huishoudens, sleutel] = await Promise.all([
     db
       .select({ id: categories.id, naam: categories.naam })
       .from(categories)
       .where(eq(categories.actief, true))
       .orderBy(asc(categories.naam)),
+    db
+      .select({ id: budgetItems.id, naam: budgetItems.naam })
+      .from(budgetItems)
+      .where(eq(budgetItems.actief, true))
+      .orderBy(asc(budgetItems.naam)),
     db.select().from(couples).orderBy(asc(couples.volgorde)),
     sleutelStatus(),
   ]);
@@ -39,6 +44,7 @@ export default async function UitgaveBewerken({
       </h1>
       <UitgaveFormulier
         categorieen={categorieLijst}
+        posten={postenLijst}
         huishoudens={huishoudens}
         begin={{
           datum: uitgave.datum,
@@ -51,6 +57,7 @@ export default async function UitgaveBewerken({
             aantal: regel.aantal,
             bedrag: (regel.bedragCent / 100).toFixed(2).replace(".", ","),
             categoryId: regel.categoryId,
+            budgetItemId: regel.budgetItemId ?? 0,
             aandeelAPct: regel.aandeelAPct,
             bron: regel.bron,
           })),

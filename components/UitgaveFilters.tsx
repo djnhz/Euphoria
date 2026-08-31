@@ -6,11 +6,13 @@ import { SORTERINGEN } from "@/lib/sorteren";
 export default function UitgaveFilters({
   jaren,
   categorieen,
+  posten,
   huishoudens,
   groepen,
 }: {
   jaren: number[];
   categorieen: { id: number; naam: string }[];
+  posten: { id: number; naam: string }[];
   huishoudens: { id: number; naam: string }[];
   /** Paren van sleutel en label, zoals de pagina ze definieert. */
   groepen: [string, string][];
@@ -57,6 +59,21 @@ export default function UitgaveFilters({
             {categorie.naam}
           </option>
         ))}
+      </select>
+
+      <select
+        aria-label="Begrotingspost"
+        value={params.get("post") ?? ""}
+        onChange={(e) => zet("post", e.target.value)}
+        className={klasse}
+      >
+        <option value="">Alle posten</option>
+        {posten.map((post) => (
+          <option key={post.id} value={post.id}>
+            {post.naam}
+          </option>
+        ))}
+        <option value="geen">Zonder post</option>
       </select>
 
       <select

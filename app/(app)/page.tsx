@@ -126,7 +126,7 @@ export default async function Dashboard({ searchParams }: PageProps<"/">) {
                 <li key={rij.id}>
                   <div className="flex items-baseline justify-between text-sm">
                     <Link
-                      href={`/uitgaven?jaar=${jaar}&categorie=${rij.id}`}
+                      href={`/uitgaven?jaar=${jaar}&post=${rij.id}`}
                       className="hover:text-accent"
                     >
                       {rij.naam}

@@ -6,17 +6,25 @@ import { formatEuro, parseEuro } from "@/lib/geld";
 import {
   bewaarBegrotingAction,
   neemVorigJaarOverAction,
-  nieuwOnderdeelAction,
+  nieuwePostAction,
+  wijzigPostAction,
   type BegrotingState,
 } from "@/app/(app)/begroting/actions";
 
-export type Onderdeel = {
+export type Post = {
   id: number;
   naam: string;
   kleur: string;
   actief: boolean;
   begrootCent: number | null;
   werkelijkCent: number;
+  /** Waar het uitgegeven bedrag vandaan komt, grootste eerst. */
+  categorieen: {
+    categoryId: number;
+    naam: string;
+    kleur: string;
+    cent: number;
+  }[];
 };
 
 const invoer = "rounded-lg border border-rand bg-achtergrond px-3 py-2 text-sm";
@@ -27,10 +35,13 @@ function alsTekst(cent: number | null): string {
 
 export default function BegrotingFormulier({
   jaar,
-  onderdelen,
+  posten,
+  losseUitgaven,
 }: {
   jaar: number;
-  onderdelen: Onderdeel[];
+  posten: Post[];
+  /** Wat in dit jaar nog aan geen post hangt. */
+  losseUitgaven: { aantal: number; cent: number };
 }) {
   const [state, bewaar, bezig] = useActionState<BegrotingState, FormData>(
     bewaarBegrotingAction,
@@ -40,34 +51,48 @@ export default function BegrotingFormulier({
     BegrotingState,
     FormData
   >(neemVorigJaarOverAction, null);
+  const [beheer, setBeheer] = useState(false);
+  const [uitgeklapt, setUitgeklapt] = useState<number | null>(null);
 
   const [bedragen, setBedragen] = useState<Record<number, string>>(() =>
-    Object.fromEntries(onderdelen.map((o) => [o.id, alsTekst(o.begrootCent)])),
+    Object.fromEntries(posten.map((p) => [p.id, alsTekst(p.begrootCent)])),
   );
 
   // Tijdens het typen verandert er niets aan de server, dus dit kenmerk blijft gelijk.
   // Wisselt het jaar, of komt er een nieuwe stand terug na opslaan of overnemen, dan
-  // wel -- en dan horen de velden die stand te tonen in plaats van de oude invoer.
+  // wel — en dan horen de velden die stand te tonen in plaats van de oude invoer.
   const kenmerk = [
     jaar,
-    ...onderdelen.map((o) => `${o.id}=${o.begrootCent ?? ""}`),
+    ...posten.map((p) => `${p.id}=${p.begrootCent ?? ""}`),
   ].join("|");
   const [vorigKenmerk, setVorigKenmerk] = useState(kenmerk);
   if (vorigKenmerk !== kenmerk) {
     setVorigKenmerk(kenmerk);
     setBedragen(
-      Object.fromEntries(onderdelen.map((o) => [o.id, alsTekst(o.begrootCent)])),
+      Object.fromEntries(posten.map((p) => [p.id, alsTekst(p.begrootCent)])),
     );
   }
 
   const totalen = useMemo(() => {
     let begroot = 0;
-    for (const onderdeel of onderdelen) {
-      begroot += parseEuro(bedragen[onderdeel.id] ?? "") ?? 0;
-    }
-    const werkelijk = onderdelen.reduce((som, o) => som + o.werkelijkCent, 0);
+    for (const post of posten) begroot += parseEuro(bedragen[post.id] ?? "") ?? 0;
+    const werkelijk = posten.reduce((som, p) => som + p.werkelijkCent, 0);
     return { begroot, werkelijk };
-  }, [bedragen, onderdelen]);
+  }, [bedragen, posten]);
+
+  if (posten.length === 0) {
+    return (
+      <div className="flex flex-col gap-4">
+        <p className="rounded-xl border border-rand bg-paneel p-6 text-sm text-gedempt">
+          Nog geen begrotingsposten. Een post is een eigen noemer voor de begroting,
+          los van de categorieën waarin je de bonregels indeelt.
+        </p>
+        <div className="rounded-xl border border-rand bg-paneel p-4">
+          <NieuwePost />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -76,68 +101,109 @@ export default function BegrotingFormulier({
 
         <ul className="flex flex-col">
           <li className="flex items-center gap-3 border-b border-rand pb-2 text-xs text-gedempt">
-            <span className="flex-1">Onderdeel</span>
+            <span aria-hidden className="w-4 shrink-0" />
+            <span className="flex-1">Post</span>
             <span className="w-28 text-right">Begroot</span>
             <span className="hidden w-28 text-right sm:block">Uitgegeven</span>
             <span className="hidden w-28 text-right sm:block">Verschil</span>
           </li>
 
-          {onderdelen.map((onderdeel) => {
-            const begrootCent = parseEuro(bedragen[onderdeel.id] ?? "");
+          {posten.map((post) => {
+            const begrootCent = parseEuro(bedragen[post.id] ?? "");
             const verschil =
-              begrootCent === null ? null : begrootCent - onderdeel.werkelijkCent;
+              begrootCent === null ? null : begrootCent - post.werkelijkCent;
+            const open = uitgeklapt === post.id;
             return (
-              <li
-                key={onderdeel.id}
-                className="flex items-center gap-3 border-b border-rand py-2 last:border-0"
-              >
-                {/* De naam leidt naar de bonnen achter dit onderdeel, gefilterd op
-                    hetzelfde jaar. Zo is te zien waar het bedrag vandaan komt. */}
-                <Link
-                  href={`/uitgaven?jaar=${jaar}&categorie=${onderdeel.id}`}
-                  title={`Uitgaven voor ${onderdeel.naam} in ${jaar}`}
-                  className="flex flex-1 items-center gap-2 truncate text-sm hover:text-accent"
-                >
-                  <span
-                    aria-hidden
-                    className="inline-block h-3 w-3 shrink-0 rounded"
-                    style={{ background: onderdeel.kleur }}
+              <li key={post.id} className="border-b border-rand py-2 last:border-0">
+                <div className="flex items-center gap-3">
+                  {/* Uitklappen laat zien uit welke categorieën het bedrag bestaat.
+                      Zonder uitgaven valt er niets te verdiepen. */}
+                  <button
+                    type="button"
+                    onClick={() => setUitgeklapt(open ? null : post.id)}
+                    disabled={post.categorieen.length === 0}
+                    aria-expanded={open}
+                    aria-label={`Categorieën van ${post.naam}`}
+                    className="w-4 shrink-0 text-xs text-gedempt disabled:opacity-0"
+                  >
+                    {open ? "▾" : "▸"}
+                  </button>
+                  <Link
+                    href={`/uitgaven?jaar=${jaar}&post=${post.id}`}
+                    title={`Uitgaven op ${post.naam} in ${jaar}`}
+                    className="flex flex-1 items-center gap-2 truncate text-sm hover:text-accent"
+                  >
+                    <span
+                      aria-hidden
+                      className="inline-block h-3 w-3 shrink-0 rounded"
+                      style={{ background: post.kleur }}
+                    />
+                    <span className="truncate">{post.naam}</span>
+                    {!post.actief && (
+                      <span className="shrink-0 text-xs text-gedempt">(inactief)</span>
+                    )}
+                  </Link>
+                  <input
+                    name={`post-${post.id}`}
+                    inputMode="decimal"
+                    placeholder="—"
+                    value={bedragen[post.id] ?? ""}
+                    onChange={(e) =>
+                      setBedragen((huidig) => ({
+                        ...huidig,
+                        [post.id]: e.target.value,
+                      }))
+                    }
+                    aria-label={`Begroot voor ${post.naam}`}
+                    className={`${invoer} cijfers w-28 text-right`}
                   />
-                  <span className="truncate">{onderdeel.naam}</span>
-                  {!onderdeel.actief && (
-                    <span className="shrink-0 text-xs text-gedempt">(inactief)</span>
-                  )}
-                </Link>
-                <input
-                  name={`onderdeel-${onderdeel.id}`}
-                  inputMode="decimal"
-                  placeholder="—"
-                  value={bedragen[onderdeel.id] ?? ""}
-                  onChange={(e) =>
-                    setBedragen((huidig) => ({
-                      ...huidig,
-                      [onderdeel.id]: e.target.value,
-                    }))
-                  }
-                  aria-label={`Begroot voor ${onderdeel.naam}`}
-                  className={`${invoer} cijfers w-28 text-right`}
-                />
-                <span className="cijfers hidden w-28 text-right text-sm text-gedempt sm:block">
-                  {formatEuro(onderdeel.werkelijkCent)}
-                </span>
-                <span
-                  className={`cijfers hidden w-28 text-right text-sm sm:block ${
-                    verschil !== null && verschil < 0 ? "text-slecht" : "text-gedempt"
-                  }`}
-                >
-                  {verschil === null ? "—" : formatEuro(verschil)}
-                </span>
+                  <span className="cijfers hidden w-28 text-right text-sm text-gedempt sm:block">
+                    {formatEuro(post.werkelijkCent)}
+                  </span>
+                  <span
+                    className={`cijfers hidden w-28 text-right text-sm sm:block ${
+                      verschil !== null && verschil < 0
+                        ? "text-slecht"
+                        : "text-gedempt"
+                    }`}
+                  >
+                    {verschil === null ? "—" : formatEuro(verschil)}
+                  </span>
+                </div>
+
+                {open && (
+                  <ul className="mt-1 mb-1 ml-7 flex flex-col gap-1">
+                    {post.categorieen.map((categorie) => (
+                      <li
+                        key={categorie.categoryId}
+                        className="flex items-center gap-3 text-xs text-gedempt"
+                      >
+                        <Link
+                          href={`/uitgaven?jaar=${jaar}&post=${post.id}&categorie=${categorie.categoryId}`}
+                          className="flex flex-1 items-center gap-2 truncate hover:text-accent"
+                        >
+                          <span
+                            aria-hidden
+                            className="inline-block h-2 w-2 shrink-0 rounded"
+                            style={{ background: categorie.kleur }}
+                          />
+                          <span className="truncate">{categorie.naam}</span>
+                        </Link>
+                        <span className="cijfers w-28 text-right">
+                          {formatEuro(categorie.cent)}
+                        </span>
+                        <span className="hidden w-28 sm:block" />
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </li>
             );
           })}
         </ul>
 
         <div className="mt-3 flex items-center gap-3 border-t border-rand pt-3 text-sm font-medium">
+          <span aria-hidden className="w-4 shrink-0" />
           <span className="flex-1">Totaal</span>
           <span className="cijfers w-28 text-right">
             {formatEuro(totalen.begroot)}
@@ -150,6 +216,20 @@ export default function BegrotingFormulier({
           </span>
         </div>
 
+        {/* Wat nergens aan hangt telt hierboven niet mee; dat hoort niet stilletjes
+            te verdwijnen, dus staat het eronder met een weg ernaartoe. */}
+        {losseUitgaven.aantal > 0 && (
+          <p className="mt-3 text-sm text-gedempt">
+            <Link
+              href={`/uitgaven?jaar=${jaar}&post=geen`}
+              className="text-accent underline"
+            >
+              {formatEuro(losseUitgaven.cent)}
+            </Link>{" "}
+            hangt nog aan geen post en telt hierboven niet mee.
+          </p>
+        )}
+
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <button
             disabled={bezig}
@@ -161,26 +241,74 @@ export default function BegrotingFormulier({
         </div>
       </form>
 
-      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-rand bg-paneel p-4">
-        <NieuwOnderdeel />
-        <form action={overnemen} className="flex items-center gap-3">
-          <input type="hidden" name="jaar" value={jaar} />
+      <div className="rounded-xl border border-rand bg-paneel p-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <NieuwePost />
+          <form action={overnemen} className="flex items-center gap-3">
+            <input type="hidden" name="jaar" value={jaar} />
+            <button
+              disabled={overnemenBezig}
+              className="rounded-lg border border-rand px-3 py-2 text-sm disabled:opacity-50"
+            >
+              Overnemen uit {jaar - 1}
+            </button>
+          </form>
           <button
-            disabled={overnemenBezig}
-            className="rounded-lg border border-rand px-3 py-2 text-sm disabled:opacity-50"
+            type="button"
+            onClick={() => setBeheer((huidig) => !huidig)}
+            className="text-sm text-accent underline"
           >
-            Overnemen uit {jaar - 1}
+            {beheer ? "posten verbergen" : "posten hernoemen"}
           </button>
-        </form>
-        <Uitkomst state={overnemenState} />
+          <Uitkomst state={overnemenState} />
+        </div>
+
+        {beheer && (
+          <ul className="mt-4 flex flex-col gap-2 border-t border-rand pt-4">
+            {posten.map((post) => (
+              <li key={post.id}>
+                <form
+                  action={wijzigPostAction}
+                  className="flex flex-wrap items-center gap-2"
+                >
+                  <input type="hidden" name="id" value={post.id} />
+                  <input
+                    type="color"
+                    name="kleur"
+                    defaultValue={post.kleur}
+                    aria-label={`Kleur voor ${post.naam}`}
+                    className="h-9 w-9 shrink-0 rounded border border-rand bg-transparent"
+                  />
+                  <input
+                    name="naam"
+                    defaultValue={post.naam}
+                    aria-label="Naam"
+                    className={`${invoer} min-w-0 flex-1`}
+                  />
+                  <label className="flex items-center gap-1 text-sm text-gedempt">
+                    <input
+                      type="checkbox"
+                      name="actief"
+                      defaultChecked={post.actief}
+                    />
+                    actief
+                  </label>
+                  <button className="rounded-lg border border-rand px-3 py-2 text-sm">
+                    Opslaan
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );
 }
 
-function NieuwOnderdeel() {
+function NieuwePost() {
   const [state, toevoegen, bezig] = useActionState<BegrotingState, FormData>(
-    nieuwOnderdeelAction,
+    nieuwePostAction,
     null,
   );
 
@@ -196,7 +324,7 @@ function NieuwOnderdeel() {
       <input
         name="naam"
         required
-        placeholder="Nieuw onderdeel"
+        placeholder="Nieuwe post"
         className={`${invoer} min-w-0 flex-1`}
       />
       <button

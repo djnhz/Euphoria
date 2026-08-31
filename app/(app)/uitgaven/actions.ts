@@ -25,6 +25,8 @@ const RegelInvoer = z.object({
   aantal: z.number().int().min(1).max(9999),
   bedragCent: z.number().int().min(-10_000_000).max(10_000_000),
   categoryId: z.number().int().positive(),
+  /** Begrotingspost; null als de regel nog nergens op drukt. */
+  budgetItemId: z.number().int().positive().nullable(),
   aandeelAPct: z.number().int().min(0).max(100),
   bron: z.enum(["handmatig", "ai"]),
 });

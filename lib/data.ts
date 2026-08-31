@@ -1,9 +1,10 @@
 // Geen `server-only` hier: dit bestand wordt ook door db/smoke.ts gedraaid, dat buiten
 // Next leeft. De barriere is `@/db` zelf, dat node-modules importeert en dus nooit in
 // een clientbundel past. De echte geheimen staan in lib/auth.ts, dat de guard wel heeft.
-import { and, asc, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, lte, sql } from "drizzle-orm";
 import {
   db,
+  budgetItems,
   budgets,
   categories,
   couples,
@@ -31,6 +32,8 @@ export type RegelRij = {
   categoryId: number;
   categorieNaam: string;
   kleur: string;
+  /** Null zolang de regel nog aan geen begrotingspost hangt. */
+  budgetItemId: number | null;
   betaaldDoorA: boolean;
 };
 
@@ -55,6 +58,7 @@ export async function haalRegels(jaar?: number): Promise<RegelRij[]> {
       categoryId: categories.id,
       categorieNaam: categories.naam,
       kleur: categories.kleur,
+      budgetItemId: expenseLines.budgetItemId,
       betaaldDoorA: sql<boolean>`${couples.volgorde} = 1`,
     })
     .from(expenseLines)
@@ -113,47 +117,84 @@ export function saldoPerMaand(regels: readonly RegelRij[]) {
  * Begroot bedrag naast werkelijke uitgaven, per onderdeel voor een jaar. Onderdelen
  * zonder begroting en zonder uitgaven blijven weg; die zeggen niets.
  */
-export async function budgetOverzicht(jaar: number) {
-  const [regels, alleCategorieen, begroot] = await Promise.all([
-    haalRegels(jaar),
-    db.select().from(categories).where(eq(categories.actief, true)),
-    db.select().from(budgets).where(eq(budgets.jaar, jaar)),
-  ]);
-  const werkelijk = new Map(
-    totaalPerCategorie(regels).map((r) => [r.categoryId, r.cent]),
-  );
-  const perCategorie = new Map(begroot.map((r) => [r.categoryId, r.bedragCent]));
+/** Wat er in een jaar per begrotingspost is uitgegeven. */
+export function totaalPerPost(regels: readonly RegelRij[]) {
+  const perId = new Map<number | null, number>();
+  for (const regel of regels) {
+    perId.set(
+      regel.budgetItemId,
+      (perId.get(regel.budgetItemId) ?? 0) + regel.bedragCent,
+    );
+  }
+  return perId;
+}
 
-  return alleCategorieen
-    .map((categorie) => ({
-      ...categorie,
-      begrootCent: perCategorie.get(categorie.id) ?? null,
-      werkelijkCent: werkelijk.get(categorie.id) ?? 0,
-    }))
+/** Voor het dashboard: alleen posten waar iets mee is, begroot of uitgegeven. */
+export async function budgetOverzicht(jaar: number) {
+  const alles = await begroting(jaar);
+  return alles
     .filter((r) => r.begrootCent !== null || r.werkelijkCent > 0)
     .sort((a, b) => b.werkelijkCent - a.werkelijkCent);
 }
 
-/** Alle onderdelen, ook de niet-begrote: dat is wat het begrotingsscherm invult. */
+/**
+ * Alle posten, ook de lege: dat is wat het begrotingsscherm invult. Per post komen de
+ * categorieën mee waar het geld heen ging, zodat een bedrag na te lopen is zonder
+ * eerst naar de uitgavenlijst te hoeven.
+ */
 export async function begroting(jaar: number) {
-  const [alleCategorieen, begroot, regels] = await Promise.all([
-    db.select().from(categories).orderBy(asc(categories.naam)),
+  const [posten, begroot, regels] = await Promise.all([
+    db.select().from(budgetItems).orderBy(asc(budgetItems.naam)),
     db.select().from(budgets).where(eq(budgets.jaar, jaar)),
     haalRegels(jaar),
   ]);
-  const werkelijk = new Map(
-    totaalPerCategorie(regels).map((r) => [r.categoryId, r.cent]),
-  );
-  const perCategorie = new Map(begroot.map((r) => [r.categoryId, r.bedragCent]));
+  const werkelijk = totaalPerPost(regels);
+  const perPost = new Map(begroot.map((r) => [r.budgetItemId, r.bedragCent]));
 
-  return alleCategorieen.map((categorie) => ({
-    id: categorie.id,
-    naam: categorie.naam,
-    kleur: categorie.kleur,
-    actief: categorie.actief,
-    begrootCent: perCategorie.get(categorie.id) ?? null,
-    werkelijkCent: werkelijk.get(categorie.id) ?? 0,
+  // Per post de categorieën, grootste bedrag eerst.
+  const uitsplitsing = new Map<
+    number,
+    Map<number, { naam: string; kleur: string; cent: number }>
+  >();
+  for (const regel of regels) {
+    if (regel.budgetItemId === null) continue;
+    const perCategorie =
+      uitsplitsing.get(regel.budgetItemId) ??
+      new Map<number, { naam: string; kleur: string; cent: number }>();
+    const huidig = perCategorie.get(regel.categoryId) ?? {
+      naam: regel.categorieNaam,
+      kleur: regel.kleur,
+      cent: 0,
+    };
+    huidig.cent += regel.bedragCent;
+    perCategorie.set(regel.categoryId, huidig);
+    uitsplitsing.set(regel.budgetItemId, perCategorie);
+  }
+
+  return posten.map((post) => ({
+    id: post.id,
+    naam: post.naam,
+    kleur: post.kleur,
+    actief: post.actief,
+    begrootCent: perPost.get(post.id) ?? null,
+    werkelijkCent: werkelijk.get(post.id) ?? 0,
+    categorieen: [...(uitsplitsing.get(post.id)?.entries() ?? [])]
+      .map(([categoryId, rest]) => ({ categoryId, ...rest }))
+      .sort((a, b) => b.cent - a.cent),
   }));
+}
+
+/**
+ * Uitgaven die nog aan geen post hangen. Die tellen nergens in de begroting mee, dus
+ * het begrotingsscherm hoort ze te laten zien in plaats van ze stil weg te laten.
+ */
+export async function nietToegewezen(jaar: number) {
+  const regels = await haalRegels(jaar);
+  const losse = regels.filter((r) => r.budgetItemId === null);
+  return {
+    aantal: new Set(losse.map((r) => r.expenseId)).size,
+    cent: losse.reduce((som, r) => som + r.bedragCent, 0),
+  };
 }
 
 /** Jaren waarvoor iets begroot is, zodat het jaaroverzicht ze kan aanbieden. */
@@ -166,6 +207,8 @@ export type UitgaveFilter = {
   jaar?: number;
   categoryId?: number;
   coupleId?: number;
+  /** Een id, of "geen" voor alles wat nog aan geen post hangt. */
+  post?: number | "geen";
   sortering?: Sortering;
 };
 
@@ -232,33 +275,67 @@ export async function uitgavenLijst(filter: UitgaveFilter = {}) {
           .where(eq(expenseLines.categoryId, filter.categoryId))
       ).map((r) => r.expenseId),
     );
-    gevonden = rijen.filter((r) => metCategorie.has(r.id));
+    gevonden = gevonden.filter((r) => metCategorie.has(r.id));
+  }
+
+  // Ook de begrotingspost zit op regelniveau, dus dezelfde aanpak.
+  if (filter.post !== undefined) {
+    const metPost = new Set(
+      (
+        await db
+          .selectDistinct({ expenseId: expenseLines.expenseId })
+          .from(expenseLines)
+          .where(
+            filter.post === "geen"
+              ? isNull(expenseLines.budgetItemId)
+              : eq(expenseLines.budgetItemId, filter.post),
+          )
+      ).map((r) => r.expenseId),
+    );
+    gevonden = gevonden.filter((r) => metPost.has(r.id));
   }
 
   return metHoofdcategorie(gevonden);
 }
 
 /**
- * Een uitgave kan regels in meerdere categorieën hebben. Voor het groeperen en voor het
- * label in de lijst telt de categorie waar het meeste geld naartoe ging.
+ * Een uitgave kan regels in meerdere categorieën hebben, en net zo goed in meerdere
+ * begrotingsposten. Voor het groeperen en voor het label in de lijst telt telkens
+ * waar het meeste geld naartoe ging.
  */
 async function metHoofdcategorie<T extends { id: number }>(rijen: T[]) {
   const ids = rijen.map((r) => r.id);
   if (ids.length === 0) {
-    return [] as (T & { hoofdcategorie: string; categorieKleur: string })[];
+    return [] as (T & {
+      hoofdcategorie: string;
+      categorieKleur: string;
+      hoofdpost: string;
+    })[];
   }
 
-  const perCategorie = await db
-    .select({
-      expenseId: expenseLines.expenseId,
-      naam: categories.naam,
-      kleur: categories.kleur,
-      cent: sql<number>`sum(${expenseLines.bedragCent})::int`,
-    })
-    .from(expenseLines)
-    .innerJoin(categories, eq(expenseLines.categoryId, categories.id))
-    .where(inArray(expenseLines.expenseId, ids))
-    .groupBy(expenseLines.expenseId, categories.id);
+  const [perCategorie, perPost] = await Promise.all([
+    db
+      .select({
+        expenseId: expenseLines.expenseId,
+        naam: categories.naam,
+        kleur: categories.kleur,
+        cent: sql<number>`sum(${expenseLines.bedragCent})::int`,
+      })
+      .from(expenseLines)
+      .innerJoin(categories, eq(expenseLines.categoryId, categories.id))
+      .where(inArray(expenseLines.expenseId, ids))
+      .groupBy(expenseLines.expenseId, categories.id),
+    db
+      .select({
+        expenseId: expenseLines.expenseId,
+        naam: budgetItems.naam,
+        cent: sql<number>`sum(${expenseLines.bedragCent})::int`,
+      })
+      .from(expenseLines)
+      .innerJoin(budgetItems, eq(expenseLines.budgetItemId, budgetItems.id))
+      .where(inArray(expenseLines.expenseId, ids))
+      .groupBy(expenseLines.expenseId, budgetItems.id),
+  ]);
 
   const grootste = new Map<number, { naam: string; kleur: string; cent: number }>();
   for (const rij of perCategorie) {
@@ -272,10 +349,19 @@ async function metHoofdcategorie<T extends { id: number }>(rijen: T[]) {
     }
   }
 
+  const grootstePost = new Map<number, { naam: string; cent: number }>();
+  for (const rij of perPost) {
+    const huidig = grootstePost.get(rij.expenseId);
+    if (!huidig || rij.cent > huidig.cent) {
+      grootstePost.set(rij.expenseId, { naam: rij.naam, cent: rij.cent });
+    }
+  }
+
   return rijen.map((rij) => ({
     ...rij,
     hoofdcategorie: grootste.get(rij.id)?.naam ?? "Zonder categorie",
     categorieKleur: grootste.get(rij.id)?.kleur ?? "#64748b",
+    hoofdpost: grootstePost.get(rij.id)?.naam ?? "Geen begrotingspost",
   }));
 }
 

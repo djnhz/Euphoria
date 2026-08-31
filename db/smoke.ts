@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { asc, inArray, like } from "drizzle-orm";
 import {
   db,
+  budgetItems,
   budgets,
   categories,
   couples,
@@ -41,7 +42,8 @@ async function ruimOp() {
       ),
     );
   }
-  // De begrotingsrijen gaan mee met de categorie dankzij de cascade.
+  // De begrotingsrijen gaan mee met de post dankzij de cascade.
+  await db.delete(budgetItems).where(like(budgetItems.naam, `${MERK}%`));
   await db.delete(categories).where(like(categories.naam, `${MERK}%`));
 }
 
@@ -62,6 +64,10 @@ async function main() {
   const [categorie] = await db
     .insert(categories)
     .values({ naam: `${MERK} test`, kleur: "#123456" })
+    .returning();
+  const [post] = await db
+    .insert(budgetItems)
+    .values({ naam: `${MERK} post`, kleur: "#123456" })
     .returning();
 
   const gemaakt: number[] = [];
@@ -84,6 +90,7 @@ async function main() {
       omschrijving: "regel",
       bedragCent,
       categoryId: categorie.id,
+      budgetItemId: post.id,
       aandeelAPct,
     });
     gemaakt.push(uitgave.id);
@@ -106,15 +113,15 @@ async function main() {
   const jaar = Number(vandaag().slice(0, 4));
   await db
     .insert(budgets)
-    .values({ jaar, categoryId: categorie.id, bedragCent: 20_000 })
+    .values({ jaar, budgetItemId: post.id, bedragCent: 20_000 })
     .onConflictDoUpdate({
-      target: [budgets.jaar, budgets.categoryId],
+      target: [budgets.jaar, budgets.budgetItemId],
       set: { bedragCent: 20_000 },
     });
 
   const overzicht = await budgetOverzicht(jaar);
-  const regel = overzicht.find((r) => r.id === categorie.id);
-  assert.ok(regel, "de begrote categorie hoort in het overzicht te staan");
+  const regel = overzicht.find((r) => r.id === post.id);
+  assert.ok(regel, "de begrote post hoort in het overzicht te staan");
   assert.equal(regel.begrootCent, 20_000, "begroot bedrag moet terugkomen");
   assert.equal(
     regel.werkelijkCent,

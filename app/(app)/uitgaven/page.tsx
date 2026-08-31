@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { asc, eq } from "drizzle-orm";
-import { db, categories, couples } from "@/db";
+import { db, budgetItems, categories, couples } from "@/db";
 import { vereisGebruiker } from "@/lib/auth";
 import { beschikbareJaren, uitgavenLijst } from "@/lib/data";
 import { isSortering } from "@/lib/sorteren";
@@ -15,6 +15,7 @@ const GROEPEN = {
   geen: "Geen groepering",
   maand: "Per maand",
   categorie: "Per categorie",
+  post: "Per begrotingspost",
   huishouden: "Per huishouden",
 } as const;
 
@@ -26,6 +27,8 @@ function groepsnaam(rij: Rij, groep: Groep): string {
       return `${MAANDEN[Number(rij.datum.slice(5, 7)) - 1]} ${rij.datum.slice(0, 4)}`;
     case "categorie":
       return rij.hoofdcategorie;
+    case "post":
+      return rij.hoofdpost;
     case "huishouden":
       return rij.coupleNaam;
     default:
@@ -49,13 +52,17 @@ export default async function UitgavenPagina({
   await vereisGebruiker();
   const params = await searchParams;
 
-  const [jaren, categorieLijst, huishoudens] = await Promise.all([
+  const [jaren, categorieLijst, postenLijst, huishoudens] = await Promise.all([
     beschikbareJaren(),
     db
       .select({ id: categories.id, naam: categories.naam })
       .from(categories)
       .where(eq(categories.actief, true))
       .orderBy(asc(categories.naam)),
+    db
+      .select({ id: budgetItems.id, naam: budgetItems.naam })
+      .from(budgetItems)
+      .orderBy(asc(budgetItems.naam)),
     db.select().from(couples).orderBy(asc(couples.volgorde)),
   ]);
 
@@ -63,13 +70,22 @@ export default async function UitgavenPagina({
   const jaar = jaren.includes(gekozenJaar) ? gekozenJaar : undefined;
   const categoryId = Number(params.categorie) || undefined;
   const coupleId = Number(params.huishouden) || undefined;
+  const postParam = String(params.post ?? "");
+  const post =
+    postParam === "geen" ? "geen" : Number(postParam) || undefined;
 
   const sorteerParam = String(params.sortering ?? "");
   const sortering = isSortering(sorteerParam) ? sorteerParam : "datum-nieuw";
   const groepParam = String(params.groep ?? "");
   const groep: Groep = groepParam in GROEPEN ? (groepParam as Groep) : "geen";
 
-  const rijen = await uitgavenLijst({ jaar, categoryId, coupleId, sortering });
+  const rijen = await uitgavenLijst({
+    jaar,
+    categoryId,
+    coupleId,
+    post,
+    sortering,
+  });
   const totaal = rijen.reduce((som, r) => som + r.totaalCent, 0);
   const groepen = groep === "geen" ? [] : groepeer(rijen, groep);
 
@@ -88,6 +104,7 @@ export default async function UitgavenPagina({
       <UitgaveFilters
         jaren={jaren}
         categorieen={categorieLijst}
+        posten={postenLijst}
         huishoudens={huishoudens}
         groepen={Object.entries(GROEPEN)}
       />
@@ -144,6 +161,8 @@ function Lijst({ rijen }: { rijen: Rij[] }) {
               </p>
               <p className="truncate text-sm text-gedempt">
                 {formatDatum(rij.datum)} · {rij.hoofdcategorie} · {rij.coupleNaam}
+                {" · "}
+                {rij.hoofdpost}
                 {rij.heeftBon && " · bon"}
               </p>
             </div>

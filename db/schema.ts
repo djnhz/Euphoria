@@ -36,7 +36,7 @@ export const users = pgTable("users", {
   lockedUntil: timestamp("locked_until", { withTimezone: true }),
 });
 
-/** De onderdelen waarop je begroot en waarop de uitgaven verdeeld worden. */
+/** Waar een uitgave over ging. Fijnmazig, en stuurt de kleuren in de grafieken. */
 export const categories = pgTable("categories", {
   id: serial("id").primaryKey(),
   naam: text("naam").notNull().unique(),
@@ -45,20 +45,33 @@ export const categories = pgTable("categories", {
 });
 
 /**
- * Begroting: per jaar een bedrag per onderdeel. Een jaar zonder rijen is simpelweg
- * niet begroot; een onderdeel zonder rij in dat jaar ook niet.
+ * De posten waarop begroot wordt. Bewust los van `categories`: een begroting kent
+ * meestal een handvol grove posten, terwijl een categorie zegt wat je precies kocht.
+ * Een regel kan dus in categorie "Motor en Techniek" vallen en tegelijk onder de
+ * begrotingspost "Onderhoud".
+ */
+export const budgetItems = pgTable("budget_items", {
+  id: serial("id").primaryKey(),
+  naam: text("naam").notNull().unique(),
+  kleur: text("kleur").notNull().default("#64748b"),
+  actief: boolean("actief").notNull().default(true),
+});
+
+/**
+ * Begroting: per jaar een bedrag per post. Een jaar zonder rijen is simpelweg niet
+ * begroot; een post zonder rij in dat jaar ook niet.
  */
 export const budgets = pgTable(
   "budgets",
   {
     id: serial("id").primaryKey(),
     jaar: integer("jaar").notNull(),
-    categoryId: integer("category_id")
+    budgetItemId: integer("budget_item_id")
       .notNull()
-      .references(() => categories.id, { onDelete: "cascade" }),
+      .references(() => budgetItems.id, { onDelete: "cascade" }),
     bedragCent: integer("bedrag_cent").notNull(),
   },
-  (t) => [unique("budgets_jaar_categorie").on(t.jaar, t.categoryId)],
+  (t) => [unique("budgets_jaar_post").on(t.jaar, t.budgetItemId)],
 );
 
 export type AnalyseStatus = "geen" | "gelukt" | "mislukt";
@@ -109,12 +122,23 @@ export const expenseLines = pgTable(
     categoryId: integer("category_id")
       .notNull()
       .references(() => categories.id),
+    /**
+     * Op welke begrotingspost deze regel drukt. Wordt op de bon in een keer gezet en
+     * kan per regel afwijken. Leeg mag: dan telt de regel nergens in de begroting mee
+     * en valt hij op als "nog niet toegewezen".
+     */
+    budgetItemId: integer("budget_item_id").references(() => budgetItems.id, {
+      onDelete: "set null",
+    }),
     /** Percentage van deze regel voor huishouden A (volgorde = 1). Rest is voor B. */
     aandeelAPct: integer("aandeel_a_pct").notNull().default(50),
     bron: text("bron").$type<LineBron>().notNull().default("handmatig"),
     volgorde: integer("volgorde").notNull().default(0),
   },
-  (t) => [index("expense_lines_expense_idx").on(t.expenseId)],
+  (t) => [
+    index("expense_lines_expense_idx").on(t.expenseId),
+    index("expense_lines_post_idx").on(t.budgetItemId),
+  ],
 );
 
 export type Opslag = "blob" | "lokaal" | "drive";

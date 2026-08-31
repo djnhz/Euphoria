@@ -2,7 +2,7 @@ import Link from "next/link";
 import BestandTegel from "@/components/BestandTegel";
 import { notFound } from "next/navigation";
 import { asc, inArray } from "drizzle-orm";
-import { db, categories, couples } from "@/db";
+import { db, budgetItems, categories, couples } from "@/db";
 import { vereisGebruiker } from "@/lib/auth";
 import { uitgaveMetRegels } from "@/lib/data";
 import { formatEuro, verdeelRegel } from "@/lib/geld";
@@ -39,6 +39,11 @@ export default async function UitgaveDetail({
           ),
         )
     ).map((c) => [c.id, c.naam]),
+  );
+
+  const postNamen = new Map(
+    (await db.select({ id: budgetItems.id, naam: budgetItems.naam }).from(budgetItems))
+      .map((p) => [p.id, p.naam]),
   );
 
   const totaal = uitgave.regels.reduce((som, r) => som + r.bedragCent, 0);
@@ -105,6 +110,7 @@ export default async function UitgaveDetail({
             <tr>
               <th className="p-3 font-normal">Omschrijving</th>
               <th className="p-3 font-normal">Categorie</th>
+              <th className="p-3 font-normal">Begroting</th>
               <th className="p-3 text-right font-normal">Aantal</th>
               <th className="p-3 text-right font-normal">Bedrag</th>
               <th className="p-3 text-right font-normal">Verdeling</th>
@@ -123,6 +129,11 @@ export default async function UitgaveDetail({
                 </td>
                 <td className="p-3 text-gedempt">
                   {categorieNamen.get(regel.categoryId) ?? "—"}
+                </td>
+                <td className="p-3 text-gedempt">
+                  {regel.budgetItemId === null
+                    ? "—"
+                    : (postNamen.get(regel.budgetItemId) ?? "—")}
                 </td>
                 <td className="cijfers p-3 text-right">{regel.aantal}</td>
                 <td className="cijfers p-3 text-right">

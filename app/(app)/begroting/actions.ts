@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { and, eq, inArray } from "drizzle-orm";
-import { db, budgets, categories } from "@/db";
+import { db, budgetItems, budgets } from "@/db";
 import { vereisGebruiker } from "@/lib/auth";
 import { parseEuro } from "@/lib/geld";
 
@@ -27,13 +27,13 @@ export async function bewaarBegrotingAction(
 
   const teWissen: number[] = [];
   for (const [sleutel, waarde] of formData.entries()) {
-    const treffer = /^onderdeel-(\d+)$/.exec(sleutel);
+    const treffer = /^post-(\d+)$/.exec(sleutel);
     if (!treffer) continue;
-    const categoryId = Number(treffer[1]);
+    const budgetItemId = Number(treffer[1]);
     const tekst = String(waarde).trim();
 
     if (tekst === "") {
-      teWissen.push(categoryId);
+      teWissen.push(budgetItemId);
       continue;
     }
     const bedragCent = parseEuro(tekst);
@@ -43,9 +43,9 @@ export async function bewaarBegrotingAction(
 
     await db
       .insert(budgets)
-      .values({ jaar, categoryId, bedragCent })
+      .values({ jaar, budgetItemId, bedragCent })
       .onConflictDoUpdate({
-        target: [budgets.jaar, budgets.categoryId],
+        target: [budgets.jaar, budgets.budgetItemId],
         set: { bedragCent },
       });
   }
@@ -54,7 +54,7 @@ export async function bewaarBegrotingAction(
     await db
       .delete(budgets)
       .where(
-        and(eq(budgets.jaar, jaar), inArray(budgets.categoryId, teWissen)),
+        and(eq(budgets.jaar, jaar), inArray(budgets.budgetItemId, teWissen)),
       );
   }
 
@@ -63,8 +63,8 @@ export async function bewaarBegrotingAction(
   return { gelukt: `Begroting ${jaar} opgeslagen.` };
 }
 
-/** Een nieuw onderdeel om op te begroten; dat is dezelfde lijst als bij de uitgaven. */
-export async function nieuwOnderdeelAction(
+/** Een nieuwe post om op te begroten. Los van de categorieën van de uitgaven. */
+export async function nieuwePostAction(
   _vorige: BegrotingState,
   formData: FormData,
 ): Promise<BegrotingState> {
@@ -76,15 +76,38 @@ export async function nieuwOnderdeelAction(
   if (!KLEUR.test(kleur)) return { fout: "Ongeldige kleur." };
 
   try {
-    await db.insert(categories).values({ naam, kleur });
+    await db.insert(budgetItems).values({ naam, kleur });
   } catch {
-    return { fout: "Dat onderdeel bestaat al." };
+    return { fout: "Die post bestaat al." };
   }
 
   revalidatePath("/begroting");
-  revalidatePath("/instellingen");
+  revalidatePath("/uitgaven");
   revalidatePath("/");
   return { gelukt: `${naam} toegevoegd.` };
+}
+
+/** Naam of kleur bijwerken, of een post buiten gebruik stellen. */
+export async function wijzigPostAction(formData: FormData) {
+  await vereisGebruiker();
+
+  const id = Number(formData.get("id"));
+  if (!Number.isInteger(id)) return;
+  const naam = String(formData.get("naam") ?? "").trim();
+  const kleur = String(formData.get("kleur") ?? "");
+
+  await db
+    .update(budgetItems)
+    .set({
+      ...(naam ? { naam } : {}),
+      ...(KLEUR.test(kleur) ? { kleur } : {}),
+      actief: formData.get("actief") === "on",
+    })
+    .where(eq(budgetItems.id, id));
+
+  revalidatePath("/begroting");
+  revalidatePath("/uitgaven");
+  revalidatePath("/");
 }
 
 /** Vorig jaar als startpunt overnemen; bestaande bedragen blijven staan. */
@@ -108,8 +131,12 @@ export async function neemVorigJaarOverAction(
   for (const rij of vorig) {
     await db
       .insert(budgets)
-      .values({ jaar, categoryId: rij.categoryId, bedragCent: rij.bedragCent })
-      .onConflictDoNothing({ target: [budgets.jaar, budgets.categoryId] });
+      .values({
+        jaar,
+        budgetItemId: rij.budgetItemId,
+        bedragCent: rij.bedragCent,
+      })
+      .onConflictDoNothing({ target: [budgets.jaar, budgets.budgetItemId] });
   }
 
   revalidatePath("/begroting");

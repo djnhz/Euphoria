@@ -16,6 +16,7 @@ import {
 } from "@/app/(app)/uitgaven/actions";
 
 export type Categorie = { id: number; naam: string };
+export type BegrotingsPost = { id: number; naam: string };
 export type Huishouden = { id: number; naam: string; volgorde: number };
 
 export type FormulierRegel = {
@@ -24,6 +25,8 @@ export type FormulierRegel = {
   aantal: number;
   bedrag: string;
   categoryId: number;
+  /** Begrotingspost van deze regel; 0 betekent "geen". */
+  budgetItemId: number;
   aandeelAPct: number;
   bron: "handmatig" | "ai";
 };
@@ -40,13 +43,14 @@ export type Beginwaarden = {
 let teller = 0;
 const nieuweSleutel = () => `regel-${teller++}`;
 
-export function legeRegel(categoryId: number): FormulierRegel {
+export function legeRegel(categoryId: number, budgetItemId = 0): FormulierRegel {
   return {
     sleutel: nieuweSleutel(),
     omschrijving: "",
     aantal: 1,
     bedrag: "",
     categoryId,
+    budgetItemId,
     aandeelAPct: 50,
     bron: "handmatig",
   };
@@ -54,6 +58,7 @@ export function legeRegel(categoryId: number): FormulierRegel {
 
 export default function UitgaveFormulier({
   categorieen,
+  posten,
   huishoudens,
   begin,
   actie,
@@ -62,6 +67,8 @@ export default function UitgaveFormulier({
   heeftSleutel,
 }: {
   categorieen: Categorie[];
+  /** Begrotingsposten; los van de categorieen en dus een eigen keuze. */
+  posten: BegrotingsPost[];
   huishoudens: Huishouden[];
   begin?: Partial<Beginwaarden>;
   actie: (vorige: BewaarState, formData: FormData) => Promise<BewaarState>;
@@ -83,6 +90,18 @@ export default function UitgaveFormulier({
   const [regels, setRegels] = useState<FormulierRegel[]>(
     begin?.regels?.length ? begin.regels : [legeRegel(standaardCategorie)],
   );
+  /**
+   * De post van de bon als geheel. Hem hier zetten schrijft alle regels over; per
+   * regel afwijken mag daarna. Staan de regels niet op een lijn, dan toont dit veld
+   * "gemengd" en laat het de regels met rust tot je echt iets kiest.
+   */
+  const bonPost = regels.every((r) => r.budgetItemId === regels[0].budgetItemId)
+    ? regels[0].budgetItemId
+    : -1;
+  function zetBonPost(budgetItemId: number) {
+    setRegels((huidig) => huidig.map((r) => ({ ...r, budgetItemId })));
+  }
+
   const [bonnen, setBonnen] = useState<BewaardeBon[]>(begin?.bonnen ?? []);
   const [bezigMetUpload, setBezigMetUpload] = useState(false);
   const [dubbel, setDubbel] = useState<Dubbelvraag | null>(null);
@@ -220,6 +239,8 @@ export default function UitgaveFormulier({
         categoryId:
           categorieen.find((c) => c.naam === regel.categorieSuggestie)?.id ??
           standaardCategorie,
+        // Uitgelezen regels volgen de post van de bon; het model kent die niet.
+        budgetItemId: bonPost > 0 ? bonPost : 0,
         aandeelAPct: 50,
         bron: "ai",
       }));
@@ -256,6 +277,7 @@ export default function UitgaveFormulier({
       aantal: r.aantal,
       bedragCent: parseEuro(r.bedrag) ?? 0,
       categoryId: r.categoryId,
+      budgetItemId: r.budgetItemId > 0 ? r.budgetItemId : null,
       aandeelAPct: r.aandeelAPct,
       bron: r.bron,
     })),
@@ -388,6 +410,23 @@ export default function UitgaveFormulier({
             className={invoerKlasse}
           />
         </Veld>
+        {/* De post van de hele bon. Kiezen zet alle regels om; daarna kun je er per
+            regel van afwijken, en dan staat hier "gemengd". */}
+        <Veld label="Begroting">
+          <select
+            value={bonPost}
+            onChange={(e) => zetBonPost(Number(e.target.value))}
+            className={invoerKlasse}
+          >
+            {bonPost === -1 && <option value={-1}>gemengd</option>}
+            <option value={0}>geen post</option>
+            {posten.map((post) => (
+              <option key={post.id} value={post.id}>
+                {post.naam}
+              </option>
+            ))}
+          </select>
+        </Veld>
       </section>
 
       <section className="rounded-xl border border-rand bg-paneel p-4">
@@ -396,7 +435,10 @@ export default function UitgaveFormulier({
           <button
             type="button"
             onClick={() =>
-              setRegels((r) => [...r, legeRegel(standaardCategorie)])
+              setRegels((r) => [
+                ...r,
+                legeRegel(standaardCategorie, bonPost > 0 ? bonPost : 0),
+              ])
             }
             className="text-sm text-accent underline"
           >
@@ -457,7 +499,7 @@ export default function UitgaveFormulier({
                 verwijder
               </button>
 
-              <div className="col-span-2 grid gap-2 sm:col-span-4 sm:grid-cols-[1fr_auto] sm:items-center">
+              <div className="col-span-2 grid gap-2 sm:col-span-4 sm:grid-cols-[1fr_1fr_auto] sm:items-center">
                 <select
                   value={regel.categoryId}
                   onChange={(e) =>
@@ -471,6 +513,24 @@ export default function UitgaveFormulier({
                   {categorieen.map((categorie) => (
                     <option key={categorie.id} value={categorie.id}>
                       {categorie.naam}
+                    </option>
+                  ))}
+                </select>
+                {/* Afwijken van de post die boven voor de hele bon staat. */}
+                <select
+                  value={regel.budgetItemId}
+                  onChange={(e) =>
+                    pasRegelAan(regel.sleutel, {
+                      budgetItemId: Number(e.target.value),
+                    })
+                  }
+                  aria-label="Begrotingspost"
+                  className={invoerKlasse}
+                >
+                  <option value={0}>geen post</option>
+                  {posten.map((post) => (
+                    <option key={post.id} value={post.id}>
+                      {post.naam}
                     </option>
                   ))}
                 </select>
