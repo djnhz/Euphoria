@@ -61,6 +61,8 @@ export default function Seizoensplanner({
     Partial<Record<FeestdagCode, number>>
   >({});
   const [periodes, setPeriodes] = useState<Periode[]>([]);
+  /** De periode die je op dit moment aan het aanpassen bent, of null. */
+  const [bewerkt, setBewerkt] = useState<Periode | null>(null);
 
   const [publiceerState, publiceer, bezig] = useActionState<
     PubliceerState,
@@ -156,14 +158,21 @@ export default function Seizoensplanner({
     });
   }
 
-  /** Een nieuwe periode overschrijft wat er op die weken al was ingepland. */
-  function voegPeriodeToe(nieuw: Omit<Periode, "id">) {
+  /**
+   * Een nieuwe periode overschrijft wat er op die weken al was ingepland. Bewerk je
+   * er een, dan gaat het oude exemplaar er sowieso uit -- ook als je hem naar heel
+   * andere weken verschuift.
+   */
+  function voegPeriodeToe(nieuw: Omit<Periode, "id">, vervangtId?: string) {
     setPeriodes((huidig) => [
       ...huidig.filter(
-        (p) => p.totMaandag < nieuw.vanMaandag || p.vanMaandag > nieuw.totMaandag,
+        (p) =>
+          p.id !== vervangtId &&
+          (p.totMaandag < nieuw.vanMaandag || p.vanMaandag > nieuw.totMaandag),
       ),
       { ...nieuw, id: `${nieuw.vanMaandag}-${nieuw.totMaandag}-${nieuw.coupleId}` },
     ]);
+    setBewerkt(null);
   }
 
   return (
@@ -273,11 +282,16 @@ export default function Seizoensplanner({
           Aaneengesloten weken dwars door het patroon heen. Een nieuwe periode
           vervangt een bestaande waar ze elkaar overlappen.
         </p>
+        {/* Sleutel op de bewerkte periode: zo begint het formulier opnieuw met de
+            waarden van die periode in plaats van te blijven staan waar het stond. */}
         <VakantieFormulier
+          key={bewerkt?.id ?? "nieuw"}
           weken={weken}
           huishoudens={huishoudens}
           vakanties={vakanties}
+          bewerkt={bewerkt}
           onToevoegen={voegPeriodeToe}
+          onAnnuleren={() => setBewerkt(null)}
         />
 
         {periodes.length > 0 && (
@@ -313,11 +327,19 @@ export default function Seizoensplanner({
                     </span>
                     <button
                       type="button"
-                      onClick={() =>
+                      onClick={() => setBewerkt(periode)}
+                      className="text-xs text-accent underline"
+                    >
+                      wijzigen
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
                         setPeriodes((huidig) =>
                           huidig.filter((p) => p.id !== periode.id),
-                        )
-                      }
+                        );
+                        if (bewerkt?.id === periode.id) setBewerkt(null);
+                      }}
                       className="text-xs text-slecht underline"
                     >
                       verwijderen
@@ -571,17 +593,28 @@ function VakantieFormulier({
   weken,
   huishoudens,
   vakanties,
+  bewerkt,
   onToevoegen,
+  onAnnuleren,
 }: {
   weken: Week[];
   huishoudens: { id: number; naam: string }[];
   vakanties: Vakantie[];
-  onToevoegen: (periode: Omit<Periode, "id">) => void;
+  /** Gevuld als je een bestaande periode aanpast in plaats van een nieuwe maakt. */
+  bewerkt: Periode | null;
+  onToevoegen: (periode: Omit<Periode, "id">, vervangtId?: string) => void;
+  onAnnuleren: () => void;
 }) {
-  const [vanMaandag, setVan] = useState(weken[0]?.maandag ?? "");
-  const [totMaandag, setTot] = useState(weken[0]?.maandag ?? "");
-  const [coupleId, setCouple] = useState(huishoudens[0]?.id ?? 0);
-  const [naam, setNaam] = useState("");
+  const [vanMaandag, setVan] = useState(
+    bewerkt?.vanMaandag ?? weken[0]?.maandag ?? "",
+  );
+  const [totMaandag, setTot] = useState(
+    bewerkt?.totMaandag ?? weken[0]?.maandag ?? "",
+  );
+  const [coupleId, setCouple] = useState(
+    bewerkt?.coupleId ?? huishoudens[0]?.id ?? 0,
+  );
+  const [naam, setNaam] = useState(bewerkt?.naam ?? "");
 
   function label(week: Week): string {
     const raakt = vakantiesRakend(vakanties, week.maandag, week.zondag).filter(
@@ -594,8 +627,10 @@ function VakantieFormulier({
   }
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto_auto]">
-      <label className="flex flex-col gap-1 text-sm">
+    // min-w-0 op elk vak: zonder dat rekt een keuzelijst op tot zijn langste optie
+    // en loopt de rij buiten het paneel.
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <label className="flex min-w-0 flex-col gap-1 text-sm">
         <span className="text-gedempt">Van week</span>
         <select
           value={vanMaandag}
@@ -613,7 +648,7 @@ function VakantieFormulier({
           ))}
         </select>
       </label>
-      <label className="flex flex-col gap-1 text-sm">
+      <label className="flex min-w-0 flex-col gap-1 text-sm">
         <span className="text-gedempt">Tot en met week</span>
         <select
           value={totMaandag}
@@ -629,7 +664,7 @@ function VakantieFormulier({
             ))}
         </select>
       </label>
-      <label className="flex flex-col gap-1 text-sm">
+      <label className="flex min-w-0 flex-col gap-1 text-sm">
         <span className="text-gedempt">Voor</span>
         <select
           value={coupleId}
@@ -643,28 +678,38 @@ function VakantieFormulier({
           ))}
         </select>
       </label>
-      <label className="flex flex-col gap-1 text-sm">
+      <label className="flex min-w-0 flex-col gap-1 text-sm">
         <span className="text-gedempt">Naam (optioneel)</span>
-        <div className="flex gap-2">
-          <input
-            value={naam}
-            onChange={(e) => setNaam(e.target.value)}
-            placeholder="Zomervakantie"
-            maxLength={80}
-            className={invoerKlasse}
-          />
+        <input
+          value={naam}
+          onChange={(e) => setNaam(e.target.value)}
+          placeholder="Zomervakantie"
+          maxLength={80}
+          className={invoerKlasse}
+        />
+      </label>
+
+      <div className="flex flex-wrap items-center gap-3 sm:col-span-2 lg:col-span-4">
+        <button
+          type="button"
+          onClick={() => {
+            onToevoegen({ vanMaandag, totMaandag, coupleId, naam }, bewerkt?.id);
+            setNaam("");
+          }}
+          className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white"
+        >
+          {bewerkt ? "Bijwerken" : "Inplannen"}
+        </button>
+        {bewerkt && (
           <button
             type="button"
-            onClick={() => {
-              onToevoegen({ vanMaandag, totMaandag, coupleId, naam });
-              setNaam("");
-            }}
-            className="shrink-0 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white"
+            onClick={onAnnuleren}
+            className="text-sm text-gedempt underline"
           >
-            Inplannen
+            annuleren
           </button>
-        </div>
-      </label>
+        )}
+      </div>
     </div>
   );
 }
