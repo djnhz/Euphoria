@@ -8,6 +8,7 @@ import { uitgaveMetRegels } from "@/lib/data";
 import { formatEuro } from "@/lib/geld";
 import { formatDatum } from "@/lib/datum";
 import { verwijderUitgaveAction } from "../actions";
+import Gegevenstabel from "@/components/Gegevenstabel";
 
 export default async function UitgaveDetail({
   params,
@@ -83,38 +84,48 @@ export default async function UitgaveDetail({
         </dl>
       </header>
 
-      <section className="overflow-x-auto rounded-xl border border-rand bg-paneel">
-        <table className="w-full min-w-[34rem] text-sm">
-          <thead className="border-b border-rand text-left text-gedempt">
-            <tr>
-              <th className="p-3 font-normal">Omschrijving</th>
-              <th className="p-3 font-normal">Post</th>
-              <th className="p-3 text-right font-normal">Aantal</th>
-              <th className="p-3 text-right font-normal">Bedrag</th>
-            </tr>
-          </thead>
-          <tbody>
-            {uitgave.regels.map((regel) => (
-              <tr key={regel.id} className="border-b border-rand last:border-0">
-                <td className="p-3">
+      <section className="rounded-xl border border-rand bg-paneel pb-1">
+        <Gegevenstabel
+          rijen={uitgave.regels}
+          sleutel={(regel) => regel.id}
+          leeg="Deze uitgave heeft geen regels."
+          kolommen={[
+            {
+              kop: "Omschrijving",
+              titel: true,
+              cel: (regel) => (
+                <>
                   {regel.omschrijving}
                   {regel.bron === "ai" && (
                     <span className="ml-2 rounded-full bg-accent-zacht px-2 py-0.5 text-xs text-accent">
                       uit bon
                     </span>
                   )}
-                </td>
-                <td className="p-3 text-gedempt">
+                </>
+              ),
+            },
+            {
+              kop: "Post",
+              cel: (regel) => (
+                <span className="text-gedempt">
                   {postNamen.get(regel.postId) ?? "—"}
-                </td>
-                <td className="cijfers p-3 text-right">{regel.aantal}</td>
-                <td className="cijfers p-3 text-right">
-                  {formatEuro(regel.bedragCent)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                </span>
+              ),
+            },
+            {
+              kop: "Aantal",
+              rechts: true,
+              cel: (regel) => <span className="cijfers">{regel.aantal}</span>,
+            },
+            {
+              kop: "Bedrag",
+              rechts: true,
+              cel: (regel) => (
+                <span className="cijfers">{formatEuro(regel.bedragCent)}</span>
+              ),
+            },
+          ]}
+        />
       </section>
 
       {uitgave.bonnen.length > 0 && (

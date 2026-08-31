@@ -6,6 +6,7 @@ import { beschikbareJaren, haalRegels, type RegelRij } from "@/lib/data";
 import { formatEuro, verdeelRegel, verrekening } from "@/lib/geld";
 import { formatDatum } from "@/lib/datum";
 import JaarKiezer from "@/components/JaarKiezer";
+import Gegevenstabel from "@/components/Gegevenstabel";
 
 export default async function VerrekeningPagina({
   searchParams,
@@ -97,58 +98,70 @@ export default async function VerrekeningPagina({
         })}
       </div>
 
-      <section className="overflow-x-auto rounded-xl border border-rand bg-paneel">
-        <h2 className="p-4 pb-0 text-sm font-medium">
+      <section className="rounded-xl border border-rand bg-paneel pb-1">
+        <h2 className="p-4 pb-3 text-sm font-medium">
           Wie betaalde wat{jaar ? ` in ${jaar}` : ""}
         </h2>
-        {perUitgave.length === 0 ? (
-          <p className="p-4 text-sm text-gedempt">Nog geen uitgaven.</p>
-        ) : (
-          <table className="mt-3 w-full min-w-[38rem] text-sm">
-            <thead className="border-y border-rand text-left text-gedempt">
-              <tr>
-                <th className="p-3 font-normal">Datum</th>
-                <th className="p-3 font-normal">Leverancier</th>
-                <th className="p-3 font-normal">Voorgeschoten door</th>
-                <th className="p-3 text-right font-normal">Bedrag</th>
-                <th className="p-3 text-right font-normal">{naamA}</th>
-                <th className="p-3 text-right font-normal">{naamB}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {perUitgave.map((uitgave) => (
-                <tr
-                  key={uitgave.expenseId}
-                  className="border-b border-rand last:border-0"
+        <Gegevenstabel
+          rijen={perUitgave}
+          sleutel={(uitgave) => uitgave.expenseId}
+          leeg="Nog geen uitgaven."
+          kolommen={[
+            {
+              kop: "Leverancier",
+              titel: true,
+              cel: (uitgave) => (
+                <Link
+                  href={`/uitgaven/${uitgave.expenseId}`}
+                  className="text-accent underline"
                 >
-                  <td className="p-3 whitespace-nowrap">
-                    {formatDatum(uitgave.datum)}
-                  </td>
-                  <td className="p-3">
-                    <Link
-                      href={`/uitgaven/${uitgave.expenseId}`}
-                      className="text-accent underline"
-                    >
-                      {uitgave.leverancier || "Zonder leverancier"}
-                    </Link>
-                  </td>
-                  <td className="p-3 text-gedempt">
-                    {uitgave.betaaldDoorA ? naamA : naamB}
-                  </td>
-                  <td className="cijfers p-3 text-right">
-                    {formatEuro(uitgave.totaal)}
-                  </td>
-                  <td className="cijfers p-3 text-right text-gedempt">
-                    {formatEuro(uitgave.deelA)}
-                  </td>
-                  <td className="cijfers p-3 text-right text-gedempt">
-                    {formatEuro(uitgave.totaal - uitgave.deelA)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+                  {uitgave.leverancier || "Zonder leverancier"}
+                </Link>
+              ),
+            },
+            {
+              kop: "Datum",
+              cel: (uitgave) => (
+                <span className="whitespace-nowrap">
+                  {formatDatum(uitgave.datum)}
+                </span>
+              ),
+            },
+            {
+              kop: "Voorgeschoten door",
+              cel: (uitgave) => (
+                <span className="text-gedempt">
+                  {uitgave.betaaldDoorA ? naamA : naamB}
+                </span>
+              ),
+            },
+            {
+              kop: "Bedrag",
+              rechts: true,
+              cel: (uitgave) => (
+                <span className="cijfers">{formatEuro(uitgave.totaal)}</span>
+              ),
+            },
+            {
+              kop: naamA,
+              rechts: true,
+              cel: (uitgave) => (
+                <span className="cijfers text-gedempt">
+                  {formatEuro(uitgave.deelA)}
+                </span>
+              ),
+            },
+            {
+              kop: naamB,
+              rechts: true,
+              cel: (uitgave) => (
+                <span className="cijfers text-gedempt">
+                  {formatEuro(uitgave.totaal - uitgave.deelA)}
+                </span>
+              ),
+            },
+          ]}
+        />
       </section>
     </div>
   );

@@ -42,22 +42,22 @@ export default function Nav({
 
   return (
     <header className="sticky top-0 z-20 border-b border-rand bg-paneel/95 backdrop-blur">
-      <div className="mx-auto flex w-full max-w-5xl items-center gap-3 px-4 py-2">
+      <div className="relative mx-auto flex w-full max-w-5xl items-center gap-3 px-4 py-2">
         <Link href="/" aria-label="Euphoria" className="shrink-0">
           <Logo hoogte={54} />
         </Link>
 
         {/* Op telefoonformaat past het menu niet naast het logo, dus zit het achter
-            deze knop. Die staat op dezelfde plek als het menu vanaf lg: in het
-            midden, tussen logo en naam. */}
-        <div className="flex flex-1 justify-center lg:hidden">
+            deze knop. Absoluut gepositioneerd en niet met flexruimte: het logo en de
+            naam zijn niet even breed, dus alleen zo staat hij echt in het midden. */}
+        <div className="absolute left-1/2 -translate-x-1/2 lg:hidden">
           <button
             type="button"
             onClick={() => setOpen((huidig) => !huidig)}
             aria-expanded={open}
             aria-controls="hoofdmenu"
             aria-label={open ? "Menu sluiten" : "Menu openen"}
-            className="rounded-lg border border-rand p-2 transition hover:border-accent"
+            className="block rounded-lg border border-rand p-2 transition hover:border-accent"
           >
             <svg viewBox="0 0 24 24" aria-hidden className="h-5 w-5">
               {open ? (
@@ -97,7 +97,9 @@ export default function Nav({
           ))}
         </nav>
 
-        <GebruikerMenu naam={naam} huishouden={huishouden} />
+        <div className="ml-auto lg:ml-0">
+          <GebruikerMenu naam={naam} huishouden={huishouden} />
+        </div>
       </div>
 
       {open && (

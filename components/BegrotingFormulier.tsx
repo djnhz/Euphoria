@@ -151,17 +151,30 @@ export default function BegrotingFormulier({
           ))}
         </ul>
 
-        <div className="mt-3 flex items-center gap-3 border-t border-rand pt-3 text-sm font-medium">
-          <span className="flex-1">Totaal</span>
-          <span className="cijfers w-28 text-right">
-            {formatEuro(totalen.begroot)}
-          </span>
-          <span className="cijfers hidden w-28 text-right sm:block">
-            {formatEuro(totalen.werkelijk)}
-          </span>
-          <span className="cijfers hidden w-28 text-right sm:block">
-            {formatEuro(totalen.begroot - totalen.werkelijk)}
-          </span>
+        <div className="mt-3 border-t border-rand pt-3 text-sm font-medium">
+          <div className="flex items-center gap-3">
+            <span className="flex-1">Totaal</span>
+            <span className="cijfers w-28 shrink-0 text-right">
+              {formatEuro(totalen.begroot)}
+            </span>
+            <span className="cijfers hidden w-28 text-right sm:block">
+              {formatEuro(totalen.werkelijk)}
+            </span>
+            <span className="cijfers hidden w-28 text-right sm:block">
+              {formatEuro(totalen.begroot - totalen.werkelijk)}
+            </span>
+          </div>
+          <p className="mt-1 flex gap-3 text-xs font-normal text-gedempt sm:hidden">
+            <span>
+              uitgegeven <span className="cijfers">{formatEuro(totalen.werkelijk)}</span>
+            </span>
+            <span>
+              verschil{" "}
+              <span className="cijfers">
+                {formatEuro(totalen.begroot - totalen.werkelijk)}
+              </span>
+            </span>
+          </p>
         </div>
 
         {/* Geen opslaanknop: elk bedrag gaat vanzelf mee zodra je stopt met typen. */}
@@ -237,7 +250,8 @@ function PostRegel({
 
   return (
     <>
-      <li className="flex items-center gap-3 border-b border-rand py-2 last:border-0">
+      <li className="border-b border-rand py-2 last:border-0">
+       <div className="flex items-center gap-3">
         {/* De naam leidt naar de uitgaven op deze post; bij een hoofdpost tellen de
             subposten daar mee. */}
         <Link
@@ -265,7 +279,7 @@ function PostRegel({
           onChange={(e) => pasBedragAan(post.id, e.target.value)}
           onBlur={(e) => bewaarNu(post.id, e.target.value)}
           aria-label={`Begroot voor ${post.naam}`}
-          className={`${invoer} cijfers w-28 text-right`}
+          className={`${invoer} cijfers w-28 shrink-0 text-right`}
         />
         <span className="cijfers hidden w-28 text-right text-sm text-gedempt sm:block">
           {formatEuro(post.eigenCent)}
@@ -277,6 +291,25 @@ function PostRegel({
         >
           {verschil === null ? "—" : formatEuro(verschil)}
         </span>
+       </div>
+
+       {/* Op een telefoon passen de kolommen niet naast het invoerveld; dan gaan de
+           cijfers eronder in plaats van dat ze verdwijnen. */}
+       <p
+         className={`mt-1 flex gap-3 text-xs text-gedempt sm:hidden ${
+           ingesprongen ? "pl-6" : ""
+         }`}
+       >
+         <span>
+           uitgegeven <span className="cijfers">{formatEuro(post.eigenCent)}</span>
+         </span>
+         <span className={verschil !== null && verschil < 0 ? "text-slecht" : ""}>
+           verschil{" "}
+           <span className="cijfers">
+             {verschil === null ? "—" : formatEuro(verschil)}
+           </span>
+         </span>
+       </p>
       </li>
 
       {post.subposten.map((sub) => (
@@ -313,19 +346,31 @@ function Subtotaal({
   const verschil = begroot - post.werkelijkCent;
 
   return (
-    <li className="flex items-center gap-3 border-b border-rand py-2 text-sm text-gedempt last:border-0">
-      <span className="flex-1 truncate pl-6">samen {post.naam}</span>
-      <span className="cijfers w-28 pr-3 text-right">{formatEuro(begroot)}</span>
-      <span className="cijfers hidden w-28 text-right sm:block">
-        {formatEuro(post.werkelijkCent)}
-      </span>
-      <span
-        className={`cijfers hidden w-28 text-right sm:block ${
-          verschil < 0 ? "text-slecht" : ""
-        }`}
-      >
-        {formatEuro(verschil)}
-      </span>
+    <li className="border-b border-rand py-2 text-sm text-gedempt last:border-0">
+      <div className="flex items-center gap-3">
+        <span className="flex-1 truncate pl-6">samen {post.naam}</span>
+        <span className="cijfers w-28 shrink-0 pr-3 text-right">
+          {formatEuro(begroot)}
+        </span>
+        <span className="cijfers hidden w-28 text-right sm:block">
+          {formatEuro(post.werkelijkCent)}
+        </span>
+        <span
+          className={`cijfers hidden w-28 text-right sm:block ${
+            verschil < 0 ? "text-slecht" : ""
+          }`}
+        >
+          {formatEuro(verschil)}
+        </span>
+      </div>
+      <p className="mt-1 flex gap-3 pl-6 text-xs sm:hidden">
+        <span>
+          uitgegeven <span className="cijfers">{formatEuro(post.werkelijkCent)}</span>
+        </span>
+        <span className={verschil < 0 ? "text-slecht" : ""}>
+          verschil <span className="cijfers">{formatEuro(verschil)}</span>
+        </span>
+      </p>
     </li>
   );
 }
