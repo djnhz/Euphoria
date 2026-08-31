@@ -5,7 +5,7 @@ import { asc } from "drizzle-orm";
 import { db, couples, posten } from "@/db";
 import { vereisGebruiker } from "@/lib/auth";
 import { uitgaveMetRegels } from "@/lib/data";
-import { formatEuro, verdeelRegel } from "@/lib/geld";
+import { formatEuro } from "@/lib/geld";
 import { formatDatum } from "@/lib/datum";
 import { verwijderUitgaveAction } from "../actions";
 
@@ -24,8 +24,6 @@ export default async function UitgaveDetail({
     .from(couples)
     .orderBy(asc(couples.volgorde));
   const betaler = huishoudens.find((h) => h.id === uitgave.coupleId);
-  const naamA = huishoudens[0]?.naam ?? "A";
-  const naamB = huishoudens[1]?.naam ?? "B";
 
   const postNamen = new Map(
     (await db.select({ id: posten.id, naam: posten.naam }).from(posten)).map(
@@ -34,10 +32,6 @@ export default async function UitgaveDetail({
   );
 
   const totaal = uitgave.regels.reduce((som, r) => som + r.bedragCent, 0);
-  const deelA = uitgave.regels.reduce(
-    (som, r) => som + verdeelRegel(r.bedragCent, r.aandeelAPct).deelA,
-    0,
-  );
 
   const verwijder = verwijderUitgaveAction.bind(null, id);
 
@@ -80,13 +74,11 @@ export default async function UitgaveDetail({
               {formatEuro(totaal)}
             </dd>
           </div>
+          {/* Kosten gaan altijd half om half; ieders aandeel is dus de helft en
+              staat er niet apart bij. */}
           <div>
-            <dt className="inline text-gedempt">{naamA}: </dt>
-            <dd className="cijfers inline">{formatEuro(deelA)}</dd>
-          </div>
-          <div>
-            <dt className="inline text-gedempt">{naamB}: </dt>
-            <dd className="cijfers inline">{formatEuro(totaal - deelA)}</dd>
+            <dt className="inline text-gedempt">Ieder: </dt>
+            <dd className="cijfers inline">{formatEuro(Math.round(totaal / 2))}</dd>
           </div>
         </dl>
       </header>
@@ -99,7 +91,6 @@ export default async function UitgaveDetail({
               <th className="p-3 font-normal">Post</th>
               <th className="p-3 text-right font-normal">Aantal</th>
               <th className="p-3 text-right font-normal">Bedrag</th>
-              <th className="p-3 text-right font-normal">Verdeling</th>
             </tr>
           </thead>
           <tbody>
@@ -119,9 +110,6 @@ export default async function UitgaveDetail({
                 <td className="cijfers p-3 text-right">{regel.aantal}</td>
                 <td className="cijfers p-3 text-right">
                   {formatEuro(regel.bedragCent)}
-                </td>
-                <td className="cijfers p-3 text-right text-gedempt">
-                  {regel.aandeelAPct}/{100 - regel.aandeelAPct}
                 </td>
               </tr>
             ))}

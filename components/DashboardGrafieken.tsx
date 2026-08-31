@@ -8,7 +8,8 @@ import { formatEuro } from "@/lib/geld";
 
 export type GrafiekData = {
   posten: { naam: string; kleur: string; cent: number }[];
-  perMaand: { a: number[]; b: number[] };
+  /** Per maand wat elk huishouden heeft voorgeschoten. */
+  betaaldPerMaand: { a: number[]; b: number[] };
   saldoVerloop: number[];
   namen: { a: string; b: string };
 };
@@ -55,19 +56,19 @@ export default function DashboardGrafieken({ data }: { data: GrafiekData }) {
           name: data.namen.a,
           type: "bar",
           stack: "totaal",
-          data: data.perMaand.a,
+          data: data.betaaldPerMaand.a,
           itemStyle: { color: "#0ea5e9" },
         },
         {
           name: data.namen.b,
           type: "bar",
           stack: "totaal",
-          data: data.perMaand.b,
+          data: data.betaaldPerMaand.b,
           itemStyle: { color: "#f97316" },
         },
       ],
     }),
-    [data.perMaand, data.namen],
+    [data.betaaldPerMaand, data.namen],
   );
 
   const verloop = useMemo<EChartsOption>(
@@ -95,7 +96,7 @@ export default function DashboardGrafieken({ data }: { data: GrafiekData }) {
       <Paneel titel="Uitgaven per hoofdpost">
         <Chart option={donut} />
       </Paneel>
-      <Paneel titel="Per maand, verdeeld over de huishoudens">
+      <Paneel titel="Per maand, wie betaalde">
         <Chart option={staven} />
       </Paneel>
       <Paneel

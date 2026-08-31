@@ -13,13 +13,12 @@ import {
   posten,
   users,
 } from "@/db";
-import { saldoCent, verdeelRegel, type SaldoRegel } from "./geld";
+import { saldoCent, type SaldoRegel } from "./geld";
 import type { Sortering } from "./sorteren";
 
 /**
  * Alle dashboardcijfers komen uit deze ene platte query. Aggregeren gebeurt daarna in
- * JavaScript met dezelfde `verdeelRegel` die de test dekt, in plaats van de
- * afrondingsregel een tweede keer in SQL te herhalen.
+ * JavaScript, in plaats van de rekenregels een tweede keer in SQL te herhalen.
  */
 export type RegelRij = {
   lineId: number;
@@ -102,15 +101,29 @@ export function totaalPerHoofdpost(regels: readonly RegelRij[]) {
     .sort((a, b) => b.cent - a.cent);
 }
 
-/** Twaalf maanden, per huishouden wat dat huishouden zelf draagt (niet wat het voorschoot). */
-export function perMaandPerHuishouden(regels: readonly RegelRij[]) {
+/**
+ * Twaalf maanden, per huishouden wat dat huishouden heeft voorgeschoten. Wie wat
+ * draagt is altijd half om half en dus geen grafiek waard; wie het geld heeft
+ * uitgegeven wel.
+ */
+export function perMaandPerBetaler(regels: readonly RegelRij[]) {
   const a = Array<number>(12).fill(0);
   const b = Array<number>(12).fill(0);
   for (const regel of regels) {
     const maand = Number(regel.datum.slice(5, 7)) - 1;
-    const { deelA, deelB } = verdeelRegel(regel.bedragCent, regel.aandeelAPct);
-    a[maand] += deelA;
-    b[maand] += deelB;
+    if (regel.betaaldDoorA) a[maand] += regel.bedragCent;
+    else b[maand] += regel.bedragCent;
+  }
+  return { a, b };
+}
+
+/** Wat elk huishouden dit jaar heeft voorgeschoten, als twee getallen. */
+export function voorgeschotenPerHuishouden(regels: readonly RegelRij[]) {
+  let a = 0;
+  let b = 0;
+  for (const regel of regels) {
+    if (regel.betaaldDoorA) a += regel.bedragCent;
+    else b += regel.bedragCent;
   }
   return { a, b };
 }

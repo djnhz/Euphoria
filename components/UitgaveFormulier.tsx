@@ -3,7 +3,7 @@
 import { useActionState, useMemo, useState } from "react";
 import { upload } from "@vercel/blob/client";
 import BestandTegel from "./BestandTegel";
-import { formatEuro, parseEuro, verdeelRegel } from "@/lib/geld";
+import { formatEuro, parseEuro } from "@/lib/geld";
 import { formatDatum, vandaag } from "@/lib/datum";
 import { bestandHash } from "@/lib/bestandhash";
 import {
@@ -30,7 +30,6 @@ export type FormulierRegel = {
   aantal: number;
   bedrag: string;
   postId: number;
-  aandeelAPct: number;
   bron: "handmatig" | "ai";
 };
 
@@ -53,7 +52,6 @@ export function legeRegel(postId: number): FormulierRegel {
     aantal: 1,
     bedrag: "",
     postId,
-    aandeelAPct: 50,
     bron: "handmatig",
   };
 }
@@ -128,19 +126,10 @@ export default function UitgaveFormulier({
     null,
   );
 
-  const naamA = huishoudens[0]?.naam ?? "A";
-  const naamB = huishoudens[1]?.naam ?? "B";
-
-  const totalen = useMemo(() => {
-    let totaal = 0;
-    let deelA = 0;
-    for (const regel of regels) {
-      const cent = parseEuro(regel.bedrag) ?? 0;
-      totaal += cent;
-      deelA += verdeelRegel(cent, regel.aandeelAPct).deelA;
-    }
-    return { totaal, deelA, deelB: totaal - deelA };
-  }, [regels]);
+  const totaal = useMemo(
+    () => regels.reduce((som, r) => som + (parseEuro(r.bedrag) ?? 0), 0),
+    [regels],
+  );
 
   function pasRegelAan(sleutel: string, wijziging: Partial<FormulierRegel>) {
     setRegels((huidig) =>
@@ -254,7 +243,6 @@ export default function UitgaveFormulier({
         postId:
           posten.find((p) => p.naam === regel.postSuggestie)?.id ??
           (bonPost > 0 ? bonPost : standaardPost),
-        aandeelAPct: 50,
         bron: "ai",
       }));
 
@@ -290,7 +278,6 @@ export default function UitgaveFormulier({
       aantal: r.aantal,
       bedragCent: parseEuro(r.bedrag) ?? 0,
       postId: r.postId,
-      aandeelAPct: r.aandeelAPct,
       bron: r.bron,
     })),
   });
@@ -452,10 +439,6 @@ export default function UitgaveFormulier({
             + regel
           </button>
         </div>
-        <p className="mb-3 text-xs text-gedempt">
-          Het percentage per regel is het deel voor {naamA}; de rest gaat naar {naamB}.
-        </p>
-
         <div className="flex flex-col gap-4">
           {regels.map((regel) => (
             <div
@@ -522,52 +505,21 @@ export default function UitgaveFormulier({
                     </option>
                   ))}
                 </select>
-                <div className="flex items-center gap-2 text-sm">
-                  <input
-                    type="number"
-                    min={0}
-                    max={100}
-                    step={5}
-                    value={regel.aandeelAPct}
-                    onChange={(e) =>
-                      pasRegelAan(regel.sleutel, {
-                        aandeelAPct: Math.min(
-                          100,
-                          Math.max(0, Number(e.target.value) || 0),
-                        ),
-                      })
-                    }
-                    aria-label={`Percentage voor ${naamA}`}
-                    className={`${smalInvoerKlasse} cijfers`}
-                  />
-                  <span className="text-gedempt">% {naamA}</span>
-                  {regel.bron === "ai" && (
-                    <span className="rounded-full bg-accent-zacht px-2 py-0.5 text-xs text-accent">
-                      uit bon
-                    </span>
-                  )}
-                </div>
+                {regel.bron === "ai" && (
+                  <span className="justify-self-start rounded-full bg-accent-zacht px-2 py-0.5 text-xs text-accent">
+                    uit bon
+                  </span>
+                )}
               </div>
             </div>
           ))}
         </div>
 
-        <dl className="mt-4 flex flex-wrap gap-x-6 gap-y-1 border-t border-rand pt-3 text-sm">
-          <div>
-            <dt className="inline text-gedempt">Totaal: </dt>
-            <dd className="cijfers inline font-medium">
-              {formatEuro(totalen.totaal)}
-            </dd>
-          </div>
-          <div>
-            <dt className="inline text-gedempt">{naamA}: </dt>
-            <dd className="cijfers inline">{formatEuro(totalen.deelA)}</dd>
-          </div>
-          <div>
-            <dt className="inline text-gedempt">{naamB}: </dt>
-            <dd className="cijfers inline">{formatEuro(totalen.deelB)}</dd>
-          </div>
-        </dl>
+        {/* Kosten gaan altijd half om half, dus alleen het totaal zegt hier iets. */}
+        <p className="mt-4 border-t border-rand pt-3 text-sm">
+          <span className="text-gedempt">Totaal: </span>
+          <span className="cijfers font-medium">{formatEuro(totaal)}</span>
+        </p>
       </section>
 
       {state?.fout && <p className="text-sm text-slecht">{state.fout}</p>}
@@ -656,8 +608,6 @@ function DubbelWaarschuwing({
 
 const veldStijl = "rounded-lg border border-rand bg-achtergrond px-3 py-2 text-sm";
 const invoerKlasse = `w-full ${veldStijl}`;
-// Apart, want `w-20` naast `w-full` in een klassenlijst is een gok welke wint.
-const smalInvoerKlasse = `w-20 shrink-0 ${veldStijl}`;
 
 function Veld({
   label,

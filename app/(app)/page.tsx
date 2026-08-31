@@ -6,8 +6,9 @@ import {
   beschikbareJaren,
   budgetOverzicht,
   haalRegels,
-  perMaandPerHuishouden,
+  perMaandPerBetaler,
   saldoPerMaand,
+  voorgeschotenPerHuishouden,
   totaalPerHoofdpost,
 } from "@/lib/data";
 import { formatEuro, saldoCent } from "@/lib/geld";
@@ -48,6 +49,7 @@ export default async function Dashboard({ searchParams }: PageProps<"/">) {
   };
   const saldo = saldoCent(alleRegels);
   const totaalJaar = jaarRegels.reduce((som, r) => som + r.bedragCent, 0);
+  const voorgeschoten = voorgeschotenPerHuishouden(jaarRegels);
 
   return (
     <div className="flex flex-col gap-4">
@@ -80,6 +82,15 @@ export default async function Dashboard({ searchParams }: PageProps<"/">) {
           Uitgaven in {jaar}:{" "}
           <span className="cijfers text-tekst">{formatEuro(totaalJaar)}</span>
         </p>
+        {/* Wie het geld heeft uitgegeven. Wat ieder draagt is altijd de helft en
+            hoeft dus niet apart te staan. */}
+        <p className="mt-1 text-sm text-gedempt">
+          Voorgeschoten: {namen.a}{" "}
+          <span className="cijfers text-tekst">{formatEuro(voorgeschoten.a)}</span>
+          {" · "}
+          {namen.b}{" "}
+          <span className="cijfers text-tekst">{formatEuro(voorgeschoten.b)}</span>
+        </p>
       </section>
 
       <DashboardAgenda
@@ -96,7 +107,7 @@ export default async function Dashboard({ searchParams }: PageProps<"/">) {
       <DashboardGrafieken
         data={{
           posten: totaalPerHoofdpost(jaarRegels),
-          perMaand: perMaandPerHuishouden(jaarRegels),
+          betaaldPerMaand: perMaandPerBetaler(jaarRegels),
           saldoVerloop: saldoPerMaand(jaarRegels),
           namen,
         }}
