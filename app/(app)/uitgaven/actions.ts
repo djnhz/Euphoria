@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
-import { db, categories, documents, expenseLines, expenses } from "@/db";
+import { db, posten, documents, expenseLines, expenses } from "@/db";
 import { vereisGebruiker } from "@/lib/auth";
 import { verwijderBestand } from "@/lib/opslag";
 import {
@@ -24,9 +24,8 @@ const RegelInvoer = z.object({
   omschrijving: z.string().trim().min(1).max(300),
   aantal: z.number().int().min(1).max(9999),
   bedragCent: z.number().int().min(-10_000_000).max(10_000_000),
-  categoryId: z.number().int().positive(),
-  /** Begrotingspost; null als de regel nog nergens op drukt. */
-  budgetItemId: z.number().int().positive().nullable(),
+  /** De post waarop de regel drukt: hoofdpost of subpost. */
+  postId: z.number().int().positive(),
   aandeelAPct: z.number().int().min(0).max(100),
   bron: z.enum(["handmatig", "ai"]),
 });
@@ -310,14 +309,14 @@ export async function analyseerDocumentAction(
   const bron = await kiesBron(document.mime, document.url, document.voorbeeldUrl);
   if (!bron.ok) return { bon: null, fout: bron.reden };
 
-  const actieveCategorieen = await db
-    .select({ naam: categories.naam })
-    .from(categories)
-    .where(eq(categories.actief, true));
+  const actievePosten = await db
+    .select({ naam: posten.naam })
+    .from(posten)
+    .where(eq(posten.actief, true));
 
   const resultaat = await analyseerBon(
     bron,
-    actieveCategorieen.map((c) => c.naam),
+    actievePosten.map((p) => p.naam),
   );
   return resultaat.ok
     ? { bon: resultaat.bon, fout: null }

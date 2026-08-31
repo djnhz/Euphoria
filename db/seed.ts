@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { db, couples, users, categories } from "./index";
+import { db, couples, users, posten } from "./index";
 import { hashPin } from "../lib/pin";
 import { vereisGeenDraaiendeServer } from "./vrij";
 
@@ -9,7 +9,8 @@ const HUISHOUDENS = [
   { naam: "Huishouden B", volgorde: 2, leden: ["Vriend 1", "Vriend 2"] },
 ];
 
-const CATEGORIEEN = [
+/** Een paar hoofdposten om mee te beginnen; subposten hang je er zelf onder. */
+const POSTEN = [
   { naam: "Ligplaats", kleur: "#0ea5e9" },
   { naam: "Onderhoud", kleur: "#f97316" },
   { naam: "Brandstof", kleur: "#eab308" },
@@ -32,7 +33,7 @@ async function main() {
     return;
   }
 
-  await db.insert(categories).values(CATEGORIEEN);
+  await db.insert(posten).values(POSTEN);
 
   const startpins: string[] = [];
   for (const huishouden of HUISHOUDENS) {

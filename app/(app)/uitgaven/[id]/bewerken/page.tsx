@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { asc, eq, sql } from "drizzle-orm";
-import { db, budgetItems, categories, couples } from "@/db";
+import { asc, eq } from "drizzle-orm";
+import { db, couples, posten } from "@/db";
 import { vereisGebruiker } from "@/lib/auth";
 import { uitgaveMetRegels } from "@/lib/data";
 import UitgaveFormulier from "@/components/UitgaveFormulier";
@@ -19,22 +19,12 @@ export default async function UitgaveBewerken({
   const uitgave = await uitgaveMetRegels(id);
   if (!uitgave) notFound();
 
-  const [categorieLijst, postenLijst, huishoudens, sleutel] = await Promise.all([
+  const [postenLijst, huishoudens, sleutel] = await Promise.all([
     db
-      .select({
-        id: categories.id,
-        naam: categories.naam,
-        // Geen vaste post is in het formulier gewoon 0.
-        budgetItemId: sql<number>`coalesce(${categories.budgetItemId}, 0)`,
-      })
-      .from(categories)
-      .where(eq(categories.actief, true))
-      .orderBy(asc(categories.naam)),
-    db
-      .select({ id: budgetItems.id, naam: budgetItems.naam })
-      .from(budgetItems)
-      .where(eq(budgetItems.actief, true))
-      .orderBy(asc(budgetItems.naam)),
+      .select({ id: posten.id, naam: posten.naam, ouderId: posten.ouderId })
+      .from(posten)
+      .where(eq(posten.actief, true))
+      .orderBy(asc(posten.naam)),
     db.select().from(couples).orderBy(asc(couples.volgorde)),
     sleutelStatus(),
   ]);
@@ -48,7 +38,6 @@ export default async function UitgaveBewerken({
         Uitgave bewerken
       </h1>
       <UitgaveFormulier
-        categorieen={categorieLijst}
         posten={postenLijst}
         huishoudens={huishoudens}
         begin={{
@@ -61,8 +50,7 @@ export default async function UitgaveBewerken({
             omschrijving: regel.omschrijving,
             aantal: regel.aantal,
             bedrag: (regel.bedragCent / 100).toFixed(2).replace(".", ","),
-            categoryId: regel.categoryId,
-            budgetItemId: regel.budgetItemId ?? 0,
+            postId: regel.postId,
             aandeelAPct: regel.aandeelAPct,
             bron: regel.bron,
           })),

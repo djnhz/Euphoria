@@ -28,7 +28,7 @@ const BonSchema = z.object({
       omschrijving: z.string(),
       aantal: z.number(),
       bedragCent: z.number().int(),
-      categorieSuggestie: z.string(),
+      postSuggestie: z.string(),
     }),
   ),
 });
@@ -140,7 +140,7 @@ export type AnalyseBron =
 
 export async function analyseerBon(
   bron: AnalyseBron,
-  categorieNamen: string[],
+  postNamen: string[],
 ): Promise<AnalyseResultaat> {
   const sleutel = await openAiSleutel();
   if (!sleutel) {
@@ -171,8 +171,8 @@ export async function analyseerBon(
     "die verschilt. Kun je hem niet lezen, geef dan een lege string.",
     "leverancier is de naam van de winkel of het bedrijf, niet de klant.",
     "",
-    "Kies categorieSuggestie uit precies deze lijst:",
-    categorieNamen.join(", "),
+    "Kies postSuggestie uit precies deze lijst:",
+    postNamen.join(", "),
     "Weet je het niet zeker, kies dan Overig.",
     ...(bron.soort === "tekst" ? ["", "--- begin tekst ---", bron.tekst] : []),
   ].join("\n");

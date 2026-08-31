@@ -8,7 +8,7 @@ import {
   haalRegels,
   perMaandPerHuishouden,
   saldoPerMaand,
-  totaalPerCategorie,
+  totaalPerHoofdpost,
 } from "@/lib/data";
 import { formatEuro, saldoCent } from "@/lib/geld";
 import { haalReserveringen } from "@/lib/agenda";
@@ -95,7 +95,7 @@ export default async function Dashboard({ searchParams }: PageProps<"/">) {
 
       <DashboardGrafieken
         data={{
-          categorieen: totaalPerCategorie(jaarRegels),
+          posten: totaalPerHoofdpost(jaarRegels),
           perMaand: perMaandPerHuishouden(jaarRegels),
           saldoVerloop: saldoPerMaand(jaarRegels),
           namen,

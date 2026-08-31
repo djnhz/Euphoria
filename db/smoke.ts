@@ -3,12 +3,11 @@ import assert from "node:assert/strict";
 import { asc, inArray, like } from "drizzle-orm";
 import {
   db,
-  budgetItems,
   budgets,
-  categories,
   couples,
   expenseLines,
   expenses,
+  posten,
   users,
 } from "./index";
 import { budgetOverzicht, haalRegels } from "../lib/data";
@@ -43,8 +42,8 @@ async function ruimOp() {
     );
   }
   // De begrotingsrijen gaan mee met de post dankzij de cascade.
-  await db.delete(budgetItems).where(like(budgetItems.naam, `${MERK}%`));
-  await db.delete(categories).where(like(categories.naam, `${MERK}%`));
+  await db.delete(posten).where(like(posten.naam, `${MERK}%`));
+  await db.delete(posten).where(like(posten.naam, `${MERK}%`));
 }
 
 async function main() {
@@ -61,13 +60,14 @@ async function main() {
 
   await ruimOp();
 
-  const [categorie] = await db
-    .insert(categories)
-    .values({ naam: `${MERK} test`, kleur: "#123456" })
+  // Een hoofdpost met een subpost eronder, zodat het optellen ook echt gedraaid wordt.
+  const [hoofdpost] = await db
+    .insert(posten)
+    .values({ naam: `${MERK} hoofdpost`, kleur: "#123456" })
     .returning();
   const [post] = await db
-    .insert(budgetItems)
-    .values({ naam: `${MERK} post`, kleur: "#123456" })
+    .insert(posten)
+    .values({ naam: `${MERK} subpost`, kleur: "#123456", ouderId: hoofdpost.id })
     .returning();
 
   const gemaakt: number[] = [];
@@ -89,8 +89,7 @@ async function main() {
       expenseId: uitgave.id,
       omschrijving: "regel",
       bedragCent,
-      categoryId: categorie.id,
-      budgetItemId: post.id,
+      postId: post.id,
       aandeelAPct,
     });
     gemaakt.push(uitgave.id);
@@ -113,15 +112,16 @@ async function main() {
   const jaar = Number(vandaag().slice(0, 4));
   await db
     .insert(budgets)
-    .values({ jaar, budgetItemId: post.id, bedragCent: 20_000 })
+    .values({ jaar, postId: post.id, bedragCent: 20_000 })
     .onConflictDoUpdate({
-      target: [budgets.jaar, budgets.budgetItemId],
+      target: [budgets.jaar, budgets.postId],
       set: { bedragCent: 20_000 },
     });
 
+  // Het overzicht toont hoofdposten; de subpost telt daar dus in op.
   const overzicht = await budgetOverzicht(jaar);
-  const regel = overzicht.find((r) => r.id === post.id);
-  assert.ok(regel, "de begrote post hoort in het overzicht te staan");
+  const regel = overzicht.find((r) => r.id === hoofdpost.id);
+  assert.ok(regel, "de hoofdpost hoort in het overzicht te staan");
   assert.equal(regel.begrootCent, 20_000, "begroot bedrag moet terugkomen");
   assert.equal(
     regel.werkelijkCent,

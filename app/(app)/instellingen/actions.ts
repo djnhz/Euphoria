@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
-import { db, categories, couples, users } from "@/db";
+import { db, couples, users } from "@/db";
 import { probeerInloggen, vereisBeheerder, vereisGebruiker } from "@/lib/auth";
 import { hashPin, isGeldigePin } from "@/lib/pin";
 import {
@@ -18,54 +18,6 @@ import { testOpenAi } from "@/lib/receipt";
 import { testAgenda } from "@/lib/agenda";
 
 export type MeldingState = { fout?: string; gelukt?: string } | null;
-
-const KLEUR = /^#[0-9a-fA-F]{6}$/;
-
-export async function nieuweCategorieAction(
-  _vorige: MeldingState,
-  formData: FormData,
-): Promise<MeldingState> {
-  await vereisGebruiker();
-  const naam = String(formData.get("naam") ?? "").trim();
-  const kleur = String(formData.get("kleur") ?? "#64748b");
-  if (naam.length < 1 || naam.length > 60) return { fout: "Vul een naam in." };
-  if (!KLEUR.test(kleur)) return { fout: "Ongeldige kleur." };
-
-  try {
-    await db.insert(categories).values({ naam, kleur });
-  } catch {
-    return { fout: "Die categorie bestaat al." };
-  }
-  revalidatePath("/instellingen");
-  revalidatePath("/");
-  return { gelukt: `${naam} toegevoegd.` };
-}
-
-export async function wijzigCategorieAction(formData: FormData) {
-  await vereisGebruiker();
-  const id = Number(formData.get("id"));
-  if (!Number.isInteger(id)) return;
-
-  const naam = String(formData.get("naam") ?? "").trim();
-  const kleur = String(formData.get("kleur") ?? "");
-  // 0 betekent: geen vaste post, dan kies je hem per bon.
-  const post = Number(formData.get("post"));
-
-  await db
-    .update(categories)
-    .set({
-      ...(naam ? { naam } : {}),
-      ...(KLEUR.test(kleur) ? { kleur } : {}),
-      budgetItemId: Number.isInteger(post) && post > 0 ? post : null,
-      actief: formData.get("actief") === "on",
-    })
-    .where(eq(categories.id, id));
-
-  revalidatePath("/instellingen");
-  revalidatePath("/begroting");
-  revalidatePath("/uitgaven");
-  revalidatePath("/");
-}
 
 export async function wijzigNamenAction(
   _vorige: MeldingState,

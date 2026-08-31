@@ -7,7 +7,6 @@ import {
   bewaarBegrotingAction,
   neemVorigJaarOverAction,
   nieuwePostAction,
-  volgKoppelingAction,
   wijzigPostAction,
   type BegrotingState,
 } from "@/app/(app)/begroting/actions";
@@ -17,15 +16,11 @@ export type Post = {
   naam: string;
   kleur: string;
   actief: boolean;
+  ouderId: number | null;
   begrootCent: number | null;
+  eigenCent: number;
   werkelijkCent: number;
-  /** Waar het uitgegeven bedrag vandaan komt, grootste eerst. */
-  categorieen: {
-    categoryId: number;
-    naam: string;
-    kleur: string;
-    cent: number;
-  }[];
+  subposten: Post[];
 };
 
 const invoer = "rounded-lg border border-rand bg-achtergrond px-3 py-2 text-sm";
@@ -34,15 +29,17 @@ function alsTekst(cent: number | null): string {
   return cent === null ? "" : (cent / 100).toFixed(2).replace(".", ",");
 }
 
+/** Hoofdposten met hun subposten erachter, in de volgorde waarin ze op het scherm staan. */
+function plat(posten: Post[]): Post[] {
+  return posten.flatMap((post) => [post, ...post.subposten]);
+}
+
 export default function BegrotingFormulier({
   jaar,
   posten,
-  losseUitgaven,
 }: {
   jaar: number;
   posten: Post[];
-  /** Wat in dit jaar nog aan geen post hangt. */
-  losseUitgaven: { aantal: number; cent: number };
 }) {
   const [state, bewaar, bezig] = useActionState<BegrotingState, FormData>(
     bewaarBegrotingAction,
@@ -52,15 +49,12 @@ export default function BegrotingFormulier({
     BegrotingState,
     FormData
   >(neemVorigJaarOverAction, null);
-  const [koppelingState, volgKoppeling, koppelingBezig] = useActionState<
-    BegrotingState,
-    FormData
-  >(volgKoppelingAction, null);
   const [beheer, setBeheer] = useState(false);
-  const [uitgeklapt, setUitgeklapt] = useState<number | null>(null);
+
+  const alle = useMemo(() => plat(posten), [posten]);
 
   const [bedragen, setBedragen] = useState<Record<number, string>>(() =>
-    Object.fromEntries(posten.map((p) => [p.id, alsTekst(p.begrootCent)])),
+    Object.fromEntries(alle.map((p) => [p.id, alsTekst(p.begrootCent)])),
   );
 
   // Tijdens het typen verandert er niets aan de server, dus dit kenmerk blijft gelijk.
@@ -68,32 +62,33 @@ export default function BegrotingFormulier({
   // wel — en dan horen de velden die stand te tonen in plaats van de oude invoer.
   const kenmerk = [
     jaar,
-    ...posten.map((p) => `${p.id}=${p.begrootCent ?? ""}`),
+    ...alle.map((p) => `${p.id}=${p.begrootCent ?? ""}`),
   ].join("|");
   const [vorigKenmerk, setVorigKenmerk] = useState(kenmerk);
   if (vorigKenmerk !== kenmerk) {
     setVorigKenmerk(kenmerk);
     setBedragen(
-      Object.fromEntries(posten.map((p) => [p.id, alsTekst(p.begrootCent)])),
+      Object.fromEntries(alle.map((p) => [p.id, alsTekst(p.begrootCent)])),
     );
   }
 
   const totalen = useMemo(() => {
     let begroot = 0;
-    for (const post of posten) begroot += parseEuro(bedragen[post.id] ?? "") ?? 0;
-    const werkelijk = posten.reduce((som, p) => som + p.werkelijkCent, 0);
+    for (const post of alle) begroot += parseEuro(bedragen[post.id] ?? "") ?? 0;
+    // Eigen bedragen optellen, niet de opgetelde: anders telt een subpost dubbel.
+    const werkelijk = alle.reduce((som, p) => som + p.eigenCent, 0);
     return { begroot, werkelijk };
-  }, [bedragen, posten]);
+  }, [bedragen, alle]);
 
   if (posten.length === 0) {
     return (
       <div className="flex flex-col gap-4">
         <p className="rounded-xl border border-rand bg-paneel p-6 text-sm text-gedempt">
-          Nog geen begrotingsposten. Een post is een eigen noemer voor de begroting,
-          los van de categorieën waarin je de bonregels indeelt.
+          Nog geen posten. Begin met een paar hoofdposten — Onderhoud, Vaste lasten,
+          Uitrusting — en hang daar subposten onder zodra je het fijner wilt.
         </p>
         <div className="rounded-xl border border-rand bg-paneel p-4">
-          <NieuwePost />
+          <NieuwePost hoofdposten={[]} />
         </div>
       </div>
     );
@@ -106,109 +101,24 @@ export default function BegrotingFormulier({
 
         <ul className="flex flex-col">
           <li className="flex items-center gap-3 border-b border-rand pb-2 text-xs text-gedempt">
-            <span aria-hidden className="w-4 shrink-0" />
             <span className="flex-1">Post</span>
             <span className="w-28 text-right">Begroot</span>
             <span className="hidden w-28 text-right sm:block">Uitgegeven</span>
             <span className="hidden w-28 text-right sm:block">Verschil</span>
           </li>
 
-          {posten.map((post) => {
-            const begrootCent = parseEuro(bedragen[post.id] ?? "");
-            const verschil =
-              begrootCent === null ? null : begrootCent - post.werkelijkCent;
-            const open = uitgeklapt === post.id;
-            return (
-              <li key={post.id} className="border-b border-rand py-2 last:border-0">
-                <div className="flex items-center gap-3">
-                  {/* Uitklappen laat zien uit welke categorieën het bedrag bestaat.
-                      Zonder uitgaven valt er niets te verdiepen. */}
-                  <button
-                    type="button"
-                    onClick={() => setUitgeklapt(open ? null : post.id)}
-                    disabled={post.categorieen.length === 0}
-                    aria-expanded={open}
-                    aria-label={`Categorieën van ${post.naam}`}
-                    className="w-4 shrink-0 text-xs text-gedempt disabled:opacity-0"
-                  >
-                    {open ? "▾" : "▸"}
-                  </button>
-                  <Link
-                    href={`/uitgaven?jaar=${jaar}&post=${post.id}`}
-                    title={`Uitgaven op ${post.naam} in ${jaar}`}
-                    className="flex flex-1 items-center gap-2 truncate text-sm hover:text-accent"
-                  >
-                    <span
-                      aria-hidden
-                      className="inline-block h-3 w-3 shrink-0 rounded"
-                      style={{ background: post.kleur }}
-                    />
-                    <span className="truncate">{post.naam}</span>
-                    {!post.actief && (
-                      <span className="shrink-0 text-xs text-gedempt">(inactief)</span>
-                    )}
-                  </Link>
-                  <input
-                    name={`post-${post.id}`}
-                    inputMode="decimal"
-                    placeholder="—"
-                    value={bedragen[post.id] ?? ""}
-                    onChange={(e) =>
-                      setBedragen((huidig) => ({
-                        ...huidig,
-                        [post.id]: e.target.value,
-                      }))
-                    }
-                    aria-label={`Begroot voor ${post.naam}`}
-                    className={`${invoer} cijfers w-28 text-right`}
-                  />
-                  <span className="cijfers hidden w-28 text-right text-sm text-gedempt sm:block">
-                    {formatEuro(post.werkelijkCent)}
-                  </span>
-                  <span
-                    className={`cijfers hidden w-28 text-right text-sm sm:block ${
-                      verschil !== null && verschil < 0
-                        ? "text-slecht"
-                        : "text-gedempt"
-                    }`}
-                  >
-                    {verschil === null ? "—" : formatEuro(verschil)}
-                  </span>
-                </div>
-
-                {open && (
-                  <ul className="mt-1 mb-1 ml-7 flex flex-col gap-1">
-                    {post.categorieen.map((categorie) => (
-                      <li
-                        key={categorie.categoryId}
-                        className="flex items-center gap-3 text-xs text-gedempt"
-                      >
-                        <Link
-                          href={`/uitgaven?jaar=${jaar}&post=${post.id}&categorie=${categorie.categoryId}`}
-                          className="flex flex-1 items-center gap-2 truncate hover:text-accent"
-                        >
-                          <span
-                            aria-hidden
-                            className="inline-block h-2 w-2 shrink-0 rounded"
-                            style={{ background: categorie.kleur }}
-                          />
-                          <span className="truncate">{categorie.naam}</span>
-                        </Link>
-                        <span className="cijfers w-28 text-right">
-                          {formatEuro(categorie.cent)}
-                        </span>
-                        <span className="hidden w-28 sm:block" />
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </li>
-            );
-          })}
+          {posten.map((post) => (
+            <PostRegel
+              key={post.id}
+              post={post}
+              jaar={jaar}
+              bedragen={bedragen}
+              setBedragen={setBedragen}
+            />
+          ))}
         </ul>
 
         <div className="mt-3 flex items-center gap-3 border-t border-rand pt-3 text-sm font-medium">
-          <span aria-hidden className="w-4 shrink-0" />
           <span className="flex-1">Totaal</span>
           <span className="cijfers w-28 text-right">
             {formatEuro(totalen.begroot)}
@@ -220,20 +130,6 @@ export default function BegrotingFormulier({
             {formatEuro(totalen.begroot - totalen.werkelijk)}
           </span>
         </div>
-
-        {/* Wat nergens aan hangt telt hierboven niet mee; dat hoort niet stilletjes
-            te verdwijnen, dus staat het eronder met een weg ernaartoe. */}
-        {losseUitgaven.aantal > 0 && (
-          <p className="mt-3 text-sm text-gedempt">
-            <Link
-              href={`/uitgaven?jaar=${jaar}&post=geen`}
-              className="text-accent underline"
-            >
-              {formatEuro(losseUitgaven.cent)}
-            </Link>{" "}
-            hangt nog aan geen post en telt hierboven niet mee.
-          </p>
-        )}
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <button
@@ -248,7 +144,7 @@ export default function BegrotingFormulier({
 
       <div className="rounded-xl border border-rand bg-paneel p-4">
         <div className="flex flex-wrap items-center gap-3">
-          <NieuwePost />
+          <NieuwePost hoofdposten={posten} />
           <form action={overnemen} className="flex items-center gap-3">
             <input type="hidden" name="jaar" value={jaar} />
             <button
@@ -258,30 +154,19 @@ export default function BegrotingFormulier({
               Overnemen uit {jaar - 1}
             </button>
           </form>
-          {/* Los formulier: het staat naast de andere knoppen maar hoort er niet bij. */}
-          <form action={volgKoppeling}>
-            <button
-              disabled={koppelingBezig}
-              title="Regels zonder post krijgen de post van hun categorie"
-              className="rounded-lg border border-rand px-3 py-2 text-sm disabled:opacity-50"
-            >
-              Koppeling toepassen
-            </button>
-          </form>
           <button
             type="button"
             onClick={() => setBeheer((huidig) => !huidig)}
             className="text-sm text-accent underline"
           >
-            {beheer ? "posten verbergen" : "posten hernoemen"}
+            {beheer ? "posten verbergen" : "posten aanpassen"}
           </button>
           <Uitkomst state={overnemenState} />
-          <Uitkomst state={koppelingState} />
         </div>
 
         {beheer && (
           <ul className="mt-4 flex flex-col gap-2 border-t border-rand pt-4">
-            {posten.map((post) => (
+            {alle.map((post) => (
               <li key={post.id}>
                 <form
                   action={wijzigPostAction}
@@ -301,6 +186,24 @@ export default function BegrotingFormulier({
                     aria-label="Naam"
                     className={`${invoer} min-w-0 flex-1`}
                   />
+                  {/* Sleutel op de huidige plek, anders blijft na opslaan de oude
+                      keuze in beeld staan. */}
+                  <select
+                    name="ouder"
+                    key={post.ouderId ?? 0}
+                    defaultValue={post.ouderId ?? 0}
+                    aria-label={`Hoofdpost van ${post.naam}`}
+                    className={`${invoer} min-w-0 flex-1`}
+                  >
+                    <option value={0}>eigen hoofdpost</option>
+                    {posten
+                      .filter((h) => h.id !== post.id)
+                      .map((hoofd) => (
+                        <option key={hoofd.id} value={hoofd.id}>
+                          onder {hoofd.naam}
+                        </option>
+                      ))}
+                  </select>
                   <label className="flex items-center gap-1 text-sm text-gedempt">
                     <input
                       type="checkbox"
@@ -322,7 +225,121 @@ export default function BegrotingFormulier({
   );
 }
 
-function NieuwePost() {
+function PostRegel({
+  post,
+  jaar,
+  bedragen,
+  setBedragen,
+  ingesprongen = false,
+}: {
+  post: Post;
+  jaar: number;
+  bedragen: Record<number, string>;
+  setBedragen: React.Dispatch<React.SetStateAction<Record<number, string>>>;
+  ingesprongen?: boolean;
+}) {
+  // Elke regel vergelijkt zijn eigen bedrag met zijn eigen uitgaven. Wat een hoofdpost
+  // met zijn subposten samen doet staat eronder in de subtotaalregel; anders zou je
+  // een begroting van 800 naast uitgaven van een subpost met een eigen bedrag leggen.
+  const begrootCent = parseEuro(bedragen[post.id] ?? "");
+  const verschil = begrootCent === null ? null : begrootCent - post.eigenCent;
+
+  return (
+    <>
+      <li className="flex items-center gap-3 border-b border-rand py-2 last:border-0">
+        {/* De naam leidt naar de uitgaven op deze post; bij een hoofdpost tellen de
+            subposten daar mee. */}
+        <Link
+          href={`/uitgaven?jaar=${jaar}&post=${post.id}`}
+          title={`Uitgaven op ${post.naam} in ${jaar}`}
+          className={`flex flex-1 items-center gap-2 truncate hover:text-accent ${
+            ingesprongen ? "pl-6 text-sm text-gedempt" : "text-sm font-medium"
+          }`}
+        >
+          <span
+            aria-hidden
+            className="inline-block h-3 w-3 shrink-0 rounded"
+            style={{ background: post.kleur }}
+          />
+          <span className="truncate">{post.naam}</span>
+          {!post.actief && (
+            <span className="shrink-0 text-xs text-gedempt">(inactief)</span>
+          )}
+        </Link>
+        <input
+          name={`post-${post.id}`}
+          inputMode="decimal"
+          placeholder="—"
+          value={bedragen[post.id] ?? ""}
+          onChange={(e) =>
+            setBedragen((huidig) => ({ ...huidig, [post.id]: e.target.value }))
+          }
+          aria-label={`Begroot voor ${post.naam}`}
+          className={`${invoer} cijfers w-28 text-right`}
+        />
+        <span className="cijfers hidden w-28 text-right text-sm text-gedempt sm:block">
+          {formatEuro(post.eigenCent)}
+        </span>
+        <span
+          className={`cijfers hidden w-28 text-right text-sm sm:block ${
+            verschil !== null && verschil < 0 ? "text-slecht" : "text-gedempt"
+          }`}
+        >
+          {verschil === null ? "—" : formatEuro(verschil)}
+        </span>
+      </li>
+
+      {post.subposten.map((sub) => (
+        <PostRegel
+          key={sub.id}
+          post={sub}
+          jaar={jaar}
+          bedragen={bedragen}
+          setBedragen={setBedragen}
+          ingesprongen
+        />
+      ))}
+
+      {post.subposten.length > 0 && (
+        <Subtotaal post={post} bedragen={bedragen} />
+      )}
+    </>
+  );
+}
+
+/** Hoofdpost plus subposten bij elkaar; alleen zinnig als er subposten zijn. */
+function Subtotaal({
+  post,
+  bedragen,
+}: {
+  post: Post;
+  bedragen: Record<number, string>;
+}) {
+  const begroot = [post, ...post.subposten].reduce(
+    (som, p) => som + (parseEuro(bedragen[p.id] ?? "") ?? 0),
+    0,
+  );
+  const verschil = begroot - post.werkelijkCent;
+
+  return (
+    <li className="flex items-center gap-3 border-b border-rand py-2 text-sm text-gedempt last:border-0">
+      <span className="flex-1 truncate pl-6">samen {post.naam}</span>
+      <span className="cijfers w-28 pr-3 text-right">{formatEuro(begroot)}</span>
+      <span className="cijfers hidden w-28 text-right sm:block">
+        {formatEuro(post.werkelijkCent)}
+      </span>
+      <span
+        className={`cijfers hidden w-28 text-right sm:block ${
+          verschil < 0 ? "text-slecht" : ""
+        }`}
+      >
+        {formatEuro(verschil)}
+      </span>
+    </li>
+  );
+}
+
+function NieuwePost({ hoofdposten }: { hoofdposten: Post[] }) {
   const [state, toevoegen, bezig] = useActionState<BegrotingState, FormData>(
     nieuwePostAction,
     null,
@@ -343,6 +360,21 @@ function NieuwePost() {
         placeholder="Nieuwe post"
         className={`${invoer} min-w-0 flex-1`}
       />
+      {hoofdposten.length > 0 && (
+        <select
+          name="ouder"
+          defaultValue={0}
+          aria-label="Hoofdpost"
+          className={`${invoer} min-w-0 flex-1`}
+        >
+          <option value={0}>als hoofdpost</option>
+          {hoofdposten.map((hoofd) => (
+            <option key={hoofd.id} value={hoofd.id}>
+              onder {hoofd.naam}
+            </option>
+          ))}
+        </select>
+      )}
       <button
         disabled={bezig}
         className="rounded-lg border border-rand px-3 py-2 text-sm disabled:opacity-50"

@@ -1,8 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, eq, inArray, isNull } from "drizzle-orm";
-import { db, budgetItems, budgets, categories, expenseLines } from "@/db";
+import { and, eq, inArray } from "drizzle-orm";
+import { db, budgets, posten } from "@/db";
 import { vereisGebruiker } from "@/lib/auth";
 import { parseEuro } from "@/lib/geld";
 
@@ -29,11 +29,11 @@ export async function bewaarBegrotingAction(
   for (const [sleutel, waarde] of formData.entries()) {
     const treffer = /^post-(\d+)$/.exec(sleutel);
     if (!treffer) continue;
-    const budgetItemId = Number(treffer[1]);
+    const postId = Number(treffer[1]);
     const tekst = String(waarde).trim();
 
     if (tekst === "") {
-      teWissen.push(budgetItemId);
+      teWissen.push(postId);
       continue;
     }
     const bedragCent = parseEuro(tekst);
@@ -43,9 +43,9 @@ export async function bewaarBegrotingAction(
 
     await db
       .insert(budgets)
-      .values({ jaar, budgetItemId, bedragCent })
+      .values({ jaar, postId, bedragCent })
       .onConflictDoUpdate({
-        target: [budgets.jaar, budgets.budgetItemId],
+        target: [budgets.jaar, budgets.postId],
         set: { bedragCent },
       });
   }
@@ -53,9 +53,7 @@ export async function bewaarBegrotingAction(
   if (teWissen.length > 0) {
     await db
       .delete(budgets)
-      .where(
-        and(eq(budgets.jaar, jaar), inArray(budgets.budgetItemId, teWissen)),
-      );
+      .where(and(eq(budgets.jaar, jaar), inArray(budgets.postId, teWissen)));
   }
 
   revalidatePath("/begroting");
@@ -63,7 +61,10 @@ export async function bewaarBegrotingAction(
   return { gelukt: `Begroting ${jaar} opgeslagen.` };
 }
 
-/** Een nieuwe post om op te begroten. Los van de categorieën van de uitgaven. */
+/**
+ * Een nieuwe post. Zonder ouder is het een hoofdpost, met ouder een subpost daaronder.
+ * Dieper dan twee lagen kan niet: een subpost van een subpost wordt geweigerd.
+ */
 export async function nieuwePostAction(
   _vorige: BegrotingState,
   formData: FormData,
@@ -72,11 +73,25 @@ export async function nieuwePostAction(
 
   const naam = String(formData.get("naam") ?? "").trim();
   const kleur = String(formData.get("kleur") ?? "#64748b");
+  const ouder = Number(formData.get("ouder"));
   if (naam.length < 1 || naam.length > 60) return { fout: "Vul een naam in." };
   if (!KLEUR.test(kleur)) return { fout: "Ongeldige kleur." };
 
+  let ouderId: number | null = null;
+  if (Number.isInteger(ouder) && ouder > 0) {
+    const [gekozen] = await db
+      .select({ ouderId: posten.ouderId })
+      .from(posten)
+      .where(eq(posten.id, ouder));
+    if (!gekozen) return { fout: "Die hoofdpost bestaat niet." };
+    if (gekozen.ouderId !== null) {
+      return { fout: "Een subpost kan zelf geen subposten hebben." };
+    }
+    ouderId = ouder;
+  }
+
   try {
-    await db.insert(budgetItems).values({ naam, kleur });
+    await db.insert(posten).values({ naam, kleur, ouderId });
   } catch {
     return { fout: "Die post bestaat al." };
   }
@@ -87,7 +102,7 @@ export async function nieuwePostAction(
   return { gelukt: `${naam} toegevoegd.` };
 }
 
-/** Naam of kleur bijwerken, of een post buiten gebruik stellen. */
+/** Naam, kleur of plek in de boom bijwerken, of een post buiten gebruik stellen. */
 export async function wijzigPostAction(formData: FormData) {
   await vereisGebruiker();
 
@@ -95,57 +110,37 @@ export async function wijzigPostAction(formData: FormData) {
   if (!Number.isInteger(id)) return;
   const naam = String(formData.get("naam") ?? "").trim();
   const kleur = String(formData.get("kleur") ?? "");
+  const ouder = Number(formData.get("ouder"));
+
+  // Zichzelf als ouder, of een post die zelf al subposten heeft, zou de boom breken.
+  let ouderId: number | null = null;
+  if (Number.isInteger(ouder) && ouder > 0 && ouder !== id) {
+    const [gekozen] = await db
+      .select({ ouderId: posten.ouderId })
+      .from(posten)
+      .where(eq(posten.id, ouder));
+    const eigenKinderen = await db
+      .select({ id: posten.id })
+      .from(posten)
+      .where(eq(posten.ouderId, id));
+    if (gekozen && gekozen.ouderId === null && eigenKinderen.length === 0) {
+      ouderId = ouder;
+    }
+  }
 
   await db
-    .update(budgetItems)
+    .update(posten)
     .set({
       ...(naam ? { naam } : {}),
       ...(KLEUR.test(kleur) ? { kleur } : {}),
+      ouderId,
       actief: formData.get("actief") === "on",
     })
-    .where(eq(budgetItems.id, id));
+    .where(eq(posten.id, id));
 
   revalidatePath("/begroting");
   revalidatePath("/uitgaven");
   revalidatePath("/");
-}
-
-/**
- * Regels zonder post krijgen de post van hun categorie. Alleen lege regels, dus wat
- * je met de hand hebt gezet blijft staan. Handig na het leggen van de koppelingen.
- */
-export async function volgKoppelingAction(
-  _vorige: BegrotingState,
-  _formData: FormData,
-): Promise<BegrotingState> {
-  await vereisGebruiker();
-
-  const gekoppeld = await db
-    .select({ id: categories.id, budgetItemId: categories.budgetItemId })
-    .from(categories);
-
-  let bijgewerkt = 0;
-  for (const categorie of gekoppeld) {
-    if (categorie.budgetItemId === null) continue;
-    const rijen = await db
-      .update(expenseLines)
-      .set({ budgetItemId: categorie.budgetItemId })
-      .where(
-        and(
-          eq(expenseLines.categoryId, categorie.id),
-          isNull(expenseLines.budgetItemId),
-        ),
-      )
-      .returning({ id: expenseLines.id });
-    bijgewerkt += rijen.length;
-  }
-
-  revalidatePath("/begroting");
-  revalidatePath("/uitgaven");
-  revalidatePath("/");
-  return bijgewerkt === 0
-    ? { fout: "Er viel niets toe te wijzen. Koppel eerst posten aan categorieën." }
-    : { gelukt: `${bijgewerkt} regel${bijgewerkt === 1 ? "" : "s"} toegewezen.` };
 }
 
 /** Vorig jaar als startpunt overnemen; bestaande bedragen blijven staan. */
@@ -169,12 +164,8 @@ export async function neemVorigJaarOverAction(
   for (const rij of vorig) {
     await db
       .insert(budgets)
-      .values({
-        jaar,
-        budgetItemId: rij.budgetItemId,
-        bedragCent: rij.bedragCent,
-      })
-      .onConflictDoNothing({ target: [budgets.jaar, budgets.budgetItemId] });
+      .values({ jaar, postId: rij.postId, bedragCent: rij.bedragCent })
+      .onConflictDoNothing({ target: [budgets.jaar, budgets.postId] });
   }
 
   revalidatePath("/begroting");

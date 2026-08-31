@@ -1,10 +1,5 @@
 import { vereisGebruiker } from "@/lib/auth";
-import {
-  begroteJaren,
-  beschikbareJaren,
-  begroting,
-  nietToegewezen,
-} from "@/lib/data";
+import { begroteJaren, beschikbareJaren, begroting } from "@/lib/data";
 import BegrotingFormulier from "@/components/BegrotingFormulier";
 import JaarKiezer from "@/components/JaarKiezer";
 
@@ -28,10 +23,7 @@ export default async function BegrotingPagina({
   const jaren = await kiesbareJaren();
   const gekozen = Number(params.jaar);
   const jaar = jaren.includes(gekozen) ? gekozen : new Date().getFullYear();
-  const [posten, losseUitgaven] = await Promise.all([
-    begroting(jaar),
-    nietToegewezen(jaar),
-  ]);
+  const posten = await begroting(jaar);
 
   return (
     <div className="flex flex-col gap-4">
@@ -42,11 +34,7 @@ export default async function BegrotingPagina({
         </div>
       </div>
 
-      <BegrotingFormulier
-        jaar={jaar}
-        posten={posten}
-        losseUitgaven={losseUitgaven}
-      />
+      <BegrotingFormulier jaar={jaar} posten={posten} />
     </div>
   );
 }

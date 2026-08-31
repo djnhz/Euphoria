@@ -1,8 +1,8 @@
 import Link from "next/link";
 import BestandTegel from "@/components/BestandTegel";
 import { notFound } from "next/navigation";
-import { asc, inArray } from "drizzle-orm";
-import { db, budgetItems, categories, couples } from "@/db";
+import { asc } from "drizzle-orm";
+import { db, couples, posten } from "@/db";
 import { vereisGebruiker } from "@/lib/auth";
 import { uitgaveMetRegels } from "@/lib/data";
 import { formatEuro, verdeelRegel } from "@/lib/geld";
@@ -27,23 +27,10 @@ export default async function UitgaveDetail({
   const naamA = huishoudens[0]?.naam ?? "A";
   const naamB = huishoudens[1]?.naam ?? "B";
 
-  const categorieNamen = new Map(
-    (
-      await db
-        .select({ id: categories.id, naam: categories.naam })
-        .from(categories)
-        .where(
-          inArray(
-            categories.id,
-            uitgave.regels.map((r) => r.categoryId),
-          ),
-        )
-    ).map((c) => [c.id, c.naam]),
-  );
-
   const postNamen = new Map(
-    (await db.select({ id: budgetItems.id, naam: budgetItems.naam }).from(budgetItems))
-      .map((p) => [p.id, p.naam]),
+    (await db.select({ id: posten.id, naam: posten.naam }).from(posten)).map(
+      (p) => [p.id, p.naam] as const,
+    ),
   );
 
   const totaal = uitgave.regels.reduce((som, r) => som + r.bedragCent, 0);
@@ -109,8 +96,7 @@ export default async function UitgaveDetail({
           <thead className="border-b border-rand text-left text-gedempt">
             <tr>
               <th className="p-3 font-normal">Omschrijving</th>
-              <th className="p-3 font-normal">Categorie</th>
-              <th className="p-3 font-normal">Begroting</th>
+              <th className="p-3 font-normal">Post</th>
               <th className="p-3 text-right font-normal">Aantal</th>
               <th className="p-3 text-right font-normal">Bedrag</th>
               <th className="p-3 text-right font-normal">Verdeling</th>
@@ -128,12 +114,7 @@ export default async function UitgaveDetail({
                   )}
                 </td>
                 <td className="p-3 text-gedempt">
-                  {categorieNamen.get(regel.categoryId) ?? "—"}
-                </td>
-                <td className="p-3 text-gedempt">
-                  {regel.budgetItemId === null
-                    ? "—"
-                    : (postNamen.get(regel.budgetItemId) ?? "—")}
+                  {postNamen.get(regel.postId) ?? "—"}
                 </td>
                 <td className="cijfers p-3 text-right">{regel.aantal}</td>
                 <td className="cijfers p-3 text-right">

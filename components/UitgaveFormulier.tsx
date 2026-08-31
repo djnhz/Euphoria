@@ -15,9 +15,13 @@ import {
   type BewaarState,
 } from "@/app/(app)/uitgaven/actions";
 
-/** `budgetItemId` is de post die deze categorie standaard meebrengt; 0 is geen. */
-export type Categorie = { id: number; naam: string; budgetItemId: number };
-export type BegrotingsPost = { id: number; naam: string };
+/** Een post uit de begroting; `ouderId` is gevuld bij een subpost. */
+export type PostKeuze = {
+  id: number;
+  naam: string;
+  ouderId: number | null;
+};
+
 export type Huishouden = { id: number; naam: string; volgorde: number };
 
 export type FormulierRegel = {
@@ -25,9 +29,7 @@ export type FormulierRegel = {
   omschrijving: string;
   aantal: number;
   bedrag: string;
-  categoryId: number;
-  /** Begrotingspost van deze regel; 0 betekent "geen". */
-  budgetItemId: number;
+  postId: number;
   aandeelAPct: number;
   bron: "handmatig" | "ai";
 };
@@ -44,21 +46,34 @@ export type Beginwaarden = {
 let teller = 0;
 const nieuweSleutel = () => `regel-${teller++}`;
 
-export function legeRegel(categoryId: number, budgetItemId = 0): FormulierRegel {
+export function legeRegel(postId: number): FormulierRegel {
   return {
     sleutel: nieuweSleutel(),
     omschrijving: "",
     aantal: 1,
     bedrag: "",
-    categoryId,
-    budgetItemId,
+    postId,
     aandeelAPct: 50,
     bron: "handmatig",
   };
 }
 
+/**
+ * Hoofdposten met hun subposten eronder, als een lijst waarin je allebei kunt kiezen.
+ * Een subpost krijgt een streepje voor zijn naam; `optgroup` zou de hoofdpost zelf
+ * onkiesbaar maken en juist die keuze wil je hier hebben.
+ */
+function keuzelijst(posten: PostKeuze[]) {
+  const hoofd = posten.filter((p) => p.ouderId === null);
+  return hoofd.flatMap((post) => [
+    { id: post.id, label: post.naam },
+    ...posten
+      .filter((p) => p.ouderId === post.id)
+      .map((sub) => ({ id: sub.id, label: `— ${sub.naam}` })),
+  ]);
+}
+
 export default function UitgaveFormulier({
-  categorieen,
   posten,
   huishoudens,
   begin,
@@ -67,9 +82,7 @@ export default function UitgaveFormulier({
   heeftBlob,
   heeftSleutel,
 }: {
-  categorieen: Categorie[];
-  /** Begrotingsposten; los van de categorieen en dus een eigen keuze. */
-  posten: BegrotingsPost[];
+  posten: PostKeuze[];
   huishoudens: Huishouden[];
   begin?: Partial<Beginwaarden>;
   actie: (vorige: BewaarState, formData: FormData) => Promise<BewaarState>;
@@ -79,8 +92,8 @@ export default function UitgaveFormulier({
   /** Zonder OpenAI-sleutel heeft een analyseknop geen zin. */
   heeftSleutel: boolean;
 }) {
-  const standaardCategorie =
-    categorieen.find((c) => c.naam === "Overig")?.id ?? categorieen[0]?.id ?? 0;
+  const keuzes = useMemo(() => keuzelijst(posten), [posten]);
+  const standaardPost = keuzes[0]?.id ?? 0;
 
   const [datum, setDatum] = useState(begin?.datum ?? vandaag());
   const [leverancier, setLeverancier] = useState(begin?.leverancier ?? "");
@@ -89,18 +102,19 @@ export default function UitgaveFormulier({
     begin?.coupleId ?? huishoudens[0]?.id ?? 0,
   );
   const [regels, setRegels] = useState<FormulierRegel[]>(
-    begin?.regels?.length ? begin.regels : [legeRegel(standaardCategorie)],
+    begin?.regels?.length ? begin.regels : [legeRegel(standaardPost)],
   );
+
   /**
    * De post van de bon als geheel. Hem hier zetten schrijft alle regels over; per
    * regel afwijken mag daarna. Staan de regels niet op een lijn, dan toont dit veld
    * "gemengd" en laat het de regels met rust tot je echt iets kiest.
    */
-  const bonPost = regels.every((r) => r.budgetItemId === regels[0].budgetItemId)
-    ? regels[0].budgetItemId
+  const bonPost = regels.every((r) => r.postId === regels[0].postId)
+    ? regels[0].postId
     : -1;
-  function zetBonPost(budgetItemId: number) {
-    setRegels((huidig) => huidig.map((r) => ({ ...r, budgetItemId })));
+  function zetBonPost(postId: number) {
+    setRegels((huidig) => huidig.map((r) => ({ ...r, postId })));
   }
 
   const [bonnen, setBonnen] = useState<BewaardeBon[]>(begin?.bonnen ?? []);
@@ -132,25 +146,6 @@ export default function UitgaveFormulier({
     setRegels((huidig) =>
       huidig.map((r) => (r.sleutel === sleutel ? { ...r, ...wijziging } : r)),
     );
-  }
-
-  /**
-   * Een categorie kan een vaste begrotingspost hebben. Die neemt de regel dan over,
-   * want dat is precies waarvoor die koppeling er is. Heeft de categorie er geen,
-   * dan blijft staan wat er stond.
-   */
-  function kiesCategorie(sleutel: string, categoryId: number) {
-    const post = categorieen.find((c) => c.id === categoryId)?.budgetItemId ?? 0;
-    pasRegelAan(sleutel, {
-      categoryId,
-      ...(post > 0 ? { budgetItemId: post } : {}),
-    });
-  }
-
-  /** De post die bij een categorie hoort, met de keuze op de bon als terugval. */
-  function postVoor(categoryId: number, terugval: number) {
-    const post = categorieen.find((c) => c.id === categoryId)?.budgetItemId ?? 0;
-    return post > 0 ? post : terugval;
   }
 
   /**
@@ -256,16 +251,9 @@ export default function UitgaveFormulier({
         omschrijving: regel.omschrijving,
         aantal: Math.max(1, Math.round(regel.aantal || 1)),
         bedrag: (regel.bedragCent / 100).toFixed(2).replace(".", ","),
-        categoryId:
-          categorieen.find((c) => c.naam === regel.categorieSuggestie)?.id ??
-          standaardCategorie,
-        // Het model kent de posten niet, dus die komen uit de categoriekoppeling,
-        // en anders uit wat er op de bon staat.
-        budgetItemId: postVoor(
-          categorieen.find((c) => c.naam === regel.categorieSuggestie)?.id ??
-            standaardCategorie,
-          bonPost > 0 ? bonPost : 0,
-        ),
+        postId:
+          posten.find((p) => p.naam === regel.postSuggestie)?.id ??
+          (bonPost > 0 ? bonPost : standaardPost),
         aandeelAPct: 50,
         bron: "ai",
       }));
@@ -301,8 +289,7 @@ export default function UitgaveFormulier({
       omschrijving: r.omschrijving.trim() || "Onbenoemd",
       aantal: r.aantal,
       bedragCent: parseEuro(r.bedrag) ?? 0,
-      categoryId: r.categoryId,
-      budgetItemId: r.budgetItemId > 0 ? r.budgetItemId : null,
+      postId: r.postId,
       aandeelAPct: r.aandeelAPct,
       bron: r.bron,
     })),
@@ -329,9 +316,7 @@ export default function UitgaveFormulier({
           }}
           className="block w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-accent file:px-3 file:py-2 file:text-white"
         />
-        {bezigMetUpload && (
-          <p className="mt-3 text-sm text-gedempt">Opslaan…</p>
-        )}
+        {bezigMetUpload && <p className="mt-3 text-sm text-gedempt">Opslaan…</p>}
         {dubbel && (
           <DubbelWaarschuwing
             vraag={dubbel}
@@ -376,9 +361,7 @@ export default function UitgaveFormulier({
                     }
                     className="mt-2 w-full rounded-lg border border-rand px-2 py-1.5 text-xs disabled:opacity-50"
                   >
-                    {bezigMetAnalyse === bon.documentId
-                      ? "Uitlezen…"
-                      : "Analyseren"}
+                    {bezigMetAnalyse === bon.documentId ? "Uitlezen…" : "Analyseren"}
                   </button>
                 ) : (
                   <p className="mt-2 text-center text-xs text-gedempt">
@@ -428,29 +411,28 @@ export default function UitgaveFormulier({
             ))}
           </select>
         </Veld>
-        <Veld label="Opmerking">
-          <input
-            value={opmerking}
-            onChange={(e) => setOpmerking(e.target.value)}
-            className={invoerKlasse}
-          />
-        </Veld>
         {/* De post van de hele bon. Kiezen zet alle regels om; daarna kun je er per
             regel van afwijken, en dan staat hier "gemengd". */}
-        <Veld label="Begroting">
+        <Veld label="Post">
           <select
             value={bonPost}
             onChange={(e) => zetBonPost(Number(e.target.value))}
             className={invoerKlasse}
           >
             {bonPost === -1 && <option value={-1}>gemengd</option>}
-            <option value={0}>geen post</option>
-            {posten.map((post) => (
-              <option key={post.id} value={post.id}>
-                {post.naam}
+            {keuzes.map((keuze) => (
+              <option key={keuze.id} value={keuze.id}>
+                {keuze.label}
               </option>
             ))}
           </select>
+        </Veld>
+        <Veld label="Opmerking">
+          <input
+            value={opmerking}
+            onChange={(e) => setOpmerking(e.target.value)}
+            className={invoerKlasse}
+          />
         </Veld>
       </section>
 
@@ -462,10 +444,7 @@ export default function UitgaveFormulier({
             onClick={() =>
               setRegels((r) => [
                 ...r,
-                legeRegel(
-                  standaardCategorie,
-                  postVoor(standaardCategorie, bonPost > 0 ? bonPost : 0),
-                ),
+                legeRegel(bonPost > 0 ? bonPost : standaardPost),
               ])
             }
             className="text-sm text-accent underline"
@@ -527,34 +506,19 @@ export default function UitgaveFormulier({
                 verwijder
               </button>
 
-              <div className="col-span-2 grid gap-2 sm:col-span-4 sm:grid-cols-[1fr_1fr_auto] sm:items-center">
-                <select
-                  value={regel.categoryId}
-                  onChange={(e) => kiesCategorie(regel.sleutel, Number(e.target.value))}
-                  aria-label="Categorie"
-                  className={invoerKlasse}
-                >
-                  {categorieen.map((categorie) => (
-                    <option key={categorie.id} value={categorie.id}>
-                      {categorie.naam}
-                    </option>
-                  ))}
-                </select>
+              <div className="col-span-2 grid gap-2 sm:col-span-4 sm:grid-cols-[1fr_auto] sm:items-center">
                 {/* Afwijken van de post die boven voor de hele bon staat. */}
                 <select
-                  value={regel.budgetItemId}
+                  value={regel.postId}
                   onChange={(e) =>
-                    pasRegelAan(regel.sleutel, {
-                      budgetItemId: Number(e.target.value),
-                    })
+                    pasRegelAan(regel.sleutel, { postId: Number(e.target.value) })
                   }
-                  aria-label="Begrotingspost"
+                  aria-label="Post"
                   className={invoerKlasse}
                 >
-                  <option value={0}>geen post</option>
-                  {posten.map((post) => (
-                    <option key={post.id} value={post.id}>
-                      {post.naam}
+                  {keuzes.map((keuze) => (
+                    <option key={keuze.id} value={keuze.id}>
+                      {keuze.label}
                     </option>
                   ))}
                 </select>
