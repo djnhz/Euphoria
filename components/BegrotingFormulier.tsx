@@ -21,6 +21,8 @@ export type Post = {
   begrootCent: number | null;
   eigenCent: number;
   werkelijkCent: number;
+  /** Doet deze post dit jaar mee, of hoort hij bij een ander jaar? */
+  inGebruik: boolean;
   subposten: Post[];
 };
 
@@ -47,8 +49,25 @@ export default function BegrotingFormulier({
     FormData
   >(neemVorigJaarOverAction, null);
   const [beheer, setBeheer] = useState(false);
+  /**
+   * Standaard staan alleen de posten van dit jaar in beeld: begroot of met uitgaven.
+   * Wil je er een bijzetten of juist een bedrag weghalen, dan zet je dit aan en zie
+   * je alles. Een post die je voor volgend jaar aanmaakt hoort hier niet te staan.
+   */
+  const [toonAlles, setToonAlles] = useState(false);
 
   const alle = useMemo(() => plat(posten), [posten]);
+  const heeftGebruikte = posten.some((post) => post.inGebruik);
+  // Een jaar waarin nog niets staat zou anders leeg blijven zonder weg vooruit.
+  const allesTonen = toonAlles || !heeftGebruikte;
+  const zichtbaar = allesTonen
+    ? posten
+    : posten
+        .filter((post) => post.inGebruik)
+        .map((post) => ({
+          ...post,
+          subposten: post.subposten.filter((sub) => sub.inGebruik),
+        }));
 
   const [bedragen, setBedragen] = useState<Record<number, string>>(() =>
     Object.fromEntries(alle.map((p) => [p.id, alsTekst(p.begrootCent)])),
@@ -139,7 +158,7 @@ export default function BegrotingFormulier({
             <span className="hidden w-28 text-right sm:block">Verschil</span>
           </li>
 
-          {posten.map((post) => (
+          {zichtbaar.map((post) => (
             <PostRegel
               key={post.id}
               post={post}
@@ -150,6 +169,17 @@ export default function BegrotingFormulier({
             />
           ))}
         </ul>
+
+        {heeftGebruikte && (
+          <label className="mt-3 flex items-center gap-2 text-xs text-gedempt">
+            <input
+              type="checkbox"
+              checked={toonAlles}
+              onChange={(e) => setToonAlles(e.target.checked)}
+            />
+            Alle posten tonen, ook die dit jaar niet meedoen
+          </label>
+        )}
 
         <div className="mt-3 border-t border-rand pt-3 text-sm font-medium">
           <div className="flex items-center gap-3">

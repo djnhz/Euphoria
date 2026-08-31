@@ -208,7 +208,8 @@ export async function wisselBeheerderAction(
   const aan = formData.get("aan") === "ja";
   if (!Number.isInteger(userId)) return { fout: "Onbekende gebruiker." };
 
-  // Zonder beheerder kan niemand meer een seizoen plannen, dus de laatste blijft staan.
+  // Zonder beheerder kan niemand meer een vergeten pincode terugzetten, dus de
+  // laatste blijft staan.
   if (!aan) {
     const beheerders = await db
       .select({ id: users.id })

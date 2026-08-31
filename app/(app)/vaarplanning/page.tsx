@@ -34,7 +34,17 @@ export default async function VaarplanningPagina({
   if (!status.gekoppeld || !status.agendaId) {
     return (
       <div className="flex flex-col gap-4">
-        <h1 className="text-2xl font-semibold tracking-tight">Vaarplanning</h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-2xl font-semibold tracking-tight">Vaarplanning</h1>
+          {/* Ook zonder agenda kun je een seizoen uitrekenen; alleen publiceren
+              lukt dan niet, en dat zegt dat scherm zelf. */}
+          <Link
+            href="/vaarplanning/seizoen"
+            className="ml-auto rounded-lg border border-rand px-3 py-2 text-sm"
+          >
+            Seizoen plannen
+          </Link>
+        </div>
         <p className="rounded-xl border border-rand bg-paneel p-6 text-sm text-gedempt">
           De Google-agenda is nog niet gekoppeld. Dat regel je bij{" "}
           <Link href="/instellingen" className="text-accent underline">
@@ -54,14 +64,12 @@ export default async function VaarplanningPagina({
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-semibold tracking-tight">Vaarplanning</h1>
-        {gebruiker.beheerder && (
-          <Link
-            href="/vaarplanning/seizoen"
-            className="ml-auto rounded-lg border border-rand px-3 py-2 text-sm"
-          >
-            Seizoen plannen
-          </Link>
-        )}
+        <Link
+          href="/vaarplanning/seizoen"
+          className="ml-auto rounded-lg border border-rand px-3 py-2 text-sm"
+        >
+          Seizoen plannen
+        </Link>
       </div>
       {fout && (
         <p className="rounded-xl border border-rand bg-paneel p-4 text-sm text-slecht">

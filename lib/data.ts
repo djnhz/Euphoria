@@ -151,6 +151,12 @@ export type BegrotingsRegel = {
   eigenCent: number;
   /** Inclusief de subposten eronder; voor een subpost gelijk aan `eigenCent`. */
   werkelijkCent: number;
+  /**
+   * Doet deze post dit jaar mee: er staat een bedrag voor, er is op geboekt, of een
+   * subpost eronder doet mee. Een post die je pas volgend jaar gaat gebruiken hoort
+   * niet in het overzicht van dit jaar te staan.
+   */
+  inGebruik: boolean;
   subposten: BegrotingsRegel[];
 };
 
@@ -177,16 +183,21 @@ export async function begroting(jaar: number): Promise<BegrotingsRegel[]> {
       .filter((p) => p.ouderId === post.id)
       .map((p) => maakRegel(p));
     const eigenCent = eigen.get(post.id) ?? 0;
+    const begrootCent = perPost.get(post.id) ?? null;
     return {
       id: post.id,
       naam: post.naam,
       kleur: post.kleur,
       actief: post.actief,
       ouderId: post.ouderId,
-      begrootCent: perPost.get(post.id) ?? null,
+      begrootCent,
       eigenCent,
       werkelijkCent:
         eigenCent + subposten.reduce((som, s) => som + s.werkelijkCent, 0),
+      inGebruik:
+        begrootCent !== null ||
+        eigenCent > 0 ||
+        subposten.some((sub) => sub.inGebruik),
       subposten,
     };
   }

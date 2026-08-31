@@ -54,8 +54,8 @@ export default async function InstellingenPagina() {
       <section className="rounded-xl border border-rand bg-paneel p-4">
         <h2 className="mb-1 text-sm font-medium">Beheerder</h2>
         <p className="mb-4 text-xs text-gedempt">
-          Een beheerder plant het seizoen en beheert de pincodes. Er blijft er
-          altijd minstens één over.
+          Een beheerder beheert de pincodes van iedereen. Er blijft er altijd
+          minstens één over.
         </p>
         <BeheerderFormulier gebruikers={gebruikers} />
       </section>

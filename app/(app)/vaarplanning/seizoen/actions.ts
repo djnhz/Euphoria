@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { asc } from "drizzle-orm";
 import { z } from "zod";
 import { db, couples } from "@/db";
-import { vereisBeheerder } from "@/lib/auth";
+import { vereisGebruiker } from "@/lib/auth";
 import { publiceerSeizoen, seizoenStand } from "@/lib/agenda";
 import { dagenInSeizoen } from "@/lib/datum";
 import { maakSeizoensplanning } from "@/lib/seizoen";
@@ -45,7 +45,7 @@ export async function publiceerAction(
   _vorige: PubliceerState,
   formData: FormData,
 ): Promise<PubliceerState> {
-  await vereisBeheerder();
+  await vereisGebruiker();
 
   const gelezen = PubliceerInvoer.safeParse(
     JSON.parse(String(formData.get("payload") ?? "{}")),
@@ -106,7 +106,7 @@ export async function standAction(
   _vorige: StandState,
   formData: FormData,
 ): Promise<StandState> {
-  await vereisBeheerder();
+  await vereisGebruiker();
   const jaar = Number(formData.get("jaar"));
   if (!Number.isInteger(jaar)) return { melding: "Ongeldig jaartal." };
 

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { asc } from "drizzle-orm";
 import { db, couples } from "@/db";
-import { vereisBeheerder } from "@/lib/auth";
+import { vereisGebruiker } from "@/lib/auth";
 import { agendaStatus } from "@/lib/instellingen";
 import { feestdagenIn } from "@/lib/feestdagen";
 import { vandaag } from "@/lib/datum";
@@ -11,7 +11,7 @@ import Seizoensplanner from "@/components/Seizoensplanner";
 export default async function SeizoenPagina({
   searchParams,
 }: PageProps<"/vaarplanning/seizoen">) {
-  await vereisBeheerder();
+  await vereisGebruiker();
   const params = await searchParams;
 
   const huidigJaar = Number(vandaag().slice(0, 4));
