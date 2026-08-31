@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, count, eq, inArray } from "drizzle-orm";
+import { and, count, eq } from "drizzle-orm";
 import { db, budgets, expenseLines, posten } from "@/db";
 import { vereisGebruiker } from "@/lib/auth";
 import { parseEuro } from "@/lib/geld";
@@ -11,54 +11,49 @@ export type BegrotingState = { fout?: string; gelukt?: string } | null;
 const KLEUR = /^#[0-9a-fA-F]{6}$/;
 
 /**
- * Slaat de hele begroting van een jaar in een keer op. Een leeg veld betekent "niet
- * begroot" en haalt de rij weg; zo blijft er geen nul staan die als bewuste keuze leest.
+ * Een bedrag van een post in een jaar. Wordt aangeroepen zodra je klaar bent met
+ * typen, dus er is geen opslaanknop meer. Een leeg veld betekent "niet begroot" en
+ * haalt de rij weg; zo blijft er geen nul staan die als bewuste keuze leest.
+ *
+ * Bewust zonder `revalidatePath`: elke pagina is toch al dynamisch, en verversen
+ * tijdens het typen zou de velden onder je handen terugzetten.
  */
-export async function bewaarBegrotingAction(
-  _vorige: BegrotingState,
-  formData: FormData,
+export async function zetBedragAction(
+  jaar: number,
+  postId: number,
+  tekst: string,
 ): Promise<BegrotingState> {
   await vereisGebruiker();
 
-  const jaar = Number(formData.get("jaar"));
   if (!Number.isInteger(jaar) || jaar < 2000 || jaar > 2100) {
     return { fout: "Ongeldig jaar." };
   }
-
-  const teWissen: number[] = [];
-  for (const [sleutel, waarde] of formData.entries()) {
-    const treffer = /^post-(\d+)$/.exec(sleutel);
-    if (!treffer) continue;
-    const postId = Number(treffer[1]);
-    const tekst = String(waarde).trim();
-
-    if (tekst === "") {
-      teWissen.push(postId);
-      continue;
-    }
-    const bedragCent = parseEuro(tekst);
-    if (bedragCent === null || bedragCent < 0) {
-      return { fout: `"${tekst}" is geen bedrag.` };
-    }
-
-    await db
-      .insert(budgets)
-      .values({ jaar, postId, bedragCent })
-      .onConflictDoUpdate({
-        target: [budgets.jaar, budgets.postId],
-        set: { bedragCent },
-      });
+  if (!Number.isInteger(postId) || postId <= 0) {
+    return { fout: "Onbekende post." };
   }
 
-  if (teWissen.length > 0) {
+  const schoon = tekst.trim();
+  if (schoon === "") {
     await db
       .delete(budgets)
-      .where(and(eq(budgets.jaar, jaar), inArray(budgets.postId, teWissen)));
+      .where(and(eq(budgets.jaar, jaar), eq(budgets.postId, postId)));
+    return { gelukt: "opgeslagen" };
   }
 
-  revalidatePath("/begroting");
-  revalidatePath("/");
-  return { gelukt: `Begroting ${jaar} opgeslagen.` };
+  const bedragCent = parseEuro(schoon);
+  if (bedragCent === null || bedragCent < 0) {
+    return { fout: `"${schoon}" is geen bedrag.` };
+  }
+
+  await db
+    .insert(budgets)
+    .values({ jaar, postId, bedragCent })
+    .onConflictDoUpdate({
+      target: [budgets.jaar, budgets.postId],
+      set: { bedragCent },
+    });
+
+  return { gelukt: "opgeslagen" };
 }
 
 /**

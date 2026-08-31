@@ -1,14 +1,14 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useCallback, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { formatEuro, parseEuro } from "@/lib/geld";
 import {
-  bewaarBegrotingAction,
   neemVorigJaarOverAction,
   nieuwePostAction,
   verwijderPostAction,
   wijzigPostAction,
+  zetBedragAction,
   type BegrotingState,
 } from "@/app/(app)/begroting/actions";
 
@@ -42,10 +42,6 @@ export default function BegrotingFormulier({
   jaar: number;
   posten: Post[];
 }) {
-  const [state, bewaar, bezig] = useActionState<BegrotingState, FormData>(
-    bewaarBegrotingAction,
-    null,
-  );
   const [overnemenState, overnemen, overnemenBezig] = useActionState<
     BegrotingState,
     FormData
@@ -73,6 +69,43 @@ export default function BegrotingFormulier({
     );
   }
 
+  /**
+   * Opslaan gebeurt per veld: kort nadat je stopt met typen, en meteen als je het
+   * veld verlaat. Een teller per post houdt bij welke opdracht de laatste is, zodat
+   * een traag antwoord een nieuwere invoer niet overschrijft in de melding.
+   */
+  const [status, setStatus] = useState<
+    { bezig: boolean; fout: string | null; opgeslagenOp: number | null }
+  >({ bezig: false, fout: null, opgeslagenOp: null });
+  const timers = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
+  const laatste = useRef(0);
+
+  const bewaarVeld = useCallback(
+    async (postId: number, tekst: string) => {
+      const nummer = ++laatste.current;
+      setStatus((h) => ({ ...h, bezig: true, fout: null }));
+      const uitkomst = await zetBedragAction(jaar, postId, tekst);
+      if (nummer !== laatste.current) return; // er kwam alweer iets nieuwers
+      setStatus({
+        bezig: false,
+        fout: uitkomst?.fout ?? null,
+        opgeslagenOp: uitkomst?.fout ? null : nummer,
+      });
+    },
+    [jaar],
+  );
+
+  function pasBedragAan(postId: number, tekst: string) {
+    setBedragen((huidig) => ({ ...huidig, [postId]: tekst }));
+    clearTimeout(timers.current[postId]);
+    timers.current[postId] = setTimeout(() => void bewaarVeld(postId, tekst), 600);
+  }
+
+  function bewaarNu(postId: number, tekst: string) {
+    clearTimeout(timers.current[postId]);
+    void bewaarVeld(postId, tekst);
+  }
+
   const totalen = useMemo(() => {
     let begroot = 0;
     for (const post of alle) begroot += parseEuro(bedragen[post.id] ?? "") ?? 0;
@@ -97,9 +130,7 @@ export default function BegrotingFormulier({
 
   return (
     <div className="flex flex-col gap-4">
-      <form action={bewaar} className="rounded-xl border border-rand bg-paneel p-4">
-        <input type="hidden" name="jaar" value={jaar} />
-
+      <section className="rounded-xl border border-rand bg-paneel p-4">
         <ul className="flex flex-col">
           <li className="flex items-center gap-3 border-b border-rand pb-2 text-xs text-gedempt">
             <span className="flex-1">Post</span>
@@ -114,7 +145,8 @@ export default function BegrotingFormulier({
               post={post}
               jaar={jaar}
               bedragen={bedragen}
-              setBedragen={setBedragen}
+              pasBedragAan={pasBedragAan}
+              bewaarNu={bewaarNu}
             />
           ))}
         </ul>
@@ -132,16 +164,19 @@ export default function BegrotingFormulier({
           </span>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <button
-            disabled={bezig}
-            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-          >
-            {bezig ? "Bezig…" : "Begroting opslaan"}
-          </button>
-          <Uitkomst state={state} />
-        </div>
-      </form>
+        {/* Geen opslaanknop: elk bedrag gaat vanzelf mee zodra je stopt met typen. */}
+        <p className="mt-3 h-5 text-xs text-gedempt" aria-live="polite">
+          {status.fout ? (
+            <span className="text-slecht">{status.fout}</span>
+          ) : status.bezig ? (
+            "opslaan…"
+          ) : status.opgeslagenOp !== null ? (
+            "opgeslagen"
+          ) : (
+            "Bedragen worden vanzelf opgeslagen."
+          )}
+        </p>
+      </section>
 
       <div className="rounded-xl border border-rand bg-paneel p-4">
         <div className="flex flex-wrap items-center gap-3">
@@ -183,13 +218,15 @@ function PostRegel({
   post,
   jaar,
   bedragen,
-  setBedragen,
+  pasBedragAan,
+  bewaarNu,
   ingesprongen = false,
 }: {
   post: Post;
   jaar: number;
   bedragen: Record<number, string>;
-  setBedragen: React.Dispatch<React.SetStateAction<Record<number, string>>>;
+  pasBedragAan: (postId: number, tekst: string) => void;
+  bewaarNu: (postId: number, tekst: string) => void;
   ingesprongen?: boolean;
 }) {
   // Elke regel vergelijkt zijn eigen bedrag met zijn eigen uitgaven. Wat een hoofdpost
@@ -225,9 +262,8 @@ function PostRegel({
           inputMode="decimal"
           placeholder="—"
           value={bedragen[post.id] ?? ""}
-          onChange={(e) =>
-            setBedragen((huidig) => ({ ...huidig, [post.id]: e.target.value }))
-          }
+          onChange={(e) => pasBedragAan(post.id, e.target.value)}
+          onBlur={(e) => bewaarNu(post.id, e.target.value)}
           aria-label={`Begroot voor ${post.naam}`}
           className={`${invoer} cijfers w-28 text-right`}
         />
@@ -249,7 +285,8 @@ function PostRegel({
           post={sub}
           jaar={jaar}
           bedragen={bedragen}
-          setBedragen={setBedragen}
+          pasBedragAan={pasBedragAan}
+          bewaarNu={bewaarNu}
           ingesprongen
         />
       ))}
