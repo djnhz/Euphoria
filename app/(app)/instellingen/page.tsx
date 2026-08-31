@@ -1,5 +1,5 @@
 import { asc } from "drizzle-orm";
-import { db, categories, couples, users } from "@/db";
+import { db, budgetItems, categories, couples, users } from "@/db";
 import { vereisGebruiker } from "@/lib/auth";
 import { wijzigCategorieAction } from "./actions";
 import NamenFormulier from "@/components/NamenFormulier";
@@ -16,8 +16,9 @@ const invoer = "rounded-lg border border-rand bg-achtergrond px-3 py-2 text-sm";
 export default async function InstellingenPagina() {
   const gebruiker = await vereisGebruiker();
 
-  const [categorieLijst, huishoudens, gebruikers] = await Promise.all([
+  const [categorieLijst, postenLijst, huishoudens, gebruikers] = await Promise.all([
     db.select().from(categories).orderBy(asc(categories.naam)),
+    db.select().from(budgetItems).orderBy(asc(budgetItems.naam)),
     db.select().from(couples).orderBy(asc(couples.volgorde)),
     db
       .select({
@@ -37,8 +38,8 @@ export default async function InstellingenPagina() {
       <section className="rounded-xl border border-rand bg-paneel p-4">
         <h2 className="mb-1 text-sm font-medium">Categorieën</h2>
         <p className="mb-4 text-xs text-gedempt">
-          Uitvinken haalt een categorie uit de keuzelijsten; bestaande uitgaven
-          blijven staan. De bedragen staan bij Begroting.
+          De post erachter is de begroting die een regel in deze categorie standaard
+          krijgt; per bon kun je er altijd van afwijken.
         </p>
         <ul className="flex flex-col gap-2">
           {categorieLijst.map((categorie) => (
@@ -61,6 +62,22 @@ export default async function InstellingenPagina() {
                   aria-label="Naam"
                   className={`${invoer} min-w-0 flex-1`}
                 />
+                <select
+                  name="post"
+                  // Zonder sleutel houdt React het bestaande veld vast en blijft na
+                  // opslaan de oude keuze staan tot je de pagina ververst.
+                  key={categorie.budgetItemId ?? 0}
+                  defaultValue={categorie.budgetItemId ?? 0}
+                  aria-label={`Begrotingspost voor ${categorie.naam}`}
+                  className={`${invoer} min-w-0 flex-1`}
+                >
+                  <option value={0}>geen vaste post</option>
+                  {postenLijst.map((post) => (
+                    <option key={post.id} value={post.id}>
+                      {post.naam}
+                    </option>
+                  ))}
+                </select>
                 <label className="flex items-center gap-1 text-sm text-gedempt">
                   <input
                     type="checkbox"

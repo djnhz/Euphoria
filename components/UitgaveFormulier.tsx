@@ -15,7 +15,8 @@ import {
   type BewaarState,
 } from "@/app/(app)/uitgaven/actions";
 
-export type Categorie = { id: number; naam: string };
+/** `budgetItemId` is de post die deze categorie standaard meebrengt; 0 is geen. */
+export type Categorie = { id: number; naam: string; budgetItemId: number };
 export type BegrotingsPost = { id: number; naam: string };
 export type Huishouden = { id: number; naam: string; volgorde: number };
 
@@ -134,6 +135,25 @@ export default function UitgaveFormulier({
   }
 
   /**
+   * Een categorie kan een vaste begrotingspost hebben. Die neemt de regel dan over,
+   * want dat is precies waarvoor die koppeling er is. Heeft de categorie er geen,
+   * dan blijft staan wat er stond.
+   */
+  function kiesCategorie(sleutel: string, categoryId: number) {
+    const post = categorieen.find((c) => c.id === categoryId)?.budgetItemId ?? 0;
+    pasRegelAan(sleutel, {
+      categoryId,
+      ...(post > 0 ? { budgetItemId: post } : {}),
+    });
+  }
+
+  /** De post die bij een categorie hoort, met de keuze op de bon als terugval. */
+  function postVoor(categoryId: number, terugval: number) {
+    const post = categorieen.find((c) => c.id === categoryId)?.budgetItemId ?? 0;
+    return post > 0 ? post : terugval;
+  }
+
+  /**
    * Uploaden en bewaren. Gebeurt altijd; het uitlezen is een aparte stap.
    *
    * Eerst wordt gekeken of ditzelfde bestand er al is. Dat gaat op inhoud, dus ook een
@@ -239,8 +259,13 @@ export default function UitgaveFormulier({
         categoryId:
           categorieen.find((c) => c.naam === regel.categorieSuggestie)?.id ??
           standaardCategorie,
-        // Uitgelezen regels volgen de post van de bon; het model kent die niet.
-        budgetItemId: bonPost > 0 ? bonPost : 0,
+        // Het model kent de posten niet, dus die komen uit de categoriekoppeling,
+        // en anders uit wat er op de bon staat.
+        budgetItemId: postVoor(
+          categorieen.find((c) => c.naam === regel.categorieSuggestie)?.id ??
+            standaardCategorie,
+          bonPost > 0 ? bonPost : 0,
+        ),
         aandeelAPct: 50,
         bron: "ai",
       }));
@@ -437,7 +462,10 @@ export default function UitgaveFormulier({
             onClick={() =>
               setRegels((r) => [
                 ...r,
-                legeRegel(standaardCategorie, bonPost > 0 ? bonPost : 0),
+                legeRegel(
+                  standaardCategorie,
+                  postVoor(standaardCategorie, bonPost > 0 ? bonPost : 0),
+                ),
               ])
             }
             className="text-sm text-accent underline"
@@ -502,11 +530,7 @@ export default function UitgaveFormulier({
               <div className="col-span-2 grid gap-2 sm:col-span-4 sm:grid-cols-[1fr_1fr_auto] sm:items-center">
                 <select
                   value={regel.categoryId}
-                  onChange={(e) =>
-                    pasRegelAan(regel.sleutel, {
-                      categoryId: Number(e.target.value),
-                    })
-                  }
+                  onChange={(e) => kiesCategorie(regel.sleutel, Number(e.target.value))}
                   aria-label="Categorie"
                   className={invoerKlasse}
                 >

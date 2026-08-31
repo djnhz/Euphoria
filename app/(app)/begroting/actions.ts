@@ -1,8 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, eq, inArray } from "drizzle-orm";
-import { db, budgetItems, budgets } from "@/db";
+import { and, eq, inArray, isNull } from "drizzle-orm";
+import { db, budgetItems, budgets, categories, expenseLines } from "@/db";
 import { vereisGebruiker } from "@/lib/auth";
 import { parseEuro } from "@/lib/geld";
 
@@ -108,6 +108,44 @@ export async function wijzigPostAction(formData: FormData) {
   revalidatePath("/begroting");
   revalidatePath("/uitgaven");
   revalidatePath("/");
+}
+
+/**
+ * Regels zonder post krijgen de post van hun categorie. Alleen lege regels, dus wat
+ * je met de hand hebt gezet blijft staan. Handig na het leggen van de koppelingen.
+ */
+export async function volgKoppelingAction(
+  _vorige: BegrotingState,
+  _formData: FormData,
+): Promise<BegrotingState> {
+  await vereisGebruiker();
+
+  const gekoppeld = await db
+    .select({ id: categories.id, budgetItemId: categories.budgetItemId })
+    .from(categories);
+
+  let bijgewerkt = 0;
+  for (const categorie of gekoppeld) {
+    if (categorie.budgetItemId === null) continue;
+    const rijen = await db
+      .update(expenseLines)
+      .set({ budgetItemId: categorie.budgetItemId })
+      .where(
+        and(
+          eq(expenseLines.categoryId, categorie.id),
+          isNull(expenseLines.budgetItemId),
+        ),
+      )
+      .returning({ id: expenseLines.id });
+    bijgewerkt += rijen.length;
+  }
+
+  revalidatePath("/begroting");
+  revalidatePath("/uitgaven");
+  revalidatePath("/");
+  return bijgewerkt === 0
+    ? { fout: "Er viel niets toe te wijzen. Koppel eerst posten aan categorieën." }
+    : { gelukt: `${bijgewerkt} regel${bijgewerkt === 1 ? "" : "s"} toegewezen.` };
 }
 
 /** Vorig jaar als startpunt overnemen; bestaande bedragen blijven staan. */

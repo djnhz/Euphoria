@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, sql } from "drizzle-orm";
 import { db, budgetItems, categories, couples } from "@/db";
 import { vereisGebruiker } from "@/lib/auth";
 import { uitgaveMetRegels } from "@/lib/data";
@@ -21,7 +21,12 @@ export default async function UitgaveBewerken({
 
   const [categorieLijst, postenLijst, huishoudens, sleutel] = await Promise.all([
     db
-      .select({ id: categories.id, naam: categories.naam })
+      .select({
+        id: categories.id,
+        naam: categories.naam,
+        // Geen vaste post is in het formulier gewoon 0.
+        budgetItemId: sql<number>`coalesce(${categories.budgetItemId}, 0)`,
+      })
       .from(categories)
       .where(eq(categories.actief, true))
       .orderBy(asc(categories.naam)),

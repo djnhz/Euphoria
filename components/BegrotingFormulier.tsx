@@ -7,6 +7,7 @@ import {
   bewaarBegrotingAction,
   neemVorigJaarOverAction,
   nieuwePostAction,
+  volgKoppelingAction,
   wijzigPostAction,
   type BegrotingState,
 } from "@/app/(app)/begroting/actions";
@@ -51,6 +52,10 @@ export default function BegrotingFormulier({
     BegrotingState,
     FormData
   >(neemVorigJaarOverAction, null);
+  const [koppelingState, volgKoppeling, koppelingBezig] = useActionState<
+    BegrotingState,
+    FormData
+  >(volgKoppelingAction, null);
   const [beheer, setBeheer] = useState(false);
   const [uitgeklapt, setUitgeklapt] = useState<number | null>(null);
 
@@ -253,6 +258,16 @@ export default function BegrotingFormulier({
               Overnemen uit {jaar - 1}
             </button>
           </form>
+          {/* Los formulier: het staat naast de andere knoppen maar hoort er niet bij. */}
+          <form action={volgKoppeling}>
+            <button
+              disabled={koppelingBezig}
+              title="Regels zonder post krijgen de post van hun categorie"
+              className="rounded-lg border border-rand px-3 py-2 text-sm disabled:opacity-50"
+            >
+              Koppeling toepassen
+            </button>
+          </form>
           <button
             type="button"
             onClick={() => setBeheer((huidig) => !huidig)}
@@ -261,6 +276,7 @@ export default function BegrotingFormulier({
             {beheer ? "posten verbergen" : "posten hernoemen"}
           </button>
           <Uitkomst state={overnemenState} />
+          <Uitkomst state={koppelingState} />
         </div>
 
         {beheer && (

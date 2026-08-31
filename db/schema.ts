@@ -8,6 +8,7 @@ import {
   date,
   index,
   unique,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
 /**
@@ -36,11 +37,20 @@ export const users = pgTable("users", {
   lockedUntil: timestamp("locked_until", { withTimezone: true }),
 });
 
-/** Waar een uitgave over ging. Fijnmazig, en stuurt de kleuren in de grafieken. */
+/**
+ * Waar een uitgave over ging. Fijnmazig, en stuurt de kleuren in de grafieken.
+ *
+ * `budgetItemId` is de post die een regel in deze categorie standaard krijgt. Het is
+ * een startwaarde, geen wet: per regel mag je er altijd van afwijken.
+ */
 export const categories = pgTable("categories", {
   id: serial("id").primaryKey(),
   naam: text("naam").notNull().unique(),
   kleur: text("kleur").notNull().default("#64748b"),
+  budgetItemId: integer("budget_item_id").references(
+    (): AnyPgColumn => budgetItems.id,
+    { onDelete: "set null" },
+  ),
   actief: boolean("actief").notNull().default(true),
 });
 

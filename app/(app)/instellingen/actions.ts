@@ -48,18 +48,22 @@ export async function wijzigCategorieAction(formData: FormData) {
 
   const naam = String(formData.get("naam") ?? "").trim();
   const kleur = String(formData.get("kleur") ?? "");
+  // 0 betekent: geen vaste post, dan kies je hem per bon.
+  const post = Number(formData.get("post"));
 
   await db
     .update(categories)
     .set({
       ...(naam ? { naam } : {}),
       ...(KLEUR.test(kleur) ? { kleur } : {}),
+      budgetItemId: Number.isInteger(post) && post > 0 ? post : null,
       actief: formData.get("actief") === "on",
     })
     .where(eq(categories.id, id));
 
   revalidatePath("/instellingen");
   revalidatePath("/begroting");
+  revalidatePath("/uitgaven");
   revalidatePath("/");
 }
 
