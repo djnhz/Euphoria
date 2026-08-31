@@ -117,18 +117,23 @@ export default function Vaarkalender({
                     <span className="cijfers text-gedempt">
                       {Number(dag.datum.slice(8))}
                     </span>
+                    {/* Op een telefoon is een cel te smal voor een naam: "R&I Zeilen"
+                        wordt "R&I…". Daar staat een balkje in de kleur van het
+                        huishouden; de lijst onder de kalender heeft de namen. */}
                     <div className="mt-0.5 flex flex-col gap-0.5">
                       {geboekt.map((reservering) => (
                         <span
                           key={reservering.id + dag.datum}
                           title={`${reservering.titel}${reservering.opmerking ? ` — ${reservering.opmerking}` : ""}`}
-                          className="truncate rounded px-1 text-[10px] text-white"
+                          className="h-1.5 rounded text-[10px] text-white sm:h-auto sm:truncate sm:px-1"
                           style={{
                             background:
                               kleurVan.get(reservering.coupleId ?? -1) ?? "#8b5cf6",
                           }}
                         >
-                          {reservering.titel}
+                          <span className="hidden sm:inline">
+                            {reservering.titel}
+                          </span>
                         </span>
                       ))}
                     </div>
@@ -244,8 +249,9 @@ export default function Vaarkalender({
                   }}
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{reservering.titel}</p>
-                  <p className="truncate text-sm text-gedempt">
+                  {/* Op een telefoon liever twee regels dan een afgekapte datum. */}
+                  <p className="font-medium sm:truncate">{reservering.titel}</p>
+                  <p className="text-sm text-gedempt sm:truncate">
                     {formatDatum(reservering.van)}
                     {reservering.tot !== reservering.van &&
                       ` tot en met ${formatDatum(reservering.tot)}`}

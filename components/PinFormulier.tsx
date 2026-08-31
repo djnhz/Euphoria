@@ -8,7 +8,7 @@ import {
 import Melding from "./Melding";
 
 const invoer =
-  "cijfers w-28 rounded-lg border border-rand bg-achtergrond px-3 py-2 text-sm tracking-widest";
+  "cijfers rounded-lg border border-rand bg-achtergrond px-3 py-2 text-sm tracking-widest";
 
 export default function PinFormulier() {
   const [state, formAction, bezig] = useActionState<MeldingState, FormData>(
@@ -23,7 +23,10 @@ export default function PinFormulier() {
         { naam: "nieuw", label: "Nieuwe pincode" },
         { naam: "herhaal", label: "Herhaal nieuwe" },
       ].map((veld) => (
-        <label key={veld.naam} className="flex flex-col gap-1 text-sm">
+        <label
+          key={veld.naam}
+          className="flex min-w-32 flex-1 flex-col gap-1 text-sm sm:flex-none"
+        >
           <span className="text-gedempt">{veld.label}</span>
           <input
             name={veld.naam}
@@ -33,7 +36,7 @@ export default function PinFormulier() {
             pattern="\d{4}"
             maxLength={4}
             required
-            className={invoer}
+            className={`${invoer} w-full sm:w-28`}
           />
         </label>
       ))}

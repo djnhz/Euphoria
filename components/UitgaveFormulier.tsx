@@ -484,7 +484,9 @@ export default function UitgaveFormulier({
                       : r.filter((x) => x.sleutel !== regel.sleutel),
                   )
                 }
-                className="col-span-2 justify-self-start text-sm text-gedempt underline sm:col-span-1 sm:self-center"
+                // Op een telefoon hoort weggooien onderaan het blok, niet tussen
+                // het bedrag en de post.
+                className="order-last col-span-2 justify-self-start text-sm text-gedempt underline sm:order-none sm:col-span-1 sm:self-center"
               >
                 verwijder
               </button>

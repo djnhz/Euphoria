@@ -287,7 +287,7 @@ function PostRegel({
         <Link
           href={`/uitgaven?jaar=${jaar}&post=${post.id}`}
           title={`Uitgaven op ${post.naam} in ${jaar}`}
-          className={`flex flex-1 items-center gap-2 truncate hover:text-accent ${
+          className={`flex flex-1 items-center gap-2 hover:text-accent sm:truncate ${
             ingesprongen ? "pl-6 text-sm text-gedempt" : "text-sm font-medium"
           }`}
         >
@@ -296,7 +296,8 @@ function PostRegel({
             className="inline-block h-3 w-3 shrink-0 rounded"
             style={{ background: post.kleur }}
           />
-          <span className="truncate">{post.naam}</span>
+          {/* Op een telefoon liever twee regels dan "Elektronica en instrume…". */}
+          <span className="min-w-0 sm:truncate">{post.naam}</span>
           {!post.actief && (
             <span className="shrink-0 text-xs text-gedempt">(inactief)</span>
           )}
@@ -378,7 +379,7 @@ function Subtotaal({
   return (
     <li className="border-b border-rand py-2 text-sm text-gedempt last:border-0">
       <div className="flex items-center gap-3">
-        <span className="flex-1 truncate pl-6">samen {post.naam}</span>
+        <span className="flex-1 pl-6 sm:truncate">samen {post.naam}</span>
         <span className="cijfers w-28 shrink-0 pr-3 text-right">
           {formatEuro(begroot)}
         </span>

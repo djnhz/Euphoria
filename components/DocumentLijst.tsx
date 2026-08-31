@@ -79,7 +79,7 @@ export default function DocumentLijst({ rijen }: { rijen: DocumentRij[] }) {
           {zichtbaar.map((rij) => (
             <li
               key={rij.id}
-              className="flex items-center gap-3 rounded-xl border border-rand bg-paneel p-3"
+              className="flex items-start gap-3 rounded-xl border border-rand bg-paneel p-3"
             >
               <a href={rij.url} target="_blank" rel="noreferrer" className="shrink-0">
                 <BestandTegel
@@ -90,15 +90,17 @@ export default function DocumentLijst({ rijen }: { rijen: DocumentRij[] }) {
                 />
               </a>
               <div className="min-w-0 flex-1">
+                {/* Bestandsnamen zijn lang en zeggen pas iets aan het eind; afkappen
+                    laat je met "Factuur_12205989..." zitten. Liever twee regels. */}
                 <a
                   href={rij.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="block truncate font-medium"
+                  className="block leading-snug font-medium break-words"
                 >
                   {rij.naam}
                 </a>
-                <p className="truncate text-sm text-gedempt">
+                <p className="mt-0.5 text-sm text-gedempt">
                   {rij.map} · {formatGrootte(rij.grootteBytes)} ·{" "}
                   {rij.geuploadDoor}
                   {rij.expenseId && (

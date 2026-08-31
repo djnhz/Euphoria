@@ -5,7 +5,7 @@ import { zetPinAction, type MeldingState } from "@/app/(app)/instellingen/action
 import Melding from "./Melding";
 
 const invoer =
-  "cijfers w-28 rounded-lg border border-rand bg-achtergrond px-3 py-2 text-sm tracking-widest";
+  "cijfers rounded-lg border border-rand bg-achtergrond px-3 py-2 text-sm tracking-widest sm:w-28";
 
 export default function PincodeBeheer({
   gebruikers,
@@ -30,27 +30,33 @@ function Regel({ id, naam }: { id: number; naam: string }) {
   );
 
   return (
+    // Op een telefoon de naam op een eigen regel; anders duwt hij het veld en de
+    // knop uit elkaar over drie regels.
     <form action={zet} className="flex flex-wrap items-center gap-3">
       <input type="hidden" name="userId" value={id} />
-      <span className="min-w-32 flex-1 truncate text-sm">{naam}</span>
-      <input
-        name="nieuw"
-        type="password"
-        inputMode="numeric"
-        autoComplete="off"
-        pattern="\d{4}"
-        maxLength={4}
-        required
-        aria-label={`Nieuwe pincode voor ${naam}`}
-        placeholder="••••"
-        className={invoer}
-      />
-      <button
-        disabled={bezig}
-        className="rounded-lg border border-rand px-3 py-2 text-sm disabled:opacity-50"
-      >
-        Instellen
-      </button>
+      <span className="w-full text-sm sm:w-auto sm:min-w-32 sm:flex-1 sm:truncate">
+        {naam}
+      </span>
+      <div className="flex w-full items-center gap-3 sm:w-auto">
+        <input
+          name="nieuw"
+          type="password"
+          inputMode="numeric"
+          autoComplete="off"
+          pattern="\d{4}"
+          maxLength={4}
+          required
+          aria-label={`Nieuwe pincode voor ${naam}`}
+          placeholder="••••"
+          className={`${invoer} flex-1 sm:flex-none`}
+        />
+        <button
+          disabled={bezig}
+          className="shrink-0 rounded-lg border border-rand px-3 py-2 text-sm disabled:opacity-50"
+        >
+          Instellen
+        </button>
+      </div>
       <Melding state={state} />
     </form>
   );

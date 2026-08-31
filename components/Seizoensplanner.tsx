@@ -423,25 +423,29 @@ export default function Seizoensplanner({
                   ? `6px solid ${kleurVan.get(blok.coupleId)}`
                   : undefined,
               }}
-              className="flex flex-wrap items-center gap-3 rounded-lg border border-rand p-2 text-sm"
+              // Op een telefoon onder elkaar: datum met weeknummer, dan de labels,
+              // dan wie er vaart. Naast elkaar wordt elke regel anders afgekapt.
+              className="flex flex-col gap-1 rounded-lg border border-rand p-2 text-sm sm:flex-row sm:flex-wrap sm:items-center sm:gap-3"
             >
-              <span
-                className="inline-block h-3 w-3 shrink-0 rounded"
-                style={{ background: kleurVan.get(blok.coupleId) }}
-              />
-              {/* De weekdag alleen tonen bij blokken die geen hele maandag-zondagweek
-                  zijn; daar zit het lange weekend en dat is wat je wilt zien. */}
-              <span className="cijfers min-w-0 flex-1 truncate">
-                {heelWeek(blok) ? "" : `${dagnaam(blok.van)} `}
-                {formatDatum(blok.van)}
-                {blok.tot !== blok.van &&
-                  ` t/m ${heelWeek(blok) ? "" : `${dagnaam(blok.tot)} `}${formatDatum(blok.tot)}`}
-              </span>
-              <span className="cijfers shrink-0 text-xs text-gedempt">
-                {weekLabel(blok)}
+              <span className="flex min-w-0 items-center gap-3 sm:flex-1">
+                <span
+                  className="inline-block h-3 w-3 shrink-0 rounded"
+                  style={{ background: kleurVan.get(blok.coupleId) }}
+                />
+                {/* De weekdag alleen tonen bij blokken die geen hele maandag-zondagweek
+                    zijn; daar zit het lange weekend en dat is wat je wilt zien. */}
+                <span className="cijfers min-w-0 flex-1">
+                  {heelWeek(blok) ? "" : `${dagnaam(blok.van)} `}
+                  {formatDatum(blok.van)}
+                  {blok.tot !== blok.van &&
+                    ` t/m ${heelWeek(blok) ? "" : `${dagnaam(blok.tot)} `}${formatDatum(blok.tot)}`}
+                </span>
+                <span className="cijfers shrink-0 text-xs text-gedempt">
+                  {weekLabel(blok)}
+                </span>
               </span>
               {raaktFeestdagen.length > 0 && (
-                <span className="flex shrink-0 gap-1">
+                <span className="flex flex-wrap gap-1 sm:shrink-0">
                   {raaktFeestdagen.map((feestdag) => (
                     <span
                       key={feestdag.code}
@@ -458,7 +462,7 @@ export default function Seizoensplanner({
                 </span>
               )}
               {raakt.length > 0 && (
-                <span className="flex shrink-0 gap-1">
+                <span className="flex flex-wrap gap-1 sm:shrink-0">
                   {raakt.map((vakantie) => (
                     <span
                       key={vakantie.naam}
@@ -487,22 +491,24 @@ export default function Seizoensplanner({
                   ))}
                 </span>
               )}
-              <span className="truncate">
-                {naamVan.get(blok.coupleId)}
-                {blok.naam && blok.reden === "handmatig" && (
-                  <span className="text-gedempt"> — {blok.naam}</span>
-                )}
+              <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1 sm:contents">
+                <span className="sm:truncate">
+                  {naamVan.get(blok.coupleId)}
+                  {blok.naam && blok.reden === "handmatig" && (
+                    <span className="text-gedempt"> — {blok.naam}</span>
+                  )}
+                </span>
+                <span className="text-xs text-gedempt">
+                  {REDEN_TEKST[blok.reden]} · {blok.aantalDagen} dg
+                </span>
+                <button
+                  type="button"
+                  onClick={() => wisselBlok(blok)}
+                  className="text-xs text-accent underline"
+                >
+                  omzetten
+                </button>
               </span>
-              <span className="text-xs text-gedempt">
-                {REDEN_TEKST[blok.reden]} · {blok.aantalDagen} dg
-              </span>
-              <button
-                type="button"
-                onClick={() => wisselBlok(blok)}
-                className="text-xs text-accent underline"
-              >
-                omzetten
-              </button>
             </li>
             );
           })}

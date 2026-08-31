@@ -141,10 +141,12 @@ function Lijst({ rijen }: { rijen: Rij[] }) {
               style={{ background: rij.postKleur }}
             />
             <div className="min-w-0 flex-1">
-              <p className="truncate font-medium">
+              <p className="font-medium sm:truncate">
                 {rij.leverancier || "Zonder leverancier"}
               </p>
-              <p className="truncate text-sm text-gedempt">
+              {/* Op een telefoon past dit niet op een regel; dan liever twee regels
+                  dan een halve zin. */}
+              <p className="text-sm text-gedempt sm:truncate">
                 {formatDatum(rij.datum)} · {rij.post} · {rij.coupleNaam}
                 {rij.heeftBon && " · bon"}
               </p>

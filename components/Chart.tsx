@@ -38,5 +38,9 @@ export default function Chart({
     grafiek.current?.setOption({ backgroundColor: "transparent", ...option }, true);
   }, [option]);
 
-  return <div ref={houder} style={{ height: hoogte }} className="w-full" />;
+  // w-full plus min-w-0: anders houdt het canvas zijn oude breedte vast als het
+  // scherm smaller wordt, en duwt het zijn eigen paneel op.
+  return (
+    <div ref={houder} style={{ height: hoogte }} className="w-full min-w-0" />
+  );
 }

@@ -25,13 +25,15 @@ export default function DashboardGrafieken({ data }: { data: GrafiekData }) {
   const donut = useMemo<EChartsOption>(
     () => ({
       tooltip: { valueFormatter: alsEuro },
-      legend: { bottom: 0, type: "scroll" },
+      // Geen legenda van ECharts: die knipt lange namen af op een smal scherm. De
+      // lijst eronder is leesbaarder en zet de bedragen erbij.
+      legend: { show: false },
       series: [
         {
           name: "Uitgaven",
           type: "pie",
           radius: ["45%", "70%"],
-          center: ["50%", "42%"],
+          center: ["50%", "50%"],
           label: { show: false },
           data: data.posten.map((post) => ({
             name: post.naam,
@@ -47,8 +49,8 @@ export default function DashboardGrafieken({ data }: { data: GrafiekData }) {
   const staven = useMemo<EChartsOption>(
     () => ({
       tooltip: { trigger: "axis", valueFormatter: alsEuro },
-      legend: { bottom: 0 },
-      grid: { left: 72, right: 12, top: 16, bottom: 44 },
+      legend: { show: false },
+      grid: { left: 64, right: 12, top: 16, bottom: 24 },
       xAxis: { type: "category", data: MAANDEN },
       yAxis: { type: "value", minInterval: 100, axisLabel: { formatter: alsEuro } },
       series: [
@@ -94,10 +96,40 @@ export default function DashboardGrafieken({ data }: { data: GrafiekData }) {
   return (
     <div className="grid gap-4 md:grid-cols-2">
       <Paneel titel="Uitgaven per hoofdpost">
-        <Chart option={donut} />
+        <Chart option={donut} hoogte={200} />
+        <ul className="mt-2 flex flex-col gap-1 text-sm">
+          {data.posten.map((post) => (
+            <li key={post.naam} className="flex items-baseline gap-2">
+              <span
+                aria-hidden
+                className="inline-block h-3 w-3 shrink-0 translate-y-0.5 rounded"
+                style={{ background: post.kleur }}
+              />
+              <span className="min-w-0 flex-1 truncate">{post.naam}</span>
+              <span className="cijfers shrink-0 text-gedempt">
+                {formatEuro(post.cent)}
+              </span>
+            </li>
+          ))}
+        </ul>
       </Paneel>
       <Paneel titel="Per maand, wie betaalde">
         <Chart option={staven} />
+        <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+          {[
+            { naam: data.namen.a, kleur: "#0ea5e9" },
+            { naam: data.namen.b, kleur: "#f97316" },
+          ].map((huishouden) => (
+            <li key={huishouden.naam} className="flex items-center gap-2">
+              <span
+                aria-hidden
+                className="inline-block h-3 w-3 shrink-0 rounded"
+                style={{ background: huishouden.kleur }}
+              />
+              {huishouden.naam}
+            </li>
+          ))}
+        </ul>
       </Paneel>
       <Paneel
         titel="Verloop van het onderlinge saldo"
@@ -119,7 +151,9 @@ function Paneel({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-xl border border-rand bg-paneel p-4">
+    // min-w-0: een canvas houdt zijn eigen breedte vast, en zonder deze regel rekt
+    // hij het raster op tot buiten het scherm in plaats van mee te krimpen.
+    <section className="min-w-0 rounded-xl border border-rand bg-paneel p-4">
       <h2 className="text-sm font-medium">{titel}</h2>
       {toelichting && <p className="mb-2 text-xs text-gedempt">{toelichting}</p>}
       {children}
