@@ -20,6 +20,8 @@ import { db, settings } from "@/db";
 
 const SLEUTEL_API = "openai_api_key";
 const SLEUTEL_MODEL = "openai_model";
+const SLEUTEL_PRIJS_IN = "openai_prijs_in";
+const SLEUTEL_PRIJS_UIT = "openai_prijs_uit";
 const STANDAARD_MODEL = "gpt-4o";
 
 function sleutelmateriaal(): Buffer {
@@ -171,6 +173,39 @@ export async function zetOpenAiModel(model: string) {
   const schoon = model.trim();
   if (schoon === "") await wis(SLEUTEL_MODEL);
   else await schrijf(SLEUTEL_MODEL, schoon);
+}
+
+/**
+ * De prijs per miljoen tokens, in centen. Bewust een instelling en geen tabel in de
+ * code: prijzen veranderen en een verouderd getal is erger dan geen getal. Staat er
+ * niets, dan toont de app alleen het aantal tokens.
+ */
+export async function openAiPrijzen(): Promise<{
+  inCentPerMiljoen: number | null;
+  uitCentPerMiljoen: number | null;
+}> {
+  const [inKant, uitKant] = await Promise.all([
+    leesRuw(SLEUTEL_PRIJS_IN),
+    leesRuw(SLEUTEL_PRIJS_UIT),
+  ]);
+  const alsGetal = (waarde: string | null) => {
+    const cent = waarde === null ? NaN : Number(waarde);
+    return Number.isFinite(cent) && cent >= 0 ? cent : null;
+  };
+  return {
+    inCentPerMiljoen: alsGetal(inKant),
+    uitCentPerMiljoen: alsGetal(uitKant),
+  };
+}
+
+export async function zetOpenAiPrijzen(
+  inCentPerMiljoen: number | null,
+  uitCentPerMiljoen: number | null,
+) {
+  if (inCentPerMiljoen === null) await wis(SLEUTEL_PRIJS_IN);
+  else await schrijf(SLEUTEL_PRIJS_IN, String(Math.round(inCentPerMiljoen)));
+  if (uitCentPerMiljoen === null) await wis(SLEUTEL_PRIJS_UIT);
+  else await schrijf(SLEUTEL_PRIJS_UIT, String(Math.round(uitCentPerMiljoen)));
 }
 
 const SLEUTEL_GOOGLE = "google_service_account";

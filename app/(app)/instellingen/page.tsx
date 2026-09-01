@@ -6,6 +6,8 @@ import PinFormulier from "@/components/PinFormulier";
 import PincodeBeheer from "@/components/PincodeBeheer";
 import BonanalyseFormulier from "@/components/BonanalyseFormulier";
 import { agendaStatus, sleutelStatus } from "@/lib/instellingen";
+import { verbruikOverzicht, type VerbruikOverzicht } from "@/lib/aiverbruik";
+import { formatEuro } from "@/lib/geld";
 import AgendaFormulier from "@/components/AgendaFormulier";
 import BeheerderFormulier from "@/components/BeheerderFormulier";
 
@@ -34,7 +36,8 @@ export default async function InstellingenPagina() {
     );
   }
 
-  const [huishoudens, gebruikers] = await Promise.all([
+  const [verbruik, huishoudens, gebruikers] = await Promise.all([
+    verbruikOverzicht(),
     db.select().from(couples).orderBy(asc(couples.volgorde)),
     db
       .select({
@@ -77,9 +80,11 @@ export default async function InstellingenPagina() {
       <section className="rounded-xl border border-rand bg-paneel p-4">
         <h2 className="mb-1 text-sm font-medium">Bonanalyse</h2>
         <p className="mb-4 text-xs text-gedempt">
-          Reken op ongeveer drie cent per uitgelezen bon.
+          OpenAI geeft geen saldo terug, dus hieronder staat wat déze app heeft
+          verbruikt. Wat er nog op je tegoed staat zie je in het OpenAI-dashboard.
         </p>
-        <BonanalyseFormulier status={await sleutelStatus()} />
+        <Verbruik overzicht={verbruik} />
+        <BonanalyseFormulier status={await sleutelStatus()} prijzen={verbruik.prijzen} />
       </section>
 
       <section className="rounded-xl border border-rand bg-paneel p-4">
@@ -95,6 +100,51 @@ export default async function InstellingenPagina() {
         </p>
         <BeheerderFormulier gebruikers={gebruikers} />
       </section>
+    </div>
+  );
+}
+
+/** Wat de app aan het model heeft uitgegeven, met de kosten als die te schatten zijn. */
+function Verbruik({ overzicht }: { overzicht: VerbruikOverzicht }) {
+  if (overzicht.totaal.aantal === 0) {
+    return (
+      <p className="mb-4 rounded-lg border border-rand p-3 text-sm text-gedempt">
+        Er is nog geen bon uitgelezen, dus er is ook nog niets verbruikt.
+      </p>
+    );
+  }
+
+  const regels = [
+    { label: "Deze maand", stand: overzicht.dezeMaand },
+    { label: "Sinds het begin", stand: overzicht.totaal },
+  ];
+
+  return (
+    <div className="mb-4 rounded-lg border border-rand p-3">
+      <ul className="flex flex-col gap-2 text-sm">
+        {regels.map((regel) => (
+          <li key={regel.label} className="flex flex-wrap items-baseline gap-x-3">
+            <span className="min-w-32 text-gedempt">{regel.label}</span>
+            <span>
+              {regel.stand.aantal} bon{regel.stand.aantal === 1 ? "" : "nen"}
+            </span>
+            <span className="cijfers text-gedempt">
+              {(regel.stand.tokensIn + regel.stand.tokensUit).toLocaleString("nl-NL")}{" "}
+              tokens
+            </span>
+            <span className="cijfers ml-auto font-medium">
+              {regel.stand.kostenCent === null
+                ? "—"
+                : `± ${formatEuro(Math.round(regel.stand.kostenCent))}`}
+            </span>
+          </li>
+        ))}
+      </ul>
+      {overzicht.totaal.kostenCent === null && (
+        <p className="mt-2 text-xs text-gedempt">
+          Vul hieronder de prijs per miljoen tokens in om er een bedrag bij te zien.
+        </p>
+      )}
     </div>
   );
 }

@@ -5,10 +5,12 @@ import { eq } from "drizzle-orm";
 import { db, couples, users } from "@/db";
 import { probeerInloggen, vereisBeheerder, vereisGebruiker } from "@/lib/auth";
 import { hashPin, isGeldigePin } from "@/lib/pin";
+import { parseEuro } from "@/lib/geld";
 import {
   sleutelZietEruitAlsSleutel,
   verwijderOpenAiSleutel,
   zetOpenAiModel,
+  zetOpenAiPrijzen,
   zetOpenAiSleutel,
   ontkoppelGoogle,
   zetGoogleAgendaId,
@@ -112,6 +114,16 @@ export async function bewaarOpenAiAction(
   const model = String(formData.get("model") ?? "");
   if (model.length > 100) return { fout: "Die modelnaam is te lang." };
   await zetOpenAiModel(model);
+
+  // Prijs per miljoen tokens, in euro's ingevuld en in centen bewaard. Leeg betekent
+  // "geen schatting tonen"; een verouderd getal is erger dan geen getal.
+  const prijs = (veld: string) => {
+    const tekst = String(formData.get(veld) ?? "").trim();
+    if (tekst === "") return null;
+    const euro = parseEuro(tekst);
+    return euro === null ? null : euro;
+  };
+  await zetOpenAiPrijzen(prijs("prijsIn"), prijs("prijsUit"));
 
   // Leeg sleutelveld betekent: alleen het model bijwerken, sleutel laten staan.
   const sleutel = String(formData.get("sleutel") ?? "").trim();

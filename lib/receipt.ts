@@ -129,8 +129,11 @@ export async function pdfTekst(url: string): Promise<PdfResultaat> {
   }
 }
 
+/** Wat deze aanroep aan tokens heeft gekost; null als het model het niet meldde. */
+export type Verbruik = { model: string; tokensIn: number; tokensUit: number };
+
 export type AnalyseResultaat =
-  | { ok: true; bon: Bon }
+  | { ok: true; bon: Bon; verbruik: Verbruik | null }
   | { ok: false; fout: string };
 
 /** Een foto gaat als plaatje naar het model, een PDF als de tekst die erin staat. */
@@ -177,9 +180,10 @@ export async function analyseerBon(
     ...(bron.soort === "tekst" ? ["", "--- begin tekst ---", bron.tekst] : []),
   ].join("\n");
 
+  const model = await openAiModel();
   try {
     const antwoord = await client.chat.completions.parse({
-      model: await openAiModel(),
+      model,
       messages: [
         {
           role: "user",
@@ -203,7 +207,17 @@ export async function analyseerBon(
 
     const bon = antwoord.choices[0]?.message.parsed;
     if (!bon) return { ok: false, fout: "Het model gaf geen bruikbaar antwoord." };
-    return { ok: true, bon };
+    return {
+      ok: true,
+      bon,
+      verbruik: antwoord.usage
+        ? {
+            model,
+            tokensIn: antwoord.usage.prompt_tokens,
+            tokensUit: antwoord.usage.completion_tokens,
+          }
+        : null,
+    };
   } catch (fout) {
     return { ok: false, fout: (fout as Error).message };
   }

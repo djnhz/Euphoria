@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
-import { db, posten, documents, expenseLines, expenses } from "@/db";
+import { db, aiGebruik, posten, documents, expenseLines, expenses } from "@/db";
 import { vereisGebruiker } from "@/lib/auth";
 import { verwijderBestand } from "@/lib/opslag";
 import {
@@ -319,9 +319,12 @@ export async function analyseerDocumentAction(
     bron,
     actievePosten.map((p) => p.naam),
   );
-  return resultaat.ok
-    ? { bon: resultaat.bon, fout: null }
-    : { bon: null, fout: resultaat.fout };
+  if (!resultaat.ok) return { bon: null, fout: resultaat.fout };
+
+  // Wat het kostte vastleggen; OpenAI vertelt zelf niet hoeveel tegoed er nog is.
+  if (resultaat.verbruik) await db.insert(aiGebruik).values(resultaat.verbruik);
+
+  return { bon: resultaat.bon, fout: null };
 }
 
 /**

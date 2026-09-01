@@ -209,3 +209,18 @@ export const seizoenen = pgTable("seizoenen", {
     .notNull()
     .defaultNow(),
 });
+
+/**
+ * Wat een uitgelezen bon aan het model heeft gekost, in tokens. OpenAI geeft geen
+ * saldo terug, dus dit is de enige manier om te zien wat déze app verbruikt heeft --
+ * los van al het andere dat op dezelfde sleutel draait.
+ */
+export const aiGebruik = pgTable("ai_gebruik", {
+  id: serial("id").primaryKey(),
+  model: text("model").notNull(),
+  tokensIn: integer("tokens_in").notNull(),
+  tokensUit: integer("tokens_uit").notNull(),
+  gebeurdOp: timestamp("gebeurd_op", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});

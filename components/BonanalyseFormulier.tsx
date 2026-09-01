@@ -12,10 +12,17 @@ import Melding from "./Melding";
 
 const invoer = "rounded-lg border border-rand bg-achtergrond px-3 py-2 text-sm";
 
+function alsEuro(cent: number | null): string {
+  return cent === null ? "" : (cent / 100).toFixed(2).replace(".", ",");
+}
+
 export default function BonanalyseFormulier({
   status,
+  prijzen,
 }: {
   status: SleutelStatus;
+  /** Prijs per miljoen tokens in centen, zoals hij nu is ingesteld. */
+  prijzen: { inCentPerMiljoen: number | null; uitCentPerMiljoen: number | null };
 }) {
   const [bewaarState, bewaar, bezig] = useActionState<MeldingState, FormData>(
     bewaarOpenAiAction,
@@ -66,6 +73,31 @@ export default function BonanalyseFormulier({
             Moet afbeeldingen aankunnen.
           </span>
         </label>
+
+        {/* Prijzen veranderen; ze staan daarom hier en niet in de code. Leeg laten
+            mag: dan telt de app alleen tokens en doet hij geen uitspraak over geld. */}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-gedempt">Prijs per 1M tokens in</span>
+            <input
+              name="prijsIn"
+              inputMode="decimal"
+              defaultValue={alsEuro(prijzen.inCentPerMiljoen)}
+              placeholder="bijv. 2,50"
+              className={`${invoer} cijfers`}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-gedempt">Prijs per 1M tokens uit</span>
+            <input
+              name="prijsUit"
+              inputMode="decimal"
+              defaultValue={alsEuro(prijzen.uitCentPerMiljoen)}
+              placeholder="bijv. 10,00"
+              className={`${invoer} cijfers`}
+            />
+          </label>
+        </div>
 
         <div className="flex flex-wrap items-center gap-3">
           <button
