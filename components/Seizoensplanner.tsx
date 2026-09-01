@@ -221,9 +221,11 @@ export default function Seizoensplanner({
           {feestdagen.map((feestdag) => (
             <li
               key={feestdag.code}
-              className="flex flex-wrap items-center gap-3 rounded-lg border border-rand p-3"
+              // Op een telefoon onder elkaar: naast elkaar houdt de keuzelijst zijn
+              // breedte en wordt de tekst ernaast tot een woord per regel geperst.
+              className="flex flex-col gap-2 rounded-lg border border-rand p-3 sm:flex-row sm:items-center sm:gap-3"
             >
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0 sm:flex-1">
                 <p className="font-medium">{feestdag.naam}</p>
                 <p className="text-sm text-gedempt">
                   {formatDatumMetDag(feestdag.van)}
@@ -250,7 +252,7 @@ export default function Seizoensplanner({
                   })
                 }
                 aria-label={`Toewijzing ${feestdag.naam}`}
-                className={invoerKlasse}
+                className={`${invoerKlasse} sm:w-56`}
               >
                 <option value="">volgens even-onevenregel</option>
                 {huishoudens.map((h) => (
