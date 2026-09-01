@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { feestdagenRakend, type Feestdag, type FeestdagCode } from "@/lib/feestdagen";
+import type { SeizoenPlan } from "@/lib/seizoenplan";
 import {
   vakantiesRakend,
   werkdagen,
@@ -25,6 +26,7 @@ import {
   type Blok,
 } from "@/lib/seizoen";
 import {
+  bewaarPlanAction,
   publiceerAction,
   standAction,
   type PubliceerState,
@@ -46,6 +48,7 @@ export default function Seizoensplanner({
   feestdagen,
   vakanties,
   vakantieHerkomst,
+  plan,
   kanPubliceren,
 }: {
   jaar: number;
@@ -53,14 +56,18 @@ export default function Seizoensplanner({
   feestdagen: Feestdag[];
   vakanties: Vakantie[];
   vakantieHerkomst: "rijksoverheid" | "reserve" | "geen";
+  /** Wat er van dit jaar bewaard is; null als je voor het eerst begint. */
+  plan: SeizoenPlan | null;
   kanPubliceren: boolean;
 }) {
   const router = useRouter();
-  const [onevenCoupleId, setOneven] = useState(huishoudens[0]?.id ?? 0);
+  const [onevenCoupleId, setOneven] = useState(
+    plan?.onevenCoupleId ?? huishoudens[0]?.id ?? 0,
+  );
   const [toewijzing, setToewijzing] = useState<
     Partial<Record<FeestdagCode, number>>
-  >({});
-  const [periodes, setPeriodes] = useState<Periode[]>([]);
+  >((plan?.feestdagen ?? {}) as Partial<Record<FeestdagCode, number>>);
+  const [periodes, setPeriodes] = useState<Periode[]>(plan?.periodes ?? []);
   /** De periode die je op dit moment aan het aanpassen bent, of null. */
   const [bewerkt, setBewerkt] = useState<Periode | null>(null);
 
@@ -72,6 +79,32 @@ export default function Seizoensplanner({
     standAction,
     null,
   );
+
+  /**
+   * Wat je instelt wordt vanzelf bewaard, kort nadat je stopt met schuiven. Zonder dat
+   * ben je je toewijzingen kwijt zodra je ververst of van jaar wisselt -- dat laatste
+   * laadt de pagina namelijk opnieuw.
+   */
+  const [bewaarStand, setBewaarStand] = useState<"stil" | "bezig" | "klaar">(
+    "stil",
+  );
+  const teBewaren = JSON.stringify({
+    onevenCoupleId,
+    feestdagen: toewijzing,
+    periodes,
+  });
+  const [laatstBewaard, setLaatstBewaard] = useState(teBewaren);
+
+  useEffect(() => {
+    if (teBewaren === laatstBewaard) return;
+    const timer = setTimeout(async () => {
+      setBewaarStand("bezig");
+      await bewaarPlanAction(jaar, JSON.parse(teBewaren));
+      setLaatstBewaard(teBewaren);
+      setBewaarStand("klaar");
+    }, 700);
+    return () => clearTimeout(timer);
+  }, [teBewaren, laatstBewaard, jaar]);
 
   const evenCoupleId =
     huishoudens.find((h) => h.id !== onevenCoupleId)?.id ?? onevenCoupleId;
@@ -209,6 +242,14 @@ export default function Seizoensplanner({
             De even weken gaan dan naar {naamVan.get(evenCoupleId)}.
           </span>
         </label>
+        {/* Wat je instelt blijft staan; dit zegt alleen wanneer dat gebeurd is. */}
+        <p className="text-xs text-gedempt sm:col-span-2" aria-live="polite">
+          {bewaarStand === "bezig"
+            ? "Opslaan…"
+            : bewaarStand === "klaar"
+              ? "Opgeslagen. Dit concept staat er de volgende keer weer."
+              : "Wat je hier instelt wordt vanzelf bewaard."}
+        </p>
       </section>
 
       <section className="rounded-xl border border-rand bg-paneel p-4">

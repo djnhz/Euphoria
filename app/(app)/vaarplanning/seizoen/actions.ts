@@ -3,11 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { asc } from "drizzle-orm";
 import { z } from "zod";
-import { db, couples } from "@/db";
+import { db, couples, seizoenen } from "@/db";
 import { vereisGebruiker } from "@/lib/auth";
 import { publiceerSeizoen, seizoenStand } from "@/lib/agenda";
 import { dagenInSeizoen } from "@/lib/datum";
 import { maakSeizoensplanning } from "@/lib/seizoen";
+import { SeizoenPlan } from "@/lib/seizoenplan";
 
 const FeestdagCodes = z.enum([
   "pasen",
@@ -119,4 +120,36 @@ export async function standAction(
       `In dit seizoen staan ${stand.vanSeizoen} afspraken van een eerdere planning ` +
       `(die worden vervangen) en ${stand.handmatig} andere afspraken (die blijven staan).`,
   };
+}
+
+/**
+ * Het concept van een jaar bewaren zodra je iets verandert, zodat je toewijzingen en
+ * vakanties niet weg zijn na een verversing of als je van jaar wisselt. Eén rij per
+ * jaar, gedeeld: wie het scherm opent ziet wat de ander heeft ingesteld.
+ *
+ * Bewust zonder `revalidatePath`: elke pagina is toch al dynamisch, en verversen
+ * tijdens het schuiven zou het scherm onder je handen terugzetten.
+ */
+export async function bewaarPlanAction(
+  jaar: number,
+  ruwPlan: unknown,
+): Promise<{ fout?: string } | null> {
+  await vereisGebruiker();
+
+  if (!Number.isInteger(jaar) || jaar < 2020 || jaar > 2100) {
+    return { fout: "Ongeldig jaar." };
+  }
+  const gelezen = SeizoenPlan.safeParse(ruwPlan);
+  if (!gelezen.success) return { fout: "Ongeldige planning." };
+
+  const plan = JSON.stringify(gelezen.data);
+  await db
+    .insert(seizoenen)
+    .values({ jaar, plan })
+    .onConflictDoUpdate({
+      target: seizoenen.jaar,
+      set: { plan, gewijzigdOp: new Date() },
+    });
+
+  return null;
 }

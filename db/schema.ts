@@ -192,3 +192,20 @@ export const settings = pgTable("settings", {
     .notNull()
     .defaultNow(),
 });
+
+/**
+ * De seizoensplanning van een jaar, zoals je hem op het scherm hebt staan: wie de
+ * oneven weken heeft, aan wie de lange weekenden zijn toegewezen en welke vakanties
+ * je hebt ingepland. Eén rij per jaar, gedeeld door iedereen.
+ *
+ * Bewust één JSON-veld in plaats van drie tabellen: het is een concept dat je in één
+ * zitting maakt en in zijn geheel leest of schrijft. `lib/seizoen.ts` rekent er de
+ * blokken uit; die hoeven dus niet bewaard te worden.
+ */
+export const seizoenen = pgTable("seizoenen", {
+  jaar: integer("jaar").primaryKey(),
+  plan: text("plan").notNull(),
+  gewijzigdOp: timestamp("gewijzigd_op", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});

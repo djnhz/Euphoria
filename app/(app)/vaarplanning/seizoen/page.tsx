@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { asc } from "drizzle-orm";
-import { db, couples } from "@/db";
+import { asc, eq } from "drizzle-orm";
+import { db, couples, seizoenen } from "@/db";
 import { vereisGebruiker } from "@/lib/auth";
 import { agendaStatus } from "@/lib/instellingen";
 import { feestdagenIn } from "@/lib/feestdagen";
 import { vandaag } from "@/lib/datum";
 import { haalVakanties } from "@/lib/vakantiebron";
+import { leesPlan } from "@/lib/seizoenplan";
 import Seizoensplanner from "@/components/Seizoensplanner";
 
 export default async function SeizoenPagina({
@@ -22,11 +23,13 @@ export default async function SeizoenPagina({
       ? gekozen
       : huidigJaar + 1;
 
-  const [huishoudens, status, vakanties] = await Promise.all([
+  const [huishoudens, status, vakanties, bewaard] = await Promise.all([
     db.select().from(couples).orderBy(asc(couples.volgorde)),
     agendaStatus(),
     haalVakanties(jaar),
+    db.select().from(seizoenen).where(eq(seizoenen.jaar, jaar)),
   ]);
+  const plan = leesPlan(bewaard[0]?.plan);
 
   return (
     <div className="flex flex-col gap-4">
@@ -55,6 +58,7 @@ export default async function SeizoenPagina({
         feestdagen={feestdagenIn(jaar)}
         vakanties={vakanties.vakanties}
         vakantieHerkomst={vakanties.herkomst}
+        plan={plan}
         kanPubliceren={status.gekoppeld && status.agendaId !== null}
       />
     </div>
