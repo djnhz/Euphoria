@@ -7,7 +7,7 @@ import { formatEuro, saldoCent } from "@/lib/geld";
 import { komendeBeurten, jouwBeurt, type Beurt } from "@/lib/aanboord";
 import { alleTaken, voortgang } from "@/lib/taken";
 import { huishoudKleur } from "@/lib/kleuren";
-import { MAANDEN, plusDagen, vandaag } from "@/lib/datum";
+import { MAANDEN, isoWeek, plusDagen, vandaag } from "@/lib/datum";
 import { haalReserveringen } from "@/lib/agenda";
 import { agendaStatus } from "@/lib/instellingen";
 import { Bovenschrift, Paneel } from "@/components/Scherm";
@@ -32,10 +32,11 @@ export default async function Overzicht() {
 
   // Een half jaar vooruit kijken en er drie tonen; zonder koppeling met de agenda
   // valt er niets op te halen.
-  const uitAgenda = agenda.gekoppeld
+  const opgehaald = agenda.gekoppeld
     ? await haalReserveringen(nu, plusDagen(nu, 180))
     : [];
-  const reserveringen = ("fout" in uitAgenda ? [] : uitAgenda).slice(0, 3);
+  const geboekt = "fout" in opgehaald ? [] : opgehaald;
+  const reserveringen = geboekt.slice(0, 3);
 
   const kleurVan = new Map(
     huishoudens.map((h, i) => [h.id, huishoudKleur(i)] as const),
@@ -45,7 +46,19 @@ export default async function Overzicht() {
     b: huishoudens[1]?.naam ?? "Huishouden B",
   };
 
-  const mijn = jouwBeurt(planning.beurten, gebruiker.coupleId);
+  /**
+   * De aftelling komt uit de seizoensplanning als die er is, en anders uit de
+   * agenda zelf. Zonder die tweede weg staat er "nog geen seizoensplanning" te
+   * pronken terwijl de weken gewoon in de agenda staan -- de planning is maar één
+   * manier om ze daar te krijgen.
+   */
+  const mijn =
+    jouwBeurt(planning.beurten, gebruiker.coupleId) ??
+    uitReservering(
+      geboekt.find((r) => r.coupleId === gebruiker.coupleId),
+      nu,
+      huishoudens.find((h) => h.id === gebruiker.coupleId)?.naam ?? "Jullie",
+    );
   const open = taken.filter((t) => !t.klaar);
   const stand = voortgang(taken);
   const saldo = saldoCent(await haalRegels());
@@ -57,6 +70,7 @@ export default async function Overzicht() {
       <Aftelling
         beurt={mijn}
         gepland={planning.gepland}
+        agendaGekoppeld={agenda.gekoppeld}
         jaar={planning.jaar}
         kleur={kleurVan.get(gebruiker.coupleId) ?? huishoudKleur(0)}
       />
@@ -206,30 +220,37 @@ export default async function Overzicht() {
 
             {budget.length === 0 ? (
               <p className="text-sm text-gedempt">
-                Nog niets begroot voor {jaar}.{" "}
+                Nog niets geboekt of begroot voor {jaar}.{" "}
                 <Link href="/begroting" className="text-link">
                   Begroting maken
                 </Link>
               </p>
             ) : (
               <div className="flex flex-col gap-3">
-                {budget.slice(0, 3).map((rij) => {
+                {/* Elke hoofdpost waar dit jaar iets mee is, met wat erop geboekt
+                    staat. Alleen een percentage laat de vraag "hoeveel dan?" open,
+                    en een post zonder begroting viel zo helemaal weg terwijl er wel
+                    geld naartoe ging. */}
+                {budget.map((rij) => {
                   const eigen = totaalBegroot(rij);
                   const deel =
                     eigen && eigen > 0 ? rij.werkelijkCent / eigen : null;
                   return (
                     <div key={rij.id}>
-                      <div className="flex justify-between gap-3 text-[13px]">
+                      <div className="flex items-baseline justify-between gap-3 text-[13px]">
                         <Link
                           href={`/uitgaven?jaar=${jaar}&post=${rij.id}`}
                           className="truncate hover:text-link"
                         >
                           {rij.naam}
                         </Link>
-                        <span className="cijfers shrink-0 text-gedempt">
-                          {deel === null
-                            ? formatEuro(rij.werkelijkCent)
-                            : `${Math.round(deel * 100)}%`}
+                        <span className="cijfers shrink-0">
+                          {formatEuro(rij.werkelijkCent)}
+                          <span className="text-gedempt">
+                            {eigen === null
+                              ? " · niet begroot"
+                              : ` van ${formatEuro(eigen)}`}
+                          </span>
                         </span>
                       </div>
                       {deel !== null && (
@@ -274,6 +295,30 @@ export default async function Overzicht() {
   );
 }
 
+/**
+ * Een reservering uit de agenda in dezelfde vorm als een blok uit de planning, zodat
+ * de aftelling niet hoeft te weten waar hij vandaan komt.
+ */
+function uitReservering(
+  reservering:
+    | { van: string; tot: string; coupleId: number | null; titel: string }
+    | undefined,
+  nu: string,
+  coupleNaam: string,
+): Beurt | null {
+  if (!reservering) return null;
+  return {
+    van: reservering.van,
+    tot: reservering.tot,
+    coupleId: reservering.coupleId ?? 0,
+    coupleNaam,
+    week: isoWeek(reservering.van),
+    dagenTot: reservering.van <= nu ? 0 : dagenTot(nu, reservering.van),
+    bezig: reservering.van <= nu && reservering.tot >= nu,
+    naam: reservering.titel || null,
+  };
+}
+
 /** Hoeveel hele dagen er tussen twee ISO-datums zitten. */
 function dagenTot(van: string, tot: string): number {
   return Math.round(
@@ -290,11 +335,13 @@ function dagenTot(van: string, tot: string): number {
 function Aftelling({
   beurt,
   gepland,
+  agendaGekoppeld,
   jaar,
   kleur,
 }: {
   beurt: Beurt | null;
   gepland: boolean;
+  agendaGekoppeld: boolean;
   jaar: number;
   kleur: string;
 }) {
@@ -358,14 +405,18 @@ function Aftelling({
             <>
               <p className="bovenschrift !text-messing">Seizoen {jaar}</p>
               <p className="titel mt-2 text-[26px] leading-tight">
-                {gepland
-                  ? "Voor dit jaar staat er niets meer op jullie naam"
+                {gepland || agendaGekoppeld
+                  ? "Niets op jullie naam"
                   : "Nog geen seizoensplanning"}
               </p>
+              {/* Het onderscheid doet ertoe: er is verschil tussen "het seizoen is
+                  niet verdeeld" en "er staat niets van jullie in de agenda". */}
               <p className="mt-2 text-sm text-linnen/75 text-pretty">
                 {gepland
-                  ? "Het seizoen is voorbij of jullie weken zijn geweest."
-                  : "Verdeel de weken over de twee huishoudens, dan telt dit scherm af naar jullie eigen week."}
+                  ? "Het seizoen is verdeeld, maar jullie weken zijn geweest."
+                  : agendaGekoppeld
+                    ? "Er staat dit jaar geen week van jullie in de agenda. Verdeel het seizoen, of reserveer een losse periode."
+                    : "Verdeel de weken over de twee huishoudens, dan telt dit scherm af naar jullie eigen week."}
               </p>
             </>
           )}

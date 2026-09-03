@@ -1,7 +1,7 @@
 import "server-only";
 import { JWT } from "google-auth-library";
 import { googleAgendaId, googleServiceAccount } from "./instellingen";
-import { aaneengeslotenBlokken, dagenTotEnMet } from "./datum";
+import { plandVrijgeven } from "./reservering";
 
 /**
  * Reserveringen staan in Google Agenda en nergens anders. Geen eigen tabel ernaast,
@@ -368,7 +368,7 @@ async function haalRuweAfspraak(
 export async function geefDagenVrij(
   id: string,
   vrij: readonly string[],
-): Promise<{ ok: true; resterend: number } | AgendaFout> {
+): Promise<{ ok: true; stukken: number } | AgendaFout> {
   const verbonden = await verbinding();
   if (!verbonden.ok) return { fout: verbonden.fout };
 
@@ -380,24 +380,22 @@ export async function geefDagenVrij(
   if ("fout" in gevonden) return gevonden;
   const { item } = gevonden;
 
-  const weg = new Set(vrij);
-  const over = dagenTotEnMet(
+  const plan = plandVrijgeven(
     item.start!.date!,
     vorigeDag(item.end!.date!),
-  ).filter((dag) => !weg.has(dag));
+    vrij,
+  );
 
   const pad = `/calendars/${encodeURIComponent(verbonden.agendaId)}/events`;
 
-  if (over.length === 0) {
+  if (plan.soort === "verwijderen") {
     const gewist = await roepAan(
       verbonden.token,
       `${pad}/${encodeURIComponent(id)}`,
       { method: "DELETE" },
     );
-    return gewist.ok ? { ok: true, resterend: 0 } : { fout: gewist.fout };
+    return gewist.ok ? { ok: true, stukken: 0 } : { fout: gewist.fout };
   }
-
-  const stukken = aaneengeslotenBlokken(over);
 
   // Het eerste stuk blijft dezelfde afspraak; zo houdt hij zijn plek in de agenda
   // van iedereen die hem al ziet staan.
@@ -407,14 +405,16 @@ export async function geefDagenVrij(
     {
       method: "PATCH",
       body: JSON.stringify({
-        start: { date: stukken[0].van },
-        end: { date: volgendeDag(stukken[0].tot) },
+        start: { date: plan.houden.van },
+        end: { date: volgendeDag(plan.houden.tot) },
       }),
     },
   );
   if (!bijgewerkt.ok) return { fout: bijgewerkt.fout };
 
-  for (const stuk of stukken.slice(1)) {
+  // Elk volgend stuk wordt een eigen afspraak -- zo levert een dag uit het midden
+  // twee reserveringen op in plaats van één met een gat erin.
+  for (const stuk of plan.extra) {
     const gemaakt = await roepAan(verbonden.token, pad, {
       method: "POST",
       body: JSON.stringify({
@@ -430,5 +430,6 @@ export async function geefDagenVrij(
     if (!gemaakt.ok) return { fout: gemaakt.fout };
   }
 
-  return { ok: true, resterend: over.length };
+  // Eén stuk betekent inkorten, twee of meer betekent dat hij is opgesplitst.
+  return { ok: true, stukken: 1 + plan.extra.length };
 }

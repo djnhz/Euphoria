@@ -123,10 +123,13 @@ export async function geefDagenVrijAction(
 
   revalidatePath("/vaarplanning");
   revalidatePath("/");
+  const aantal = `${dagen.length} ${dagen.length === 1 ? "dag" : "dagen"}`;
   return {
     gelukt:
-      uitkomst.resterend === 0
+      uitkomst.stukken === 0
         ? "De hele reservering is weg."
-        : `${dagen.length} ${dagen.length === 1 ? "dag" : "dagen"} vrijgegeven.`,
+        : uitkomst.stukken === 1
+          ? `${aantal} vrijgegeven.`
+          : `${aantal} vrijgegeven; de reservering staat nu in ${uitkomst.stukken} stukken.`,
   };
 }
