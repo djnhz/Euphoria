@@ -35,7 +35,7 @@ export default function BeheerderFormulier({
               </span>
               <button
                 disabled={bezig}
-                className="rounded-lg border border-rand px-3 py-1.5 text-sm disabled:opacity-50"
+                className="rounded-xl border border-rand-sterk px-3 py-2 text-sm disabled:opacity-50"
               >
                 {gebruiker.beheerder ? "intrekken" : "aanwijzen"}
               </button>

@@ -36,7 +36,7 @@ export default function BestandTegel({
   return (
     <span
       style={{ width: zijde, height: zijde }}
-      className="flex flex-col items-center justify-center gap-1 rounded-lg border border-rand bg-achtergrond"
+      className="flex flex-col items-center justify-center gap-1 rounded-xl border border-rand bg-verzonken"
       title={naam}
     >
       <svg

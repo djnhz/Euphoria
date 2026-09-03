@@ -2,189 +2,336 @@ import Link from "next/link";
 import { asc } from "drizzle-orm";
 import { db, couples } from "@/db";
 import { vereisGebruiker } from "@/lib/auth";
-import {
-  beschikbareJaren,
-  budgetOverzicht,
-  haalRegels,
-  perMaandPerBetaler,
-  saldoPerMaand,
-  voorgeschotenPerHuishouden,
-  totaalPerHoofdpost,
-} from "@/lib/data";
+import { budgetOverzicht, haalRegels, totaalBegroot } from "@/lib/data";
 import { formatEuro, saldoCent } from "@/lib/geld";
-import { haalReserveringen } from "@/lib/agenda";
-import { agendaStatus } from "@/lib/instellingen";
-import { plusDagen, vandaag } from "@/lib/datum";
-import DashboardGrafieken from "@/components/DashboardGrafieken";
-import DashboardAgenda from "@/components/DashboardAgenda";
-import JaarKiezer from "@/components/JaarKiezer";
+import { komendeBeurten, jouwBeurt, type Beurt } from "@/lib/aanboord";
+import { alleTaken, voortgang } from "@/lib/taken";
+import { huishoudKleur } from "@/lib/kleuren";
+import { MAANDEN, vandaag } from "@/lib/datum";
+import { Bovenschrift, Paneel, Schermbody } from "@/components/Scherm";
+import { TaakRij } from "@/components/TaakOnderdelen";
+import { taakPosten } from "@/lib/taken";
 
-export default async function Dashboard({ searchParams }: PageProps<"/">) {
-  await vereisGebruiker();
+export default async function Overzicht() {
+  const gebruiker = await vereisGebruiker();
+  const jaar = Number(vandaag().slice(0, 4));
 
-  const params = await searchParams;
-  const jaren = await beschikbareJaren();
-  const gekozenJaar = Number(params.jaar);
-  const jaar = jaren.includes(gekozenJaar)
-    ? gekozenJaar
-    : new Date().getFullYear();
+  const [huishoudens, regels, budget, planning, taken, posten] =
+    await Promise.all([
+      db.select().from(couples).orderBy(asc(couples.volgorde)),
+      haalRegels(jaar),
+      budgetOverzicht(jaar),
+      komendeBeurten(4),
+      alleTaken(),
+      taakPosten(),
+    ]);
 
-  const nu = vandaag();
-  const [alleRegels, jaarRegels, budget, huishoudens, agenda] = await Promise.all([
-    haalRegels(),
-    haalRegels(jaar),
-    budgetOverzicht(jaar),
-    db.select().from(couples).orderBy(asc(couples.volgorde)),
-    agendaStatus(),
-  ]);
-
-  // Drie weken vooruit; zonder koppeling heeft ophalen geen zin.
-  const reserveringen = agenda.gekoppeld
-    ? await haalReserveringen(nu, plusDagen(nu, 20))
-    : ([] as Awaited<ReturnType<typeof haalReserveringen>>);
-
+  const kleurVan = new Map(
+    huishoudens.map((h, i) => [h.id, huishoudKleur(i)] as const),
+  );
   const namen = {
     a: huishoudens[0]?.naam ?? "Huishouden A",
     b: huishoudens[1]?.naam ?? "Huishouden B",
   };
-  const saldo = saldoCent(alleRegels);
-  const totaalJaar = jaarRegels.reduce((som, r) => som + r.bedragCent, 0);
-  const voorgeschoten = voorgeschotenPerHuishouden(jaarRegels);
+
+  const mijn = jouwBeurt(planning.beurten, gebruiker.coupleId);
+  const open = taken.filter((t) => !t.klaar);
+  const stand = voortgang(taken);
+  const saldo = saldoCent(await haalRegels());
+  const besteed = regels.reduce((som, r) => som + r.bedragCent, 0);
+  const begroot = budget.reduce((som, r) => som + (r.begrootCent ?? 0), 0);
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-        <div className="ml-auto">
-          <JaarKiezer jaren={jaren} huidig={jaar} />
-        </div>
-      </div>
+    <>
+      <Aftelling
+        beurt={mijn}
+        gepland={planning.gepland}
+        jaar={planning.jaar}
+        kleur={kleurVan.get(gebruiker.coupleId) ?? huishoudKleur(0)}
+      />
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Snelknop href="/uitgaven/nieuw" titel="Bon indienen" />
-        <Snelknop href="/vaarplanning" titel="Boot reserveren" />
-      </div>
-
-      <section className="rounded-xl border border-rand bg-paneel p-5">
-        <p className="text-sm text-gedempt">Onderling openstaand</p>
-        {saldo === 0 ? (
-          <p className="mt-1 text-2xl font-semibold">Jullie staan gelijk</p>
-        ) : (
-          <p className="mt-1 text-2xl font-semibold">
-            <span className="cijfers">{formatEuro(Math.abs(saldo))}</span>
-            <span className="ml-2 text-base font-normal text-gedempt">
-              van {saldo > 0 ? namen.b : namen.a} naar{" "}
-              {saldo > 0 ? namen.a : namen.b}
-            </span>
-          </p>
+      <Schermbody>
+        {open.length > 0 && (
+          <Paneel>
+            <Bovenschrift
+              className="mb-3"
+              rechts={`${stand.klaar} van ${stand.totaal} klaar`}
+            >
+              {mijn ? "Voor jullie week" : "Op de lijst"}
+            </Bovenschrift>
+            <ul className="-mx-4 divide-y divide-rand border-y border-rand">
+              {open.slice(0, 3).map((taak) => (
+                <TaakRij
+                  key={taak.id}
+                  taak={taak}
+                  posten={posten}
+                  huishoudens={huishoudens}
+                  jij={gebruiker.id}
+                />
+              ))}
+            </ul>
+            <Link
+              href="/taken"
+              className="mt-3.5 block text-[12.5px] font-semibold text-link"
+            >
+              Alle taken →
+            </Link>
+          </Paneel>
         )}
-        <p className="mt-3 text-sm text-gedempt">
-          Uitgaven in {jaar}:{" "}
-          <span className="cijfers text-tekst">{formatEuro(totaalJaar)}</span>
-        </p>
-        {/* Wie het geld heeft uitgegeven. Wat ieder draagt is altijd de helft en
-            hoeft dus niet apart te staan. */}
-        <p className="mt-1 text-sm text-gedempt">
-          Voorgeschoten: {namen.a}{" "}
-          <span className="cijfers text-tekst">{formatEuro(voorgeschoten.a)}</span>
-          {" · "}
-          {namen.b}{" "}
-          <span className="cijfers text-tekst">{formatEuro(voorgeschoten.b)}</span>
-        </p>
-      </section>
 
-      <DashboardAgenda
-        reserveringen={"fout" in reserveringen ? [] : reserveringen}
-        huishoudens={huishoudens.map((h, i) => ({
-          id: h.id,
-          naam: h.naam,
-          kleur: HUISHOUDKLEUREN[i] ?? "#8b5cf6",
-        }))}
-        gekoppeld={agenda.gekoppeld}
-        fout={"fout" in reserveringen ? reserveringen.fout : null}
-      />
-
-      <DashboardGrafieken
-        data={{
-          posten: totaalPerHoofdpost(jaarRegels),
-          betaaldPerMaand: perMaandPerBetaler(jaarRegels),
-          saldoVerloop: saldoPerMaand(jaarRegels),
-          namen,
-        }}
-      />
-
-      <section className="rounded-xl border border-rand bg-paneel p-4">
-        <div className="mb-3 flex items-baseline justify-between">
-          <h2 className="text-sm font-medium">Begroting {jaar}</h2>
-          <Link href="/begroting" className="text-sm text-accent underline">
-            bijwerken
-          </Link>
-        </div>
-        {budget.length === 0 ? (
-          <p className="text-sm text-gedempt">
-            Nog niets begroot voor {jaar}.
-          </p>
-        ) : (
-          <ul className="flex flex-col gap-3">
-            {budget.map((rij) => {
-              const budgetCent = rij.begrootCent;
-              const deel =
-                budgetCent && budgetCent > 0
-                  ? rij.werkelijkCent / budgetCent
-                  : null;
-              const over = deel !== null && deel > 1;
-              return (
-                <li key={rij.id}>
-                  <div className="flex items-baseline justify-between text-sm">
-                    <Link
-                      href={`/uitgaven?jaar=${jaar}&post=${rij.id}`}
-                      className="hover:text-accent"
-                    >
-                      {rij.naam}
-                    </Link>
-                    <span className="cijfers text-gedempt">
-                      {formatEuro(rij.werkelijkCent)}
-                      {budgetCent !== null && ` van ${formatEuro(budgetCent)}`}
-                    </span>
+        {planning.beurten.length > 0 && (
+          <section>
+            <div className="mb-2.5 flex items-baseline justify-between">
+              <div className="bovenschrift">Seizoen {planning.jaar}</div>
+              <Link href="/vaarplanning/seizoen" className="text-xs text-link">
+                hele planning
+              </Link>
+            </div>
+            <div className="flex flex-col gap-2">
+              {planning.beurten.slice(0, 3).map((beurt) => (
+                <div
+                  key={beurt.van}
+                  className="flex items-center gap-3 rounded-2xl border border-rand bg-paneel p-3.5"
+                >
+                  <span
+                    className="w-[3px] self-stretch rounded-sm"
+                    style={{ background: kleurVan.get(beurt.coupleId) }}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[13.5px] font-semibold">
+                      {beurt.coupleNaam}
+                      {beurt.naam && (
+                        <span className="font-normal text-gedempt">
+                          {" "}
+                          · {beurt.naam}
+                        </span>
+                      )}
+                    </p>
+                    <p className="cijfers text-[11.5px] text-gedempt">
+                      wk {beurt.week} · {periode(beurt)}
+                    </p>
                   </div>
-                  {/* Zonder budget geen balk: een lege balk leest als nul procent besteed. */}
-                  {deel !== null && (
-                    <div className="mt-1 h-2 overflow-hidden rounded-full bg-rand">
-                      <div
-                        className="h-full rounded-full"
-                        style={{
-                          width: `${Math.min(100, deel * 100)}%`,
-                          background: over ? "var(--slecht)" : rij.kleur,
-                        }}
-                      />
-                    </div>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
+                  {beurt.bezig ? (
+                    <span className="shrink-0 rounded-md bg-accent-zacht px-2 py-1 text-[10.5px] font-semibold">
+                      nu
+                    </span>
+                  ) : beurt.dagenTot <= 14 ? (
+                    <span className="shrink-0 rounded-md bg-accent-zacht px-2 py-1 text-[10.5px] font-semibold">
+                      over {beurt.dagenTot} d
+                    </span>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </section>
         )}
-      </section>
-    </div>
+
+        <Paneel>
+          <Bovenschrift
+            className="mb-3.5"
+            rechts={
+              begroot > 0
+                ? `${rond(besteed)} / ${rond(begroot)}`
+                : formatEuro(besteed)
+            }
+          >
+            Begroting {jaar}
+          </Bovenschrift>
+
+          {budget.length === 0 ? (
+            <p className="text-sm text-gedempt">
+              Nog niets begroot voor {jaar}.{" "}
+              <Link href="/begroting" className="text-link">
+                Begroting maken
+              </Link>
+            </p>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {budget.slice(0, 3).map((rij) => {
+                const eigen = totaalBegroot(rij);
+                const deel =
+                  eigen && eigen > 0 ? rij.werkelijkCent / eigen : null;
+                return (
+                  <div key={rij.id}>
+                    <div className="flex justify-between gap-3 text-[13px]">
+                      <Link
+                        href={`/uitgaven?jaar=${jaar}&post=${rij.id}`}
+                        className="truncate hover:text-link"
+                      >
+                        {rij.naam}
+                      </Link>
+                      <span className="cijfers shrink-0 text-gedempt">
+                        {deel === null
+                          ? formatEuro(rij.werkelijkCent)
+                          : `${Math.round(deel * 100)}%`}
+                      </span>
+                    </div>
+                    {deel !== null && (
+                      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-linnen-diep">
+                        <div
+                          className="h-full rounded-full"
+                          style={{
+                            width: `${Math.min(100, deel * 100)}%`,
+                            background:
+                              deel > 1 ? "var(--messing-inkt)" : rij.kleur,
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Het onderlinge saldo is één regel: het is de uitkomst van het varen,
+              niet waar je de app voor opent. */}
+          <Link
+            href="/verrekening"
+            className="mt-4 flex items-center gap-2.5 border-t border-dashed border-rand-sterk pt-3.5"
+          >
+            <span className="flex-1 text-[12.5px] text-gedempt">
+              {saldo === 0
+                ? "Onderling staan jullie gelijk"
+                : `Onderling openstaand · ${saldo > 0 ? namen.b : namen.a} → ${
+                    saldo > 0 ? namen.a : namen.b
+                  }`}
+            </span>
+            <span className="cijfers shrink-0 text-[13px]">
+              {formatEuro(Math.abs(saldo))}
+            </span>
+          </Link>
+        </Paneel>
+
+        <Link
+          href="/uitgaven/nieuw"
+          className="rounded-xl border border-rand-sterk bg-paneel px-4 py-3.5 text-center text-sm font-semibold transition hover:border-inkt"
+        >
+          Bon indienen
+        </Link>
+      </Schermbody>
+    </>
   );
 }
 
-/** Zelfde kleuren als de vaarkalender en de seizoensplanner. */
-const HUISHOUDKLEUREN = ["#0ea5e9", "#f97316"];
-
-function Snelknop({
-  href,
-  titel,
+/**
+ * De kop van het scherm: hoeveel dagen tot jullie eigen week. Staat er geen
+ * planning, dan is dit de plek om er een te maken -- zonder planning valt er niets
+ * te tellen en is een lege balk erger dan geen balk.
+ */
+function Aftelling({
+  beurt,
+  gepland,
+  jaar,
+  kleur,
 }: {
-  href: "/uitgaven/nieuw" | "/vaarplanning";
-  titel: string;
+  beurt: Beurt | null;
+  gepland: boolean;
+  jaar: number;
+  kleur: string;
 }) {
   return (
-    <Link
-      href={href}
-      className="rounded-xl border border-rand bg-paneel p-4 font-medium transition hover:border-accent"
-    >
-      {titel}
-    </Link>
+    <section className="relative overflow-hidden bg-inkt px-5 pt-6 pb-5 text-linnen">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-2.5 -right-8 opacity-[0.09]"
+      >
+        <svg viewBox="0 0 100 84" width="190" height="160">
+          <path d="M48 4 L48 56 L17 56 Z" fill="#F7F4EC" />
+          <path d="M55 20 L55 56 L83 56 Z" fill="#F7F4EC" />
+          <path
+            d="M6 60 L94 60 C86 74 74 78 50 78 C26 78 14 74 6 60 Z"
+            fill="#F7F4EC"
+          />
+        </svg>
+      </div>
+
+      {beurt ? (
+        <>
+          <p className="bovenschrift !text-messing">
+            {beurt.bezig ? "Jullie week loopt" : "Jullie week begint over"}
+          </p>
+          <div className="mt-1.5 flex items-end gap-3">
+            <span className="titel cijfers text-[66px] leading-[0.9] font-normal">
+              {beurt.bezig ? "nu" : beurt.dagenTot}
+            </span>
+            {!beurt.bezig && (
+              <span className="titel text-2xl leading-relaxed text-linnen/80">
+                {beurt.dagenTot === 1 ? "dag" : "dagen"}
+              </span>
+            )}
+          </div>
+          <p className="mt-2 text-sm text-linnen/80">
+            {volledigePeriode(beurt)} · week {beurt.week}
+          </p>
+          <p className="mt-3.5 flex items-center gap-2.5 text-[12.5px] text-linnen/60">
+            <span className="inline-flex items-center gap-2">
+              <span
+                className="h-2 w-2 rounded-sm"
+                style={{ background: kleur }}
+              />
+              {beurt.coupleNaam} aan boord
+            </span>
+            {beurt.naam && (
+              <>
+                <span className="h-3 w-px bg-linnen/20" />
+                <span>{beurt.naam}</span>
+              </>
+            )}
+          </p>
+        </>
+      ) : (
+        <>
+          <p className="bovenschrift !text-messing">Seizoen {jaar}</p>
+          <p className="titel mt-2 text-[26px] leading-tight">
+            {gepland
+              ? "Voor dit jaar staat er niets meer op jullie naam"
+              : "Nog geen seizoensplanning"}
+          </p>
+          <p className="mt-2 text-sm text-linnen/75 text-pretty">
+            {gepland
+              ? "Het seizoen is voorbij of jullie weken zijn geweest."
+              : "Verdeel de weken over de twee huishoudens, dan telt dit scherm af naar jullie eigen week."}
+          </p>
+        </>
+      )}
+
+      <div className="mt-4 flex gap-2">
+        <Link
+          href="/taken"
+          className="flex-1 rounded-xl bg-messing px-4 py-3 text-center text-sm font-semibold text-inkt transition hover:brightness-105"
+        >
+          {beurt ? "Week voorbereiden" : "Taken"}
+        </Link>
+        <Link
+          href={beurt ? "/vaarplanning" : "/vaarplanning/seizoen"}
+          className="rounded-xl border border-linnen/30 px-4 py-3 text-center text-sm transition hover:bg-linnen/10"
+        >
+          {beurt ? "Planning" : "Plannen"}
+        </Link>
+      </div>
+    </section>
   );
+}
+
+/** "12 — 18 sep", met de maand alleen waar hij verandert. */
+function periode(beurt: { van: string; tot: string }): string {
+  const [, m1, d1] = beurt.van.split("-");
+  const [, m2, d2] = beurt.tot.split("-");
+  const eind = `${Number(d2)} ${MAANDEN[Number(m2) - 1]}`;
+  return m1 === m2
+    ? `${Number(d1)} — ${eind}`
+    : `${Number(d1)} ${MAANDEN[Number(m1) - 1]} — ${eind}`;
+}
+
+/** Dezelfde periode maar met de dagnaam ervoor, voor de kop. */
+function volledigePeriode(beurt: { van: string; tot: string }): string {
+  const dagen = ["zondag", "maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag"];
+  const start = new Date(`${beurt.van}T00:00:00Z`).getUTCDay();
+  return `${dagen[start]} ${periode(beurt)}`;
+}
+
+/** Bedragen in de kopregel zonder centen; daar gaat het om de orde van grootte. */
+function rond(cent: number): string {
+  return new Intl.NumberFormat("nl-NL").format(Math.round(cent / 100));
 }

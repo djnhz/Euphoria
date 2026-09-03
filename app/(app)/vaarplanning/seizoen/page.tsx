@@ -8,6 +8,8 @@ import { vandaag } from "@/lib/datum";
 import { haalVakanties } from "@/lib/vakantiebron";
 import { leesPlan } from "@/lib/seizoenplan";
 import Seizoensplanner from "@/components/Seizoensplanner";
+import { Schermbody, Schermkop, Segment } from "@/components/Scherm";
+import { PLANNING_TABS } from "@/components/planningTabs";
 
 export default async function SeizoenPagina({
   searchParams,
@@ -32,35 +34,34 @@ export default async function SeizoenPagina({
   const plan = leesPlan(bewaard[0]?.plan);
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <Link href="/vaarplanning" className="text-sm text-accent underline">
-          ← Vaarplanning
-        </Link>
-        <h1 className="ml-auto text-2xl font-semibold tracking-tight sm:ml-0">
-          Seizoensplanning
-        </h1>
-      </div>
-
-      {!status.gekoppeld && (
-        <p className="rounded-xl border border-rand bg-paneel p-4 text-sm text-gedempt">
-          De Google-agenda is nog niet gekoppeld, dus publiceren lukt niet. Je kunt
-          hieronder wel rekenen en kijken hoe het uitpakt.{" "}
-          <Link href="/instellingen" className="text-accent underline">
-            Koppelen
-          </Link>
-        </p>
-      )}
-
-      <Seizoensplanner
-        jaar={jaar}
-        huishoudens={huishoudens.map((h) => ({ id: h.id, naam: h.naam }))}
-        feestdagen={feestdagenIn(jaar)}
-        vakanties={vakanties.vakanties}
-        vakantieHerkomst={vakanties.herkomst}
-        plan={plan}
-        kanPubliceren={status.gekoppeld && status.agendaId !== null}
+    <>
+      <Schermkop
+        titel={`Seizoen ${jaar}`}
+        onderschrift={plan ? "vastgelegd · maart t/m oktober" : "concept · maart t/m oktober"}
+        tabs={<Segment items={PLANNING_TABS} actief="/vaarplanning/seizoen" />}
       />
-    </div>
+
+      <Schermbody>
+        {!status.gekoppeld && (
+          <p className="rounded-2xl border border-dashed border-rand-sterk p-4 text-sm text-gedempt text-pretty">
+            De Google-agenda is nog niet gekoppeld, dus publiceren lukt niet. Je kunt
+            hieronder wel verdelen en kijken hoe het uitpakt.{" "}
+            <Link href="/instellingen" className="text-link underline">
+              Koppelen
+            </Link>
+          </p>
+        )}
+
+        <Seizoensplanner
+          jaar={jaar}
+          huishoudens={huishoudens.map((h) => ({ id: h.id, naam: h.naam }))}
+          feestdagen={feestdagenIn(jaar)}
+          vakanties={vakanties.vakanties}
+          vakantieHerkomst={vakanties.herkomst}
+          plan={plan}
+          kanPubliceren={status.gekoppeld && status.agendaId !== null}
+        />
+      </Schermbody>
+    </>
   );
 }

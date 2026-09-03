@@ -2,6 +2,7 @@
 
 import { useActionState, useCallback, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import KleurKiezer from "./KleurKiezer";
 import { formatEuro, parseEuro } from "@/lib/geld";
 import {
   neemVorigJaarOverAction,
@@ -26,7 +27,8 @@ export type Post = {
   subposten: Post[];
 };
 
-const invoer = "rounded-lg border border-rand bg-achtergrond px-3 py-2 text-sm";
+const invoer =
+  "rounded-xl border border-rand-sterk bg-paneel px-3.5 py-3 text-[15px]";
 
 function alsTekst(cent: number | null): string {
   return cent === null ? "" : (cent / 100).toFixed(2).replace(".", ",");
@@ -93,9 +95,11 @@ export default function BegrotingFormulier({
    * veld verlaat. Een teller per post houdt bij welke opdracht de laatste is, zodat
    * een traag antwoord een nieuwere invoer niet overschrijft in de melding.
    */
-  const [status, setStatus] = useState<
-    { bezig: boolean; fout: string | null; opgeslagenOp: number | null }
-  >({ bezig: false, fout: null, opgeslagenOp: null });
+  const [status, setStatus] = useState<{
+    bezig: boolean;
+    fout: string | null;
+    opgeslagenOp: number | null;
+  }>({ bezig: false, fout: null, opgeslagenOp: null });
   const timers = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
   const laatste = useRef(0);
 
@@ -117,7 +121,10 @@ export default function BegrotingFormulier({
   function pasBedragAan(postId: number, tekst: string) {
     setBedragen((huidig) => ({ ...huidig, [postId]: tekst }));
     clearTimeout(timers.current[postId]);
-    timers.current[postId] = setTimeout(() => void bewaarVeld(postId, tekst), 600);
+    timers.current[postId] = setTimeout(
+      () => void bewaarVeld(postId, tekst),
+      600,
+    );
   }
 
   function bewaarNu(postId: number, tekst: string) {
@@ -136,11 +143,11 @@ export default function BegrotingFormulier({
   if (posten.length === 0) {
     return (
       <div className="flex flex-col gap-4">
-        <p className="rounded-xl border border-rand bg-paneel p-6 text-sm text-gedempt">
-          Nog geen posten. Begin met een paar hoofdposten — Onderhoud, Vaste lasten,
+        <p className="rounded-2xl border border-dashed border-rand-sterk p-5 text-sm text-gedempt text-pretty">
+          Nog geen posten. Begin met een paar hoofdposten — Onderhoud, Liggeld,
           Uitrusting — en hang daar subposten onder zodra je het fijner wilt.
         </p>
-        <div className="rounded-xl border border-rand bg-paneel p-4">
+        <div className="rounded-2xl border border-rand bg-paneel p-4">
           <NieuwePost hoofdposten={[]} />
         </div>
       </div>
@@ -149,157 +156,180 @@ export default function BegrotingFormulier({
 
   return (
     <div className="flex flex-col gap-4">
-      <section className="rounded-xl border border-rand bg-paneel p-4">
-        <ul className="flex flex-col">
-          <li className="flex items-center gap-3 border-b border-rand pb-2 text-xs text-gedempt">
-            <span className="flex-1">Post</span>
-            <span className="w-28 text-right">Begroot</span>
-            <span className="hidden w-28 text-right sm:block">Uitgegeven</span>
-            <span className="hidden w-28 text-right sm:block">Verschil</span>
-          </li>
+      <Stand begroot={totalen.begroot} besteed={totalen.werkelijk} />
 
-          {zichtbaar.map((post) => (
-            <PostRegel
-              key={post.id}
-              post={post}
-              jaar={jaar}
-              bedragen={bedragen}
-              pasBedragAan={pasBedragAan}
-              bewaarNu={bewaarNu}
-            />
-          ))}
-        </ul>
+      <div className="flex flex-col gap-2.5">
+        <div className="bovenschrift flex justify-between px-1">
+          <span>Post</span>
+          <span>Begroot</span>
+        </div>
 
-        {heeftGebruikte && (
-          <label className="mt-3 flex items-center gap-2 text-xs text-gedempt">
-            <input
-              type="checkbox"
-              checked={toonAlles}
-              onChange={(e) => setToonAlles(e.target.checked)}
-            />
-            Alle posten tonen, ook die dit jaar niet meedoen
-          </label>
+        {zichtbaar.map((post) => (
+          <PostKaart
+            key={post.id}
+            post={post}
+            jaar={jaar}
+            bedragen={bedragen}
+            pasBedragAan={pasBedragAan}
+            bewaarNu={bewaarNu}
+          />
+        ))}
+      </div>
+
+      {heeftGebruikte && (
+        <label className="flex items-center gap-2 px-1 text-xs text-gedempt">
+          <input
+            type="checkbox"
+            checked={toonAlles}
+            onChange={(e) => setToonAlles(e.target.checked)}
+            className="accent-[var(--inkt)]"
+          />
+          Alle posten tonen, ook die dit jaar niet meedoen
+        </label>
+      )}
+
+      {/* Geen opslaanknop: elk bedrag gaat vanzelf mee zodra je stopt met typen. */}
+      <p className="h-4 px-1 text-xs text-gedempt" aria-live="polite">
+        {status.fout ? (
+          <span className="text-slecht">{status.fout}</span>
+        ) : status.bezig ? (
+          "opslaan…"
+        ) : status.opgeslagenOp !== null ? (
+          "opgeslagen"
+        ) : (
+          "Bedragen worden vanzelf opgeslagen."
         )}
+      </p>
 
-        <div className="mt-3 border-t border-rand pt-3 text-sm font-medium">
-          <div className="flex items-center gap-3">
-            <span className="flex-1">Totaal</span>
-            <span className="cijfers w-28 shrink-0 text-right">
-              {formatEuro(totalen.begroot)}
-            </span>
-            <span className="cijfers hidden w-28 text-right sm:block">
-              {formatEuro(totalen.werkelijk)}
-            </span>
-            <span className="cijfers hidden w-28 text-right sm:block">
-              {formatEuro(totalen.begroot - totalen.werkelijk)}
-            </span>
-          </div>
-          <p className="mt-1 flex gap-3 text-xs font-normal text-gedempt sm:hidden">
-            <span>
-              uitgegeven <span className="cijfers">{formatEuro(totalen.werkelijk)}</span>
-            </span>
-            <span>
-              verschil{" "}
-              <span className="cijfers">
-                {formatEuro(totalen.begroot - totalen.werkelijk)}
-              </span>
-            </span>
-          </p>
-        </div>
-
-        {/* Geen opslaanknop: elk bedrag gaat vanzelf mee zodra je stopt met typen. */}
-        <p className="mt-3 h-5 text-xs text-gedempt" aria-live="polite">
-          {status.fout ? (
-            <span className="text-slecht">{status.fout}</span>
-          ) : status.bezig ? (
-            "opslaan…"
-          ) : status.opgeslagenOp !== null ? (
-            "opgeslagen"
-          ) : (
-            "Bedragen worden vanzelf opgeslagen."
-          )}
-        </p>
-      </section>
-
-      <div className="rounded-xl border border-rand bg-paneel p-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <NieuwePost hoofdposten={posten} />
-          <form action={overnemen} className="flex items-center gap-3">
-            <input type="hidden" name="jaar" value={jaar} />
-            <button
-              disabled={overnemenBezig}
-              className="rounded-lg border border-rand px-3 py-2 text-sm disabled:opacity-50"
-            >
-              Overnemen uit {jaar - 1}
-            </button>
-          </form>
+      <div className="flex gap-2.5">
+        <button
+          type="button"
+          onClick={() => setBeheer((huidig) => !huidig)}
+          className="flex-1 rounded-xl border border-rand-sterk bg-paneel px-3 py-3 text-[13.5px] font-semibold transition hover:border-inkt"
+        >
+          {beheer ? "Klaar met posten" : "+ Post toevoegen"}
+        </button>
+        <form action={overnemen} className="flex-1">
+          <input type="hidden" name="jaar" value={jaar} />
           <button
-            type="button"
-            onClick={() => setBeheer((huidig) => !huidig)}
-            className="text-sm text-accent underline"
+            disabled={overnemenBezig}
+            className="w-full rounded-xl border border-dashed border-rand-sterk px-3 py-3 text-[13.5px] text-gedempt transition hover:border-inkt disabled:opacity-50"
           >
-            {beheer ? "posten verbergen" : "posten aanpassen"}
+            Overnemen uit {jaar - 1}
           </button>
-          <Uitkomst state={overnemenState} />
-        </div>
+        </form>
+      </div>
+      <Uitkomst state={overnemenState} />
 
-        {beheer && (
-          <ul className="mt-4 flex flex-col gap-3 border-t border-rand pt-4">
+      {beheer && (
+        <div className="flex flex-col gap-4 rounded-2xl border border-rand bg-paneel p-4">
+          <NieuwePost hoofdposten={posten} />
+          <ul className="flex flex-col gap-3 border-t border-rand pt-4">
             {alle.map((post) => (
               <li key={post.id}>
                 <BeheerRegel post={post} hoofdposten={posten} />
               </li>
             ))}
           </ul>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function PostRegel({
+/** Het donkere blok bovenaan: staan we boven of onder de begroting? */
+function Stand({ begroot, besteed }: { begroot: number; besteed: number }) {
+  const verschil = besteed - begroot;
+  const over = verschil > 0;
+  const deel = begroot > 0 ? Math.min(1, besteed / begroot) : 0;
+  const teveel =
+    begroot > 0 && besteed > begroot
+      ? Math.min(0.4, (besteed - begroot) / besteed)
+      : 0;
+
+  return (
+    <section className="rounded-2xl bg-inkt p-[18px] text-linnen">
+      <div className="flex items-end justify-between gap-4">
+        <div className="min-w-0">
+          <p className="bovenschrift !text-messing">
+            {begroot === 0
+              ? "Nog niets begroot"
+              : over
+                ? "Boven begroting"
+                : "Nog te besteden"}
+          </p>
+          <p className="titel cijfers mt-1.5 text-[38px] leading-tight">
+            {formatEuro(Math.abs(verschil))}
+          </p>
+        </div>
+        <div className="cijfers shrink-0 text-right text-[11px] leading-loose text-linnen/65">
+          <div>begroot {formatEuro(begroot)}</div>
+          <div>besteed {formatEuro(besteed)}</div>
+        </div>
+      </div>
+      <div className="mt-3.5 flex h-2 overflow-hidden rounded-full bg-linnen/20">
+        <span
+          style={{ width: `${deel * 100}%`, background: "var(--marine-zacht)" }}
+        />
+        <span
+          style={{ width: `${teveel * 100}%`, background: "var(--messing)" }}
+        />
+      </div>
+      <p className="mt-2 text-xs text-linnen/75">
+        {begroot === 0
+          ? "Vul hieronder per post in wat je voor dit jaar verwacht."
+          : over
+            ? `${Math.round((verschil / begroot) * 100)}% over de begroting`
+            : `${Math.round(deel * 100)}% van de begroting besteed`}
+      </p>
+    </section>
+  );
+}
+
+function PostKaart({
   post,
   jaar,
   bedragen,
   pasBedragAan,
   bewaarNu,
-  ingesprongen = false,
 }: {
   post: Post;
   jaar: number;
   bedragen: Record<number, string>;
   pasBedragAan: (postId: number, tekst: string) => void;
   bewaarNu: (postId: number, tekst: string) => void;
-  ingesprongen?: boolean;
 }) {
-  // Elke regel vergelijkt zijn eigen bedrag met zijn eigen uitgaven. Wat een hoofdpost
-  // met zijn subposten samen doet staat eronder in de subtotaalregel; anders zou je
-  // een begroting van 800 naast uitgaven van een subpost met een eigen bedrag leggen.
-  const begrootCent = parseEuro(bedragen[post.id] ?? "");
-  const verschil = begrootCent === null ? null : begrootCent - post.eigenCent;
+  // Een hoofdpost meet zich met alles wat eronder hangt; een losse post met
+  // zichzelf. Anders leg je een begroting van 800 naast de uitgaven van één subpost.
+  const eigenBegroot = parseEuro(bedragen[post.id] ?? "");
+  const samenBegroot = [post, ...post.subposten].reduce(
+    (som, p) => som + (parseEuro(bedragen[p.id] ?? "") ?? 0),
+    0,
+  );
+  const heeftSub = post.subposten.length > 0;
+  const begroot = heeftSub ? samenBegroot : eigenBegroot;
+  const besteed = heeftSub ? post.werkelijkCent : post.eigenCent;
+  const deel = begroot && begroot > 0 ? besteed / begroot : null;
+  const verschil = begroot === null ? null : begroot - besteed;
 
   return (
-    <>
-      <li className="border-b border-rand py-2 last:border-0">
-       <div className="flex items-center gap-3">
-        {/* De naam leidt naar de uitgaven op deze post; bij een hoofdpost tellen de
-            subposten daar mee. */}
+    <section className="rounded-2xl border border-rand bg-paneel p-4">
+      <div className="mb-2.5 flex items-center gap-2.5">
+        <span
+          aria-hidden
+          className="h-2.5 w-2.5 shrink-0 rounded-sm"
+          style={{ background: post.kleur }}
+        />
         <Link
           href={`/uitgaven?jaar=${jaar}&post=${post.id}`}
           title={`Uitgaven op ${post.naam} in ${jaar}`}
-          className={`flex flex-1 items-center gap-2 hover:text-accent sm:truncate ${
-            ingesprongen ? "pl-6 text-sm text-gedempt" : "text-sm font-medium"
-          }`}
+          className="min-w-0 flex-1 text-sm font-semibold hover:text-link"
         >
-          <span
-            aria-hidden
-            className="inline-block h-3 w-3 shrink-0 rounded"
-            style={{ background: post.kleur }}
-          />
-          {/* Op een telefoon liever twee regels dan "Elektronica en instrume…". */}
-          <span className="min-w-0 sm:truncate">{post.naam}</span>
+          <span className="line-clamp-2">{post.naam}</span>
           {!post.actief && (
-            <span className="shrink-0 text-xs text-gedempt">(inactief)</span>
+            <span className="ml-1 text-xs font-normal text-gedempt">
+              (inactief)
+            </span>
           )}
         </Link>
         <input
@@ -310,99 +340,69 @@ function PostRegel({
           onChange={(e) => pasBedragAan(post.id, e.target.value)}
           onBlur={(e) => bewaarNu(post.id, e.target.value)}
           aria-label={`Begroot voor ${post.naam}`}
-          className={`${invoer} cijfers w-28 shrink-0 text-right`}
+          className="cijfers w-[104px] shrink-0 rounded-lg border border-rand-sterk bg-verzonken px-2.5 py-2 text-right text-[13px]"
         />
-        <span className="cijfers hidden w-28 text-right text-sm text-gedempt sm:block">
-          {formatEuro(post.eigenCent)}
-        </span>
-        <span
-          className={`cijfers hidden w-28 text-right text-sm sm:block ${
-            verschil !== null && verschil < 0 ? "text-slecht" : "text-gedempt"
-          }`}
-        >
-          {verschil === null ? "—" : formatEuro(verschil)}
-        </span>
-       </div>
-
-       {/* Op een telefoon passen de kolommen niet naast het invoerveld; dan gaan de
-           cijfers eronder in plaats van dat ze verdwijnen. */}
-       <p
-         className={`mt-1 flex gap-3 text-xs text-gedempt sm:hidden ${
-           ingesprongen ? "pl-6" : ""
-         }`}
-       >
-         <span>
-           uitgegeven <span className="cijfers">{formatEuro(post.eigenCent)}</span>
-         </span>
-         <span className={verschil !== null && verschil < 0 ? "text-slecht" : ""}>
-           verschil{" "}
-           <span className="cijfers">
-             {verschil === null ? "—" : formatEuro(verschil)}
-           </span>
-         </span>
-       </p>
-      </li>
-
-      {post.subposten.map((sub) => (
-        <PostRegel
-          key={sub.id}
-          post={sub}
-          jaar={jaar}
-          bedragen={bedragen}
-          pasBedragAan={pasBedragAan}
-          bewaarNu={bewaarNu}
-          ingesprongen
-        />
-      ))}
-
-      {post.subposten.length > 0 && (
-        <Subtotaal post={post} bedragen={bedragen} />
-      )}
-    </>
-  );
-}
-
-/** Hoofdpost plus subposten bij elkaar; alleen zinnig als er subposten zijn. */
-function Subtotaal({
-  post,
-  bedragen,
-}: {
-  post: Post;
-  bedragen: Record<number, string>;
-}) {
-  const begroot = [post, ...post.subposten].reduce(
-    (som, p) => som + (parseEuro(bedragen[p.id] ?? "") ?? 0),
-    0,
-  );
-  const verschil = begroot - post.werkelijkCent;
-
-  return (
-    <li className="border-b border-rand py-2 text-sm text-gedempt last:border-0">
-      <div className="flex items-center gap-3">
-        <span className="flex-1 pl-6 sm:truncate">samen {post.naam}</span>
-        <span className="cijfers w-28 shrink-0 pr-3 text-right">
-          {formatEuro(begroot)}
-        </span>
-        <span className="cijfers hidden w-28 text-right sm:block">
-          {formatEuro(post.werkelijkCent)}
-        </span>
-        <span
-          className={`cijfers hidden w-28 text-right sm:block ${
-            verschil < 0 ? "text-slecht" : ""
-          }`}
-        >
-          {formatEuro(verschil)}
-        </span>
       </div>
-      <p className="mt-1 flex gap-3 pl-6 text-xs sm:hidden">
-        <span>
-          uitgegeven <span className="cijfers">{formatEuro(post.werkelijkCent)}</span>
-        </span>
-        <span className={verschil < 0 ? "text-slecht" : ""}>
-          verschil <span className="cijfers">{formatEuro(verschil)}</span>
-        </span>
-      </p>
-    </li>
+
+      {/* Geen begroting, geen balk -- een volle balk zou lezen als "helemaal op". */}
+      {deel !== null && (
+        <div className="mb-2 h-1.5 overflow-hidden rounded-full bg-linnen-diep">
+          <div
+            className="h-full rounded-full"
+            style={{
+              width: `${Math.min(100, deel * 100)}%`,
+              background: deel > 1 ? "var(--messing-inkt)" : post.kleur,
+            }}
+          />
+        </div>
+      )}
+      <div className="cijfers flex justify-between text-[11.5px] text-gedempt">
+        <span>besteed {formatEuro(besteed)}</span>
+        {verschil === null || begroot === 0 ? (
+          <span className="text-messing-inkt">
+            {besteed > 0 ? "niet begroot" : "—"}
+          </span>
+        ) : (
+          <span className={verschil < 0 ? "text-messing-inkt" : "text-goed"}>
+            {verschil < 0
+              ? `${formatEuro(-verschil)} te veel`
+              : `over ${formatEuro(verschil)}`}
+          </span>
+        )}
+      </div>
+
+      {heeftSub && (
+        <div className="mt-3 flex flex-col gap-2.5 border-t border-dashed border-rand-sterk pt-3">
+          {post.subposten.map((sub) => (
+            <div key={sub.id} className="flex items-center gap-2.5 text-[13px]">
+              <span
+                aria-hidden
+                className="h-1.5 w-1.5 shrink-0 rounded-full bg-zacht"
+              />
+              <Link
+                href={`/uitgaven?jaar=${jaar}&post=${sub.id}`}
+                className="min-w-0 flex-1 truncate text-tekst/75 hover:text-link"
+              >
+                {sub.naam}
+              </Link>
+              <span className="cijfers shrink-0 text-[11.5px] text-gedempt">
+                {formatEuro(sub.eigenCent)}
+              </span>
+              <input
+                name={`post-${sub.id}`}
+                inputMode="decimal"
+                placeholder="—"
+                value={bedragen[sub.id] ?? ""}
+                onChange={(e) => pasBedragAan(sub.id, e.target.value)}
+                onBlur={(e) => bewaarNu(sub.id, e.target.value)}
+                aria-label={`Begroot voor ${sub.naam}`}
+                className="cijfers w-[88px] shrink-0 rounded-lg border border-rand bg-verzonken px-2 py-1.5 text-right text-xs"
+              />
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -426,12 +426,10 @@ function BeheerRegel({
         className="flex flex-1 flex-wrap items-center gap-2"
       >
         <input type="hidden" name="id" value={post.id} />
-        <input
-          type="color"
-          name="kleur"
-          defaultValue={post.kleur}
-          aria-label={`Kleur voor ${post.naam}`}
-          className="h-9 w-9 shrink-0 rounded border border-rand bg-transparent"
+        <KleurKiezer
+          key={post.kleur}
+          begin={post.kleur}
+          label={`Kleur voor ${post.naam}`}
         />
         <input
           name="naam"
@@ -457,11 +455,16 @@ function BeheerRegel({
               </option>
             ))}
         </select>
-        <label className="flex items-center gap-1 text-sm text-gedempt">
-          <input type="checkbox" name="actief" defaultChecked={post.actief} />
+        <label className="flex items-center gap-1.5 text-sm text-gedempt">
+          <input
+            type="checkbox"
+            name="actief"
+            defaultChecked={post.actief}
+            className="accent-[var(--inkt)]"
+          />
           actief
         </label>
-        <button className="rounded-lg border border-rand px-3 py-2 text-sm">
+        <button className="rounded-xl border border-rand-sterk px-3.5 py-2.5 text-sm font-semibold">
           Opslaan
         </button>
       </form>
@@ -484,7 +487,7 @@ function BeheerRegel({
               e.preventDefault();
             }
           }}
-          className="rounded-lg px-3 py-2 text-sm text-slecht underline disabled:opacity-50"
+          className="rounded-xl px-3 py-2.5 text-sm text-slecht underline disabled:opacity-50"
         >
           verwijderen
         </button>
@@ -502,14 +505,11 @@ function NieuwePost({ hoofdposten }: { hoofdposten: Post[] }) {
   );
 
   return (
-    <form action={toevoegen} className="flex flex-1 flex-wrap items-center gap-2">
-      <input
-        type="color"
-        name="kleur"
-        defaultValue="#64748b"
-        aria-label="Kleur"
-        className="h-9 w-9 shrink-0 rounded border border-rand bg-transparent"
-      />
+    <form
+      action={toevoegen}
+      className="flex flex-1 flex-wrap items-center gap-2"
+    >
+      <KleurKiezer begin="#2F5C8A" label="Kleur" />
       <input
         name="naam"
         required
@@ -533,7 +533,7 @@ function NieuwePost({ hoofdposten }: { hoofdposten: Post[] }) {
       )}
       <button
         disabled={bezig}
-        className="rounded-lg border border-rand px-3 py-2 text-sm disabled:opacity-50"
+        className="rounded-xl bg-inkt px-4 py-3 text-sm font-semibold text-linnen disabled:opacity-50"
       >
         Toevoegen
       </button>

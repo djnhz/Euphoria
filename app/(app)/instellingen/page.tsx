@@ -10,6 +10,7 @@ import { verbruikOverzicht, type VerbruikOverzicht } from "@/lib/aiverbruik";
 import { formatEuro } from "@/lib/geld";
 import AgendaFormulier from "@/components/AgendaFormulier";
 import BeheerderFormulier from "@/components/BeheerderFormulier";
+import { Paneel, Schermbody, Schermkop } from "@/components/Scherm";
 
 export default async function InstellingenPagina() {
   const gebruiker = await vereisGebruiker();
@@ -18,21 +19,18 @@ export default async function InstellingenPagina() {
   // rest ook niet op.
   if (!gebruiker.beheerder) {
     return (
-      <div className="flex flex-col gap-6">
-        <h1 className="text-2xl font-semibold tracking-tight">Instellingen</h1>
-
-        <section className="rounded-xl border border-rand bg-paneel p-4">
-          <h2 className="mb-4 text-sm font-medium">
-            Pincode van {gebruiker.naam}
-          </h2>
-          <PinFormulier />
-        </section>
-
-        <p className="text-sm text-gedempt">
-          De rest — namen, de koppelingen en de pincodes van iedereen — beheert de
-          beheerder.
-        </p>
-      </div>
+      <>
+        <Schermkop titel="Mijn pincode" onderschrift={gebruiker.naam} />
+        <Schermbody className="gap-6">
+          <Paneel>
+            <PinFormulier />
+          </Paneel>
+          <p className="text-sm text-gedempt text-pretty">
+            De rest — namen, de koppelingen en de pincodes van iedereen —
+            beheert de beheerder.
+          </p>
+        </Schermbody>
+      </>
     );
   }
 
@@ -51,56 +49,63 @@ export default async function InstellingenPagina() {
   ]);
 
   return (
-    <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold tracking-tight">Instellingen</h1>
+    <>
+      <Schermkop titel="Instellingen" onderschrift="beheer van de app" />
+      <Schermbody className="gap-6">
+        <section className="rounded-2xl border border-rand bg-paneel p-4">
+          <h2 className="mb-4 text-sm font-medium">
+            Pincode van {gebruiker.naam}
+          </h2>
+          <PinFormulier />
+        </section>
 
-      <section className="rounded-xl border border-rand bg-paneel p-4">
-        <h2 className="mb-4 text-sm font-medium">
-          Pincode van {gebruiker.naam}
-        </h2>
-        <PinFormulier />
-      </section>
+        <section className="rounded-2xl border border-rand bg-paneel p-4">
+          <h2 className="mb-1 text-sm font-medium">Pincodes van iedereen</h2>
+          <p className="mb-4 text-xs text-gedempt">
+            Een nieuwe code haalt meteen het slot van vijf mislukte pogingen
+            weg.
+          </p>
+          <PincodeBeheer gebruikers={gebruikers} />
+        </section>
 
-      <section className="rounded-xl border border-rand bg-paneel p-4">
-        <h2 className="mb-1 text-sm font-medium">Pincodes van iedereen</h2>
-        <p className="mb-4 text-xs text-gedempt">
-          Een nieuwe code haalt meteen het slot van vijf mislukte pogingen weg.
-        </p>
-        <PincodeBeheer gebruikers={gebruikers} />
-      </section>
+        <section className="rounded-2xl border border-rand bg-paneel p-4">
+          <h2 className="mb-1 text-sm font-medium">Namen</h2>
+          <p className="mb-4 text-xs text-gedempt">
+            Het huishouden dat als eerste staat, telt in de app als huishouden
+            A.
+          </p>
+          <NamenFormulier huishoudens={huishoudens} gebruikers={gebruikers} />
+        </section>
 
-      <section className="rounded-xl border border-rand bg-paneel p-4">
-        <h2 className="mb-1 text-sm font-medium">Namen</h2>
-        <p className="mb-4 text-xs text-gedempt">
-          Het huishouden dat als eerste staat, telt in de app als huishouden A.
-        </p>
-        <NamenFormulier huishoudens={huishoudens} gebruikers={gebruikers} />
-      </section>
+        <section className="rounded-2xl border border-rand bg-paneel p-4">
+          <h2 className="mb-1 text-sm font-medium">Bonanalyse</h2>
+          <p className="mb-4 text-xs text-gedempt">
+            OpenAI geeft geen saldo terug, dus hieronder staat wat déze app
+            heeft verbruikt. Wat er nog op je tegoed staat zie je in het
+            OpenAI-dashboard.
+          </p>
+          <Verbruik overzicht={verbruik} />
+          <BonanalyseFormulier
+            status={await sleutelStatus()}
+            prijzen={verbruik.prijzen}
+          />
+        </section>
 
-      <section className="rounded-xl border border-rand bg-paneel p-4">
-        <h2 className="mb-1 text-sm font-medium">Bonanalyse</h2>
-        <p className="mb-4 text-xs text-gedempt">
-          OpenAI geeft geen saldo terug, dus hieronder staat wat déze app heeft
-          verbruikt. Wat er nog op je tegoed staat zie je in het OpenAI-dashboard.
-        </p>
-        <Verbruik overzicht={verbruik} />
-        <BonanalyseFormulier status={await sleutelStatus()} prijzen={verbruik.prijzen} />
-      </section>
+        <section className="rounded-2xl border border-rand bg-paneel p-4">
+          <h2 className="mb-4 text-sm font-medium">Google-agenda</h2>
+          <AgendaFormulier status={await agendaStatus()} />
+        </section>
 
-      <section className="rounded-xl border border-rand bg-paneel p-4">
-        <h2 className="mb-4 text-sm font-medium">Google-agenda</h2>
-        <AgendaFormulier status={await agendaStatus()} />
-      </section>
-
-      <section className="rounded-xl border border-rand bg-paneel p-4">
-        <h2 className="mb-1 text-sm font-medium">Beheerder</h2>
-        <p className="mb-4 text-xs text-gedempt">
-          Alleen een beheerder kan deze instellingen aanpassen en pincodes
-          terugzetten. Er blijft er altijd minstens één over.
-        </p>
-        <BeheerderFormulier gebruikers={gebruikers} />
-      </section>
-    </div>
+        <section className="rounded-2xl border border-rand bg-paneel p-4">
+          <h2 className="mb-1 text-sm font-medium">Beheerder</h2>
+          <p className="mb-4 text-xs text-gedempt">
+            Alleen een beheerder kan deze instellingen aanpassen en pincodes
+            terugzetten. Er blijft er altijd minstens één over.
+          </p>
+          <BeheerderFormulier gebruikers={gebruikers} />
+        </section>
+      </Schermbody>
+    </>
   );
 }
 
@@ -123,13 +128,18 @@ function Verbruik({ overzicht }: { overzicht: VerbruikOverzicht }) {
     <div className="mb-4 rounded-lg border border-rand p-3">
       <ul className="flex flex-col gap-2 text-sm">
         {regels.map((regel) => (
-          <li key={regel.label} className="flex flex-wrap items-baseline gap-x-3">
+          <li
+            key={regel.label}
+            className="flex flex-wrap items-baseline gap-x-3"
+          >
             <span className="min-w-32 text-gedempt">{regel.label}</span>
             <span>
               {regel.stand.aantal} bon{regel.stand.aantal === 1 ? "" : "nen"}
             </span>
             <span className="cijfers text-gedempt">
-              {(regel.stand.tokensIn + regel.stand.tokensUit).toLocaleString("nl-NL")}{" "}
+              {(regel.stand.tokensIn + regel.stand.tokensUit).toLocaleString(
+                "nl-NL",
+              )}{" "}
               tokens
             </span>
             <span className="cijfers ml-auto font-medium">
@@ -142,7 +152,8 @@ function Verbruik({ overzicht }: { overzicht: VerbruikOverzicht }) {
       </ul>
       {overzicht.totaal.kostenCent === null && (
         <p className="mt-2 text-xs text-gedempt">
-          Vul hieronder de prijs per miljoen tokens in om er een bedrag bij te zien.
+          Vul hieronder de prijs per miljoen tokens in om er een bedrag bij te
+          zien.
         </p>
       )}
     </div>

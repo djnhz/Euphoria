@@ -1,59 +1,117 @@
 @import "tailwindcss";
 
+/**
+ * Marine en messing: de kleuren van het logo. Donkerblauwe inkt op linnen, met
+ * messing als accent. Buchner is marineblauw, Zoutewelle messing -- die twee
+ * kleuren staan overal voor dezelfde twee huishoudens.
+ *
+ * Bewust één thema. Linnen en messing zijn warme, papierachtige kleuren; omgekeerd
+ * in het donker wordt dat modder in plaats van een tegenhanger.
+ */
 :root {
-  --achtergrond: #f1f5f9;
-  --paneel: #ffffff;
-  --rand: #e2e8f0;
-  --tekst: #0f172a;
-  --gedempt: #64748b;
-  --accent: #0369a1;
-  --accent-zacht: #e0f2fe;
-  --goed: #15803d;
-  --slecht: #b91c1c;
-  /* Vakantieweken in de seizoensplanning; bouwvak krijgt de sterkere tint. */
-  --vakantie-zacht: #fef3c7;
-  --vakantie-sterk: #fde68a;
-  --vakantie-rand: #b45309;
-}
+  color-scheme: light;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --achtergrond: #0b1220;
-    --paneel: #111c2e;
-    --rand: #1e293b;
-    --tekst: #e2e8f0;
-    --gedempt: #94a3b8;
-    --accent: #38bdf8;
-    --accent-zacht: #0c2740;
-    --goed: #4ade80;
-    --slecht: #f87171;
-    --vakantie-zacht: #2a2411;
-    --vakantie-sterk: #3d3316;
-    --vakantie-rand: #d97706;
-  }
+  --inkt: #16283f;
+  --inkt-diep: #0f2038;
+  --inkt-hover: #22395a;
+
+  --marine: #2f5c8a;
+  --marine-zacht: #9db4ce;
+  --marine-tint: #e4eaf2;
+
+  --messing: #c9a662;
+  --messing-inkt: #8a6a2f;
+  --messing-tint: #f3e9d5;
+
+  --salie: #3f6b54;
+  --neutraal: #c7c0b2;
+
+  --linnen: #f7f4ec;
+  --linnen-diep: #efeae0;
+
+  /* De namen die de rest van de app al gebruikt, nu met de nieuwe kleuren erachter. */
+  --achtergrond: var(--linnen);
+  --paneel: #ffffff;
+  --verzonken: #fbf9f4;
+  --rand: rgba(22, 40, 63, 0.1);
+  --rand-sterk: rgba(22, 40, 63, 0.18);
+  --tekst: var(--inkt);
+  --gedempt: rgba(22, 40, 63, 0.55);
+  --zacht: rgba(22, 40, 63, 0.42);
+  --accent: var(--inkt);
+  --accent-zacht: var(--marine-tint);
+  --link: var(--messing-inkt);
+  --goed: var(--salie);
+  --slecht: #9b2c1f;
+
+  /* Vakantieweken in de seizoensplanning; bouwvak krijgt de sterkere tint. */
+  --vakantie-zacht: var(--messing-tint);
+  --vakantie-sterk: #ead6ab;
+  --vakantie-rand: var(--messing-inkt);
 }
 
 @theme inline {
+  --color-inkt: var(--inkt);
+  --color-inkt-diep: var(--inkt-diep);
+  --color-inkt-hover: var(--inkt-hover);
+  --color-marine: var(--marine);
+  --color-marine-zacht: var(--marine-zacht);
+  --color-marine-tint: var(--marine-tint);
+  --color-messing: var(--messing);
+  --color-messing-inkt: var(--messing-inkt);
+  --color-messing-tint: var(--messing-tint);
+  --color-salie: var(--salie);
+  --color-neutraal: var(--neutraal);
+  --color-linnen: var(--linnen);
+  --color-linnen-diep: var(--linnen-diep);
+
   --color-achtergrond: var(--achtergrond);
   --color-paneel: var(--paneel);
+  --color-verzonken: var(--verzonken);
   --color-rand: var(--rand);
+  --color-rand-sterk: var(--rand-sterk);
   --color-tekst: var(--tekst);
   --color-gedempt: var(--gedempt);
+  --color-zacht: var(--zacht);
   --color-accent: var(--accent);
   --color-accent-zacht: var(--accent-zacht);
+  --color-link: var(--link);
   --color-goed: var(--goed);
   --color-slecht: var(--slecht);
   --color-vakantie-rand: var(--vakantie-rand);
-  --font-sans: var(--font-geist-sans);
+
+  --font-sans: var(--font-archivo);
+  --font-titel: var(--font-newsreader);
+  --font-mono: var(--font-plex-mono);
 }
 
 body {
   background: var(--achtergrond);
   color: var(--tekst);
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-family: var(--font-archivo), system-ui, sans-serif;
 }
 
-/* Getallen in tabellen en bedragen netjes onder elkaar. */
+/**
+ * Titels en grote getallen in de schreefletter, de rest in Archivo. Zo leest een
+ * scherm als een pagina in plaats van als een formulier.
+ */
+.titel {
+  font-family: var(--font-newsreader), Georgia, serif;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+/* Datums, weeknummers en bedragen: monospace, zodat ze onder elkaar uitlijnen. */
 .cijfers {
+  font-family: var(--font-plex-mono), ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
+}
+
+/** Het kopje boven een blok: klein, wijd uit elkaar, in kapitalen. */
+.bovenschrift {
+  font-family: var(--font-plex-mono), ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--gedempt);
 }

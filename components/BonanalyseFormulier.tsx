@@ -10,7 +10,7 @@ import {
 import type { SleutelStatus } from "@/lib/instellingen";
 import Melding from "./Melding";
 
-const invoer = "rounded-lg border border-rand bg-achtergrond px-3 py-2 text-sm";
+const invoer = "rounded-xl border border-rand-sterk bg-paneel px-3.5 py-2.5 text-sm";
 
 function alsEuro(cent: number | null): string {
   return cent === null ? "" : (cent / 100).toFixed(2).replace(".", ",");
@@ -102,7 +102,7 @@ export default function BonanalyseFormulier({
         <div className="flex flex-wrap items-center gap-3">
           <button
             disabled={bezig || status.herkomst === "omgeving"}
-            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="rounded-xl bg-inkt px-4 py-2.5 text-sm font-semibold text-linnen disabled:opacity-50"
           >
             {bezig ? "Bezig…" : "Opslaan"}
           </button>
@@ -117,7 +117,7 @@ export default function BonanalyseFormulier({
           <form action={test}>
             <button
               disabled={testen}
-              className="rounded-lg border border-rand px-3 py-2 text-sm disabled:opacity-50"
+              className="rounded-xl border border-rand-sterk px-3.5 py-2.5 text-sm disabled:opacity-50"
             >
               {testen ? "Testen…" : "Verbinding testen"}
             </button>
@@ -126,7 +126,7 @@ export default function BonanalyseFormulier({
             <form action={wis}>
               <button
                 disabled={wissen}
-                className="rounded-lg border border-rand px-3 py-2 text-sm text-slecht disabled:opacity-50"
+                className="rounded-xl border border-rand-sterk px-3.5 py-2.5 text-sm text-slecht disabled:opacity-50"
               >
                 Sleutel verwijderen
               </button>
@@ -143,7 +143,7 @@ export default function BonanalyseFormulier({
 function Status({ status }: { status: SleutelStatus }) {
   if (status.herkomst === "omgeving") {
     return (
-      <p className="rounded-lg bg-accent-zacht p-3 text-sm">
+      <p className="rounded-xl bg-marine-tint p-3 text-sm">
         De sleutel komt uit de omgevingsvariabele <code>OPENAI_API_KEY</code> en
         eindigt op <code>{status.laatste4}</code>. Die gaat voor op wat hier staat,
         dus dit scherm kan hem niet wijzigen. Haal hem uit de omgeving als je hem
@@ -154,7 +154,7 @@ function Status({ status }: { status: SleutelStatus }) {
 
   if (status.onleesbaar) {
     return (
-      <p className="rounded-lg bg-accent-zacht p-3 text-sm">
+      <p className="rounded-xl bg-marine-tint p-3 text-sm">
         Er staat een sleutel opgeslagen, maar hij is niet te ontcijferen. Dat gebeurt
         als <code>SESSION_SECRET</code> is veranderd. Vul de sleutel opnieuw in.
       </p>

@@ -70,7 +70,7 @@ export default function LoginForm({
             setGekozen(null);
             setPin("");
           }}
-          className="text-sm text-accent underline"
+          className="text-sm text-link underline"
         >
           iemand anders
         </button>

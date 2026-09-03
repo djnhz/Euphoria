@@ -8,7 +8,7 @@ import {
 import Melding from "./Melding";
 
 const invoer =
-  "cijfers rounded-lg border border-rand bg-achtergrond px-3 py-2 text-sm tracking-widest";
+  "cijfers rounded-xl border border-rand-sterk bg-paneel px-3.5 py-2.5 text-sm tracking-widest";
 
 export default function PinFormulier() {
   const [state, formAction, bezig] = useActionState<MeldingState, FormData>(
@@ -42,7 +42,7 @@ export default function PinFormulier() {
       ))}
       <button
         disabled={bezig}
-        className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+        className="rounded-xl bg-inkt px-4 py-2.5 text-sm font-semibold text-linnen disabled:opacity-50"
       >
         Wijzigen
       </button>

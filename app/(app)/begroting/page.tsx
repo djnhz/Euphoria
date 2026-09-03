@@ -2,6 +2,8 @@ import { vereisGebruiker } from "@/lib/auth";
 import { begroteJaren, beschikbareJaren, begroting } from "@/lib/data";
 import BegrotingFormulier from "@/components/BegrotingFormulier";
 import JaarKiezer from "@/components/JaarKiezer";
+import { Schermbody, Schermkop, Segment } from "@/components/Scherm";
+import { KOSTEN_TABS } from "@/components/kostenTabs";
 
 /** Jaren met uitgaven of een begroting, plus dit jaar en het volgende om vooruit te kijken. */
 async function kiesbareJaren(): Promise<number[]> {
@@ -26,15 +28,16 @@ export default async function BegrotingPagina({
   const posten = await begroting(jaar);
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight">Begroting</h1>
-        <div className="ml-auto">
-          <JaarKiezer jaren={jaren} huidig={jaar} />
-        </div>
-      </div>
-
-      <BegrotingFormulier jaar={jaar} posten={posten} />
-    </div>
+    <>
+      <Schermkop
+        titel="Begroting"
+        onderschrift="per jaar, inclusief btw"
+        rechts={<JaarKiezer jaren={jaren} huidig={jaar} />}
+        tabs={<Segment items={KOSTEN_TABS} actief="/begroting" />}
+      />
+      <Schermbody>
+        <BegrotingFormulier jaar={jaar} posten={posten} />
+      </Schermbody>
+    </>
   );
 }

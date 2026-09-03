@@ -10,7 +10,8 @@
     "test": "node --import tsx --test test/**/*.test.ts",
     "db:push": "tsx db/vrij.ts && drizzle-kit push",
     "seed": "tsx db/seed.ts",
-    "db:smoke": "tsx db/smoke.ts"
+    "db:smoke": "tsx db/smoke.ts",
+    "db:migreer": "tsx db/migreer.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

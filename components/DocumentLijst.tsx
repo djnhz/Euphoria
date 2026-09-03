@@ -53,13 +53,13 @@ export default function DocumentLijst({ rijen }: { rijen: DocumentRij[] }) {
           value={zoek}
           onChange={(e) => setZoek(e.target.value)}
           placeholder="Zoek op naam of leverancier"
-          className="min-w-0 flex-1 rounded-lg border border-rand bg-paneel px-3 py-2 text-sm"
+          className="min-w-0 flex-1 rounded-xl border border-rand-sterk bg-paneel px-3.5 py-2.5 text-sm"
         />
         <select
           aria-label="Map"
           value={map}
           onChange={(e) => setMap(e.target.value)}
-          className="rounded-lg border border-rand bg-paneel px-3 py-2 text-sm"
+          className="rounded-xl border border-rand-sterk bg-paneel px-3.5 py-2.5 text-sm"
         >
           <option value="">Alle mappen</option>
           {mappen.map((naam) => (
@@ -108,7 +108,7 @@ export default function DocumentLijst({ rijen }: { rijen: DocumentRij[] }) {
                       {" · "}
                       <Link
                         href={`/uitgaven/${rij.expenseId}`}
-                        className="text-accent underline"
+                        className="text-link underline"
                       >
                         {rij.leverancier || "uitgave"}
                       </Link>

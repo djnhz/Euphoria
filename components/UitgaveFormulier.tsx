@@ -6,6 +6,7 @@ import BestandTegel from "./BestandTegel";
 import { formatEuro, parseEuro } from "@/lib/geld";
 import { formatDatum, vandaag } from "@/lib/datum";
 import { bestandHash } from "@/lib/bestandhash";
+import { huishoudKleur } from "@/lib/kleuren";
 import {
   analyseerDocumentAction,
   bewaarBonAction,
@@ -286,7 +287,7 @@ export default function UitgaveFormulier({
     <form action={formAction} className="flex flex-col gap-4">
       <input type="hidden" name="payload" value={payload} />
 
-      <section className="rounded-xl border border-rand bg-paneel p-4">
+      <section className="rounded-2xl border border-rand bg-paneel p-4">
         <label className="block text-sm font-medium">Bon of factuur</label>
         <p className="mb-3 text-xs text-gedempt">
           Uitlezen doe je zelf, met de knop bij het bestand.
@@ -301,7 +302,7 @@ export default function UitgaveFormulier({
             if (bestand) void verwerkBestand(bestand);
             e.target.value = "";
           }}
-          className="block w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-accent file:px-3 file:py-2 file:text-white"
+          className="block w-full text-sm file:mr-3 file:rounded-xl file:border-0 file:bg-inkt file:px-3.5 file:py-2.5 file:text-sm file:font-semibold file:text-linnen"
         />
         {bezigMetUpload && <p className="mt-3 text-sm text-gedempt">Opslaan…</p>}
         {dubbel && (
@@ -313,7 +314,9 @@ export default function UitgaveFormulier({
           />
         )}
         {melding && (
-          <p className="mt-3 rounded-lg bg-accent-zacht p-3 text-sm">{melding}</p>
+          <p className="mt-3 rounded-xl bg-messing-tint p-3 text-sm text-messing-inkt">
+            {melding}
+          </p>
         )}
 
         {bonnen.length > 0 && (
@@ -346,7 +349,7 @@ export default function UitgaveFormulier({
                         ? undefined
                         : "Stel eerst een OpenAI-sleutel in bij Instellingen"
                     }
-                    className="mt-2 w-full rounded-lg border border-rand px-2 py-1.5 text-xs disabled:opacity-50"
+                    className="mt-2 w-full rounded-xl border border-rand-sterk px-2 py-1.5 text-xs disabled:opacity-50"
                   >
                     {bezigMetAnalyse === bon.documentId ? "Uitlezen…" : "Analyseren"}
                   </button>
@@ -367,7 +370,7 @@ export default function UitgaveFormulier({
         )}
       </section>
 
-      <section className="grid gap-3 rounded-xl border border-rand bg-paneel p-4 sm:grid-cols-2">
+      <section className="grid gap-3 rounded-2xl border border-rand bg-paneel p-4 sm:grid-cols-2">
         <Veld label="Datum">
           <input
             type="date"
@@ -385,22 +388,38 @@ export default function UitgaveFormulier({
             className={invoerKlasse}
           />
         </Veld>
-        <Veld label="Betaald door">
-          <select
-            value={coupleId}
-            onChange={(e) => setCoupleId(Number(e.target.value))}
-            className={invoerKlasse}
-          >
-            {huishoudens.map((huishouden) => (
-              <option key={huishouden.id} value={huishouden.id}>
-                {huishouden.naam}
-              </option>
-            ))}
-          </select>
-        </Veld>
+        {/* Twee huishoudens, dus twee knoppen naast elkaar in plaats van een
+            keuzelijst: één tik, en je ziet meteen wie er staat. */}
+        <div className="sm:col-span-2">
+          <p className="bovenschrift mb-1.5">Betaald door</p>
+          <div className="flex gap-1.5 rounded-xl bg-linnen-diep p-1">
+            {huishoudens.map((huishouden, i) => {
+              const aan = huishouden.id === coupleId;
+              return (
+                <button
+                  key={huishouden.id}
+                  type="button"
+                  onClick={() => setCoupleId(huishouden.id)}
+                  aria-pressed={aan}
+                  className={`flex min-w-0 flex-1 items-center justify-center gap-2 rounded-lg px-2 py-2.5 text-[13px] transition ${
+                    aan
+                      ? "bg-paneel font-semibold text-inkt shadow-sm"
+                      : "text-gedempt"
+                  }`}
+                >
+                  <span
+                    className="h-2 w-2 shrink-0 rounded-sm"
+                    style={{ background: huishoudKleur(i) }}
+                  />
+                  <span className="truncate">{huishouden.naam}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
         {/* De post van de hele bon. Kiezen zet alle regels om; daarna kun je er per
             regel van afwijken, en dan staat hier "gemengd". */}
-        <Veld label="Post">
+        <Veld label="Hoofdpost">
           <select
             value={bonPost}
             onChange={(e) => zetBonPost(Number(e.target.value))}
@@ -423,7 +442,7 @@ export default function UitgaveFormulier({
         </Veld>
       </section>
 
-      <section className="rounded-xl border border-rand bg-paneel p-4">
+      <section className="rounded-2xl border border-rand bg-paneel p-4">
         <div className="mb-1 flex items-center justify-between">
           <h2 className="text-sm font-medium">Regels</h2>
           <button
@@ -434,7 +453,7 @@ export default function UitgaveFormulier({
                 legeRegel(bonPost > 0 ? bonPost : standaardPost),
               ])
             }
-            className="text-sm text-accent underline"
+            className="text-sm text-link underline"
           >
             + regel
           </button>
@@ -443,7 +462,7 @@ export default function UitgaveFormulier({
           {regels.map((regel) => (
             <div
               key={regel.sleutel}
-              className="grid grid-cols-2 gap-2 rounded-lg border border-rand p-3 sm:grid-cols-[1fr_5rem_7rem_auto]"
+              className="grid grid-cols-2 gap-2 rounded-xl border border-rand bg-verzonken p-3 sm:grid-cols-[1fr_5rem_7rem_auto]"
             >
               <input
                 value={regel.omschrijving}
@@ -508,7 +527,7 @@ export default function UitgaveFormulier({
                   ))}
                 </select>
                 {regel.bron === "ai" && (
-                  <span className="justify-self-start rounded-full bg-accent-zacht px-2 py-0.5 text-xs text-accent">
+                  <span className="justify-self-start rounded-md bg-messing-tint px-2 py-1 text-[10.5px] font-semibold text-messing-inkt">
                     uit bon
                   </span>
                 )}
@@ -517,21 +536,27 @@ export default function UitgaveFormulier({
           ))}
         </div>
 
-        {/* Kosten gaan altijd half om half, dus alleen het totaal zegt hier iets. */}
-        <p className="mt-4 border-t border-rand pt-3 text-sm">
-          <span className="text-gedempt">Totaal: </span>
-          <span className="cijfers font-medium">{formatEuro(totaal)}</span>
-        </p>
       </section>
 
       {state?.fout && <p className="text-sm text-slecht">{state.fout}</p>}
 
-      <button
-        disabled={bewaren || bezigMetUpload || bezigMetAnalyse !== null}
-        className="rounded-lg bg-accent px-4 py-3 font-medium text-white disabled:opacity-50"
-      >
-        {bewaren ? "Bezig…" : knopLabel}
-      </button>
+      {/* Het totaal en de knop staan onderaan vast: bij een bon met veel regels
+          hoef je niet terug te scrollen om te zien waar je op uitkomt. Kosten gaan
+          altijd half om half, dus alleen dit ene bedrag zegt iets. */}
+      <div className="fixed inset-x-0 bottom-0 z-10 border-t border-rand bg-linnen pb-[env(safe-area-inset-bottom)]">
+        <div className="mx-auto w-full max-w-5xl px-[18px] pt-3 pb-4">
+          <div className="mb-3 flex items-baseline justify-between">
+            <span className="text-[13px] text-gedempt">Totaal</span>
+            <span className="titel cijfers text-2xl">{formatEuro(totaal)}</span>
+          </div>
+          <button
+            disabled={bewaren || bezigMetUpload || bezigMetAnalyse !== null}
+            className="w-full rounded-2xl bg-inkt px-4 py-4 text-[15px] font-semibold text-linnen transition hover:bg-inkt-hover disabled:opacity-50"
+          >
+            {bewaren ? "Bezig…" : knopLabel}
+          </button>
+        </div>
+      </div>
     </form>
   );
 }
@@ -558,7 +583,7 @@ function DubbelWaarschuwing({
   const geupload = formatDatum(bestaand.geuploadOp.slice(0, 10));
 
   return (
-    <div className="mt-3 flex flex-col gap-3 rounded-lg border border-rand bg-accent-zacht p-3 text-sm">
+    <div className="mt-3 flex flex-col gap-3 rounded-xl border border-rand bg-marine-tint p-3 text-sm">
       <p>
         <strong>Dit bestand staat er al.</strong> Op {geupload} ingeladen als{" "}
         <span className="break-all">{bestaand.naam}</span>
@@ -576,7 +601,7 @@ function DubbelWaarschuwing({
         {bestaand.uitgave ? (
           <a
             href={`/uitgaven/${bestaand.uitgave.id}`}
-            className="rounded-lg border border-rand bg-paneel px-3 py-2 text-sm"
+            className="rounded-xl border border-rand-sterk bg-paneel px-3.5 py-2.5 text-sm"
           >
             Naar die uitgave
           </a>
@@ -584,7 +609,7 @@ function DubbelWaarschuwing({
           <button
             type="button"
             onClick={gebruikBestaande}
-            className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white"
+            className="rounded-xl bg-inkt px-3.5 py-2.5 text-sm font-semibold text-linnen"
           >
             Bestaand bestand gebruiken
           </button>
@@ -592,7 +617,7 @@ function DubbelWaarschuwing({
         <button
           type="button"
           onClick={opnieuw}
-          className="rounded-lg border border-rand bg-paneel px-3 py-2 text-sm"
+          className="rounded-xl border border-rand-sterk bg-paneel px-3.5 py-2.5 text-sm"
         >
           Toch nog een keer opslaan
         </button>
@@ -608,7 +633,8 @@ function DubbelWaarschuwing({
   );
 }
 
-const veldStijl = "rounded-lg border border-rand bg-achtergrond px-3 py-2 text-sm";
+const veldStijl =
+  "rounded-xl border border-rand-sterk bg-paneel px-3.5 py-3 text-[15px] outline-none focus:border-inkt";
 const invoerKlasse = `w-full ${veldStijl}`;
 
 function Veld({
@@ -619,8 +645,8 @@ function Veld({
   children: React.ReactNode;
 }) {
   return (
-    <label className="flex flex-col gap-1 text-sm">
-      <span className="text-gedempt">{label}</span>
+    <label className="flex min-w-0 flex-col gap-1.5">
+      <span className="bovenschrift">{label}</span>
       {children}
     </label>
   );

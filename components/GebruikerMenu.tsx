@@ -5,15 +5,18 @@ import Link from "next/link";
 import { uitloggenAction } from "@/app/login/actions";
 
 /**
- * Instellingen zat in de hoofdnavigatie en maakte die te breed voor een regel. Het
- * hoort ook bij "jij", net als uitloggen, dus staat het hier onder je eigen naam.
+ * De knop rechts in de kopbalk. Documenten en Instellingen zaten in het
+ * hoofdmenu, maar dat is nu een balk met vier vaste plekken; ze horen hier, bij
+ * "jij", net als uitloggen.
  */
 export default function GebruikerMenu({
   naam,
   huishouden,
+  beheerder,
 }: {
   naam: string;
   huishouden: string;
+  beheerder: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const houder = useRef<HTMLDivElement>(null);
@@ -42,31 +45,37 @@ export default function GebruikerMenu({
         onClick={() => setOpen((huidig) => !huidig)}
         aria-expanded={open}
         aria-haspopup="menu"
-        className="flex items-center gap-2 rounded-full border border-rand px-3 py-1.5 text-sm transition hover:border-accent"
+        aria-label={naam}
+        className="flex h-8 w-8 items-center justify-center rounded-full border border-linnen/35 text-[11px] font-semibold text-linnen transition hover:bg-linnen/10"
       >
-        <span className="max-w-32 truncate">{naam}</span>
-        <span aria-hidden className="text-gedempt">
-          ▾
-        </span>
+        {initialen(naam)}
       </button>
 
       {open && (
         <div
           role="menu"
-          className="absolute right-0 z-30 mt-2 w-60 overflow-hidden rounded-xl border border-rand bg-paneel shadow-lg"
+          className="absolute right-0 z-30 mt-2 w-60 overflow-hidden rounded-xl border border-rand bg-paneel shadow-xl"
         >
           <div className="border-b border-rand px-4 py-3">
-            <p className="truncate text-sm font-medium">{naam}</p>
+            <p className="truncate text-sm font-semibold">{naam}</p>
             <p className="truncate text-xs text-gedempt">{huishouden}</p>
           </div>
           <Link
-            href="/instellingen"
+            href="/documenten"
             role="menuitem"
             // Sluiten bij het klikken zelf; dat scheelt een effect dat op de route let.
             onClick={() => setOpen(false)}
             className="block px-4 py-3 text-sm transition hover:bg-accent-zacht"
           >
-            Instellingen
+            Documenten
+          </Link>
+          <Link
+            href="/instellingen"
+            role="menuitem"
+            onClick={() => setOpen(false)}
+            className="block border-t border-rand px-4 py-3 text-sm transition hover:bg-accent-zacht"
+          >
+            {beheerder ? "Instellingen" : "Mijn pincode"}
           </Link>
           <form action={uitloggenAction} className="border-t border-rand">
             <button
@@ -80,4 +89,12 @@ export default function GebruikerMenu({
       )}
     </div>
   );
+}
+
+/** Twee letters: de eerste van de voornaam en van de achternaam, of anders één. */
+export function initialen(naam: string): string {
+  const delen = naam.trim().split(/[\s-]+/).filter(Boolean);
+  if (delen.length === 0) return "?";
+  if (delen.length === 1) return delen[0].slice(0, 2).toUpperCase();
+  return (delen[0][0] + delen[delen.length - 1][0]).toUpperCase();
 }

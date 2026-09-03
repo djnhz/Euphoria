@@ -79,7 +79,7 @@ export default function DocumentUpload({ heeftBlob }: { heeftBlob: boolean }) {
             onChange={(e) =>
               setMap(e.target.value as DocumentMap)
             }
-            className="rounded-lg border border-rand bg-achtergrond px-3 py-2 text-sm"
+            className="rounded-xl border border-rand-sterk bg-paneel px-3.5 py-2.5 text-sm"
           >
             {MAPPEN.map((naam) => (
               <option key={naam} value={naam}>
@@ -98,7 +98,7 @@ export default function DocumentUpload({ heeftBlob }: { heeftBlob: boolean }) {
               if (e.target.files?.length) void verwerk(e.target.files);
               e.target.value = "";
             }}
-            className="text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-accent file:px-3 file:py-2 file:text-white"
+            className="text-sm file:mr-3 file:rounded-xl file:border-0 file:bg-inkt file:px-3.5 file:py-2.5 file:font-semibold file:text-linnen"
           />
         </label>
       </div>

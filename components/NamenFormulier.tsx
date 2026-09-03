@@ -7,7 +7,7 @@ import {
 } from "@/app/(app)/instellingen/actions";
 import Melding from "./Melding";
 
-const invoer = "rounded-lg border border-rand bg-achtergrond px-3 py-2 text-sm";
+const invoer = "rounded-xl border border-rand-sterk bg-paneel px-3.5 py-2.5 text-sm";
 
 export default function NamenFormulier({
   huishoudens,
@@ -57,7 +57,7 @@ export default function NamenFormulier({
       <div className="flex items-center gap-3">
         <button
           disabled={bezig}
-          className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+          className="rounded-xl bg-inkt px-4 py-2.5 text-sm font-semibold text-linnen disabled:opacity-50"
         >
           Opslaan
         </button>

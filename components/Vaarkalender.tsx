@@ -1,5 +1,7 @@
 "use client";
 
+import { HUISHOUDKLEUREN } from "@/lib/kleuren";
+
 import { useActionState, useMemo, useState } from "react";
 import Link from "next/link";
 import type { Reservering } from "@/lib/agenda";
@@ -11,13 +13,23 @@ import {
 } from "@/app/(app)/vaarplanning/actions";
 
 const MAANDNAMEN = [
-  "januari", "februari", "maart", "april", "mei", "juni",
-  "juli", "augustus", "september", "oktober", "november", "december",
+  "januari",
+  "februari",
+  "maart",
+  "april",
+  "mei",
+  "juni",
+  "juli",
+  "augustus",
+  "september",
+  "oktober",
+  "november",
+  "december",
 ];
 const DAGKOPPEN = ["ma", "di", "wo", "do", "vr", "za", "zo"];
 
 /** Kleur per huishouden, zodat je in één oogopslag ziet wie er vaart. */
-const KLEUREN = ["#0ea5e9", "#f97316"];
+const KLEUREN = HUISHOUDKLEUREN;
 
 export default function Vaarkalender({
   jaar,
@@ -47,7 +59,7 @@ export default function Vaarkalender({
 
   const kleurVan = useMemo(() => {
     const perId = new Map<number, string>();
-    huishoudens.forEach((h, i) => perId.set(h.id, KLEUREN[i] ?? "#8b5cf6"));
+    huishoudens.forEach((h, i) => perId.set(h.id, KLEUREN[i] ?? "#3F6B54"));
     return perId;
   }, [huishoudens]);
 
@@ -62,8 +74,10 @@ export default function Vaarkalender({
     return kaart;
   }, [reserveringen]);
 
-  const vorige = maand === 1 ? { jaar: jaar - 1, maand: 12 } : { jaar, maand: maand - 1 };
-  const volgende = maand === 12 ? { jaar: jaar + 1, maand: 1 } : { jaar, maand: maand + 1 };
+  const vorige =
+    maand === 1 ? { jaar: jaar - 1, maand: 12 } : { jaar, maand: maand - 1 };
+  const volgende =
+    maand === 12 ? { jaar: jaar + 1, maand: 1 } : { jaar, maand: maand + 1 };
 
   // Na een overlapwaarschuwing is de tweede druk op de knop de bevestiging.
   const tochDoorgaan = state?.soort === "overlap" ? "ja" : "nee";
@@ -74,7 +88,7 @@ export default function Vaarkalender({
         <div className="mb-3 flex items-center justify-between">
           <Link
             href={`/vaarplanning?jaar=${vorige.jaar}&maand=${vorige.maand}`}
-            className="rounded-lg border border-rand px-3 py-1.5 text-sm"
+            className="rounded-xl border border-rand-sterk px-3 py-2 text-sm"
             aria-label="Vorige maand"
           >
             ←
@@ -84,7 +98,7 @@ export default function Vaarkalender({
           </h2>
           <Link
             href={`/vaarplanning?jaar=${volgende.jaar}&maand=${volgende.maand}`}
-            className="rounded-lg border border-rand px-3 py-1.5 text-sm"
+            className="rounded-xl border border-rand-sterk px-3 py-2 text-sm"
             aria-label="Volgende maand"
           >
             →
@@ -128,7 +142,8 @@ export default function Vaarkalender({
                           className="h-1.5 rounded text-[10px] text-white sm:h-auto sm:truncate sm:px-1"
                           style={{
                             background:
-                              kleurVan.get(reservering.coupleId ?? -1) ?? "#8b5cf6",
+                              kleurVan.get(reservering.coupleId ?? -1) ??
+                              "#3F6B54",
                           }}
                         >
                           <span className="hidden sm:inline">
@@ -203,7 +218,7 @@ export default function Vaarkalender({
         <div className="flex items-end">
           <button
             disabled={bezig}
-            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="rounded-xl bg-inkt px-4 py-2.5 text-sm font-semibold text-linnen disabled:opacity-50"
           >
             {bezig
               ? "Bezig…"
@@ -245,7 +260,7 @@ export default function Vaarkalender({
                   className="inline-block h-3 w-3 shrink-0 rounded"
                   style={{
                     background:
-                      kleurVan.get(reservering.coupleId ?? -1) ?? "#8b5cf6",
+                      kleurVan.get(reservering.coupleId ?? -1) ?? "#3F6B54",
                   }}
                 />
                 <div className="min-w-0 flex-1">
@@ -277,7 +292,8 @@ export default function Vaarkalender({
   );
 }
 
-const invoer = "w-full rounded-lg border border-rand bg-achtergrond px-3 py-2 text-sm";
+const invoer =
+  "w-full rounded-xl border border-rand-sterk bg-paneel px-3.5 py-2.5 text-sm";
 
 function Veld({
   label,

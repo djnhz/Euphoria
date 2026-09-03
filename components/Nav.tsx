@@ -1,128 +1,166 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import Logo from "./Logo";
 import GebruikerMenu from "./GebruikerMenu";
 
-/** Instellingen staat bewust niet hier maar onder je eigen naam in het gebruikersmenu. */
-const LINKS = [
-  { href: "/", label: "Dashboard" },
-  { href: "/uitgaven", label: "Uitgaven" },
-  { href: "/verrekening", label: "Verrekening" },
-  { href: "/vaarplanning", label: "Vaarplanning" },
-  { href: "/documenten", label: "Documenten" },
-  { href: "/begroting", label: "Begroting" },
+/**
+ * Vier bestemmingen onderin, geen hamburgermenu meer. Wat eerst losse items waren
+ * -- Verrekening en Begroting -- zijn tabbladen binnen Kosten geworden, en
+ * Documenten en Instellingen horen bij "jij" en staan onder de initialen.
+ */
+const TABS = [
+  { href: "/", label: "Overzicht", icoon: Kompas },
+  { href: "/vaarplanning", label: "Planning", icoon: Kalender },
+  { href: "/taken", label: "Taken", icoon: Vinkje },
+  {
+    href: "/uitgaven",
+    label: "Kosten",
+    icoon: Bon,
+    ook: ["/begroting", "/verrekening"],
+  },
 ] as const;
 
 export default function Nav({
   naam,
   huishouden,
+  beheerder,
 }: {
   naam: string;
   huishouden: string;
+  beheerder: boolean;
 }) {
   const pad = usePathname();
-  const [open, setOpen] = useState(false);
 
-  // Escape sluit het menu, net als bij het gebruikersmenu.
-  useEffect(() => {
-    if (!open) return;
-    function toets(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("keydown", toets);
-    return () => document.removeEventListener("keydown", toets);
-  }, [open]);
+  /**
+   * Invoerschermen zijn bladen: ze hebben onderin hun eigen voet met het totaal en
+   * de opslaanknop. Daar hoort geen tabbalk overheen -- je bent ergens mee bezig en
+   * maakt dat eerst af.
+   */
+  const isBlad = pad.endsWith("/nieuw") || pad.endsWith("/bewerken");
 
-  function isActief(href: string) {
-    return href === "/" ? pad === "/" : pad.startsWith(href);
+  function isActief(tab: (typeof TABS)[number]) {
+    if (tab.href === "/") return pad === "/";
+    if (pad.startsWith(tab.href)) return true;
+    return "ook" in tab && tab.ook.some((p) => pad.startsWith(p));
   }
 
   return (
-    <header className="sticky top-0 z-20 border-b border-rand bg-paneel/95 backdrop-blur">
-      <div className="relative mx-auto flex w-full max-w-5xl items-center gap-3 px-4 py-2">
-        <Link href="/" aria-label="Euphoria" className="shrink-0">
-          <Logo hoogte={54} />
-        </Link>
-
-        {/* Op telefoonformaat past het menu niet naast het logo, dus zit het achter
-            deze knop. Absoluut gepositioneerd en niet met flexruimte: het logo en de
-            naam zijn niet even breed, dus alleen zo staat hij echt in het midden. */}
-        <div className="absolute left-1/2 -translate-x-1/2 lg:hidden">
-          <button
-            type="button"
-            onClick={() => setOpen((huidig) => !huidig)}
-            aria-expanded={open}
-            aria-controls="hoofdmenu"
-            aria-label={open ? "Menu sluiten" : "Menu openen"}
-            className="block rounded-lg border border-rand p-2 transition hover:border-accent"
+    <>
+      <header className="sticky top-0 z-20 bg-inkt-diep">
+        <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-[18px] py-3">
+          <Link
+            href="/"
+            aria-label="Euphoria"
+            className="flex items-center gap-3 text-linnen"
           >
-            <svg viewBox="0 0 24 24" aria-hidden className="h-5 w-5">
-              {open ? (
-                <path
-                  d="M6 6l12 12M18 6L6 18"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
-              ) : (
-                <path
-                  d="M4 7h16M4 12h16M4 17h16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
-              )}
-            </svg>
-          </button>
+            <Boot />
+            <span className="titel text-[15px] uppercase tracking-[0.28em]">
+              Euphoria
+            </span>
+          </Link>
+          <GebruikerMenu
+            naam={naam}
+            huishouden={huishouden}
+            beheerder={beheerder}
+          />
         </div>
+      </header>
 
-        <nav className="hidden lg:flex lg:flex-1 lg:justify-center lg:gap-2">
-          {LINKS.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`shrink-0 rounded-full px-3 py-1.5 text-sm transition ${
-                isActief(link.href)
-                  ? "bg-accent-zacht text-accent"
-                  : "text-gedempt hover:text-tekst"
-              }`}
-            >
-              {link.label}
-            </Link>
-          ))}
-        </nav>
-
-        <div className="ml-auto lg:ml-0">
-          <GebruikerMenu naam={naam} huishouden={huishouden} />
-        </div>
-      </div>
-
-      {open && (
-        <nav
-          id="hoofdmenu"
-          className="border-t border-rand lg:hidden"
-          onClick={() => setOpen(false)}
-        >
-          {LINKS.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`block border-b border-rand px-4 py-3 text-center text-sm transition last:border-0 ${
-                isActief(link.href)
-                  ? "bg-accent-zacht font-medium text-accent"
-                  : "hover:bg-accent-zacht"
-              }`}
-            >
-              {link.label}
-            </Link>
-          ))}
+      {/* De balk zit vast onderin en de pagina houdt er ruimte voor vrij; op een
+          brede schermbreedte blijft hij staan, want er zijn maar vier plekken. */}
+      {!isBlad && (
+        <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-rand bg-linnen pb-[env(safe-area-inset-bottom)]">
+          <div className="mx-auto flex w-full max-w-5xl px-1.5 pt-2 pb-2.5">
+            {TABS.map((tab) => {
+              const actief = isActief(tab);
+              const Icoon = tab.icoon;
+              return (
+                <Link
+                  key={tab.href}
+                  href={tab.href}
+                  aria-current={actief ? "page" : undefined}
+                  className={`flex flex-1 flex-col items-center gap-1 rounded-lg py-1.5 transition ${
+                    actief ? "text-inkt" : "text-zacht hover:text-gedempt"
+                  }`}
+                >
+                  <Icoon />
+                  <span
+                    className={`text-[10px] ${actief ? "font-semibold" : ""}`}
+                  >
+                    {tab.label}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
         </nav>
       )}
-    </header>
+    </>
+  );
+}
+
+/** Het zeilbootje uit het logo, in vlakken zodat het klein nog leesbaar is. */
+function Boot() {
+  return (
+    <svg viewBox="0 0 100 84" width="24" height="20" aria-hidden>
+      <path d="M48 4 L48 56 L17 56 Z" fill="#F7F4EC" />
+      <path d="M55 20 L55 56 L83 56 Z" fill="#9DB4CE" />
+      <path
+        d="M6 60 L94 60 C86 74 74 78 50 78 C26 78 14 74 6 60 Z"
+        fill="#F7F4EC"
+      />
+    </svg>
+  );
+}
+
+/**
+ * Lijnpictogrammen in plaats van de tekentekens uit het ontwerp: die vallen per
+ * toestel anders uit en staan zelden op de lijn.
+ */
+const lijn = {
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 1.6,
+  strokeLinecap: "round",
+  strokeLinejoin: "round",
+} as const;
+
+function Kompas() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden>
+      <circle cx="12" cy="12" r="8.5" {...lijn} />
+      <path d="M15 9l-2 4-4 2 2-4z" {...lijn} />
+    </svg>
+  );
+}
+
+function Kalender() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden>
+      <rect x="3.5" y="5" width="17" height="15" rx="2.5" {...lijn} />
+      <path d="M3.5 9.5h17M8 3.5v3M16 3.5v3" {...lijn} />
+    </svg>
+  );
+}
+
+function Vinkje() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden>
+      <circle cx="12" cy="12" r="8.5" {...lijn} />
+      <path d="M8.5 12.2l2.4 2.4 4.6-5" {...lijn} />
+    </svg>
+  );
+}
+
+function Bon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden>
+      <path
+        d="M5.5 3.5h13v17l-2.2-1.4-2.1 1.4-2.2-1.4-2.2 1.4-2.1-1.4-2.2 1.4z"
+        {...lijn}
+      />
+      <path d="M9 8.5h6M9 12.5h6" {...lijn} />
+    </svg>
   );
 }

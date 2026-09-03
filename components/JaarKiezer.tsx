@@ -25,7 +25,7 @@ export default function JaarKiezer({
         nieuw.set("jaar", e.target.value);
         router.push(`${pad}?${nieuw}`);
       }}
-      className="cijfers rounded-lg border border-rand bg-paneel px-3 py-2 text-sm"
+      className="cijfers rounded-xl border border-rand-sterk bg-paneel px-3.5 py-2.5 text-sm"
     >
       {jaren.map((jaar) => (
         <option key={jaar} value={jaar}>

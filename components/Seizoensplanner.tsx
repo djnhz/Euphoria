@@ -1,8 +1,14 @@
 "use client";
 
+import { HUISHOUDKLEUREN } from "@/lib/kleuren";
+
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { feestdagenRakend, type Feestdag, type FeestdagCode } from "@/lib/feestdagen";
+import {
+  feestdagenRakend,
+  type Feestdag,
+  type FeestdagCode,
+} from "@/lib/feestdagen";
 import type { SeizoenPlan } from "@/lib/seizoenplan";
 import {
   vakantiesRakend,
@@ -33,7 +39,7 @@ import {
   type StandState,
 } from "@/app/(app)/vaarplanning/seizoen/actions";
 
-const KLEUREN = ["#0ea5e9", "#f97316"];
+const KLEUREN = HUISHOUDKLEUREN;
 
 const REDEN_TEKST: Record<Blok["reden"], string> = {
   oneven: "oneven week",
@@ -111,7 +117,7 @@ export default function Seizoensplanner({
 
   const kleurVan = useMemo(() => {
     const perId = new Map<number, string>();
-    huishoudens.forEach((h, i) => perId.set(h.id, KLEUREN[i] ?? "#8b5cf6"));
+    huishoudens.forEach((h, i) => perId.set(h.id, KLEUREN[i] ?? "#3F6B54"));
     return perId;
   }, [huishoudens]);
   const naamVan = useMemo(
@@ -125,7 +131,11 @@ export default function Seizoensplanner({
     for (const dag of dagenInSeizoen(jaar)) {
       const maandag = maandagVanWeek(dag);
       if (lijst.at(-1)?.maandag === maandag) continue;
-      lijst.push({ maandag, week: isoWeek(maandag), zondag: plusDagen(maandag, 6) });
+      lijst.push({
+        maandag,
+        week: isoWeek(maandag),
+        zondag: plusDagen(maandag, 6),
+      });
     }
     return lijst;
   }, [jaar]);
@@ -135,8 +145,14 @@ export default function Seizoensplanner({
     const kaart: Record<string, { coupleId: number; naam?: string }> = {};
     for (const periode of periodes) {
       for (const week of weken) {
-        if (week.maandag >= periode.vanMaandag && week.maandag <= periode.totMaandag) {
-          kaart[week.maandag] = { coupleId: periode.coupleId, naam: periode.naam };
+        if (
+          week.maandag >= periode.vanMaandag &&
+          week.maandag <= periode.totMaandag
+        ) {
+          kaart[week.maandag] = {
+            coupleId: periode.coupleId,
+            naam: periode.naam,
+          };
         }
       }
     }
@@ -203,19 +219,24 @@ export default function Seizoensplanner({
           p.id !== vervangtId &&
           (p.totMaandag < nieuw.vanMaandag || p.vanMaandag > nieuw.totMaandag),
       ),
-      { ...nieuw, id: `${nieuw.vanMaandag}-${nieuw.totMaandag}-${nieuw.coupleId}` },
+      {
+        ...nieuw,
+        id: `${nieuw.vanMaandag}-${nieuw.totMaandag}-${nieuw.coupleId}`,
+      },
     ]);
     setBewerkt(null);
   }
 
   return (
     <div className="flex flex-col gap-4">
-      <section className="grid gap-3 rounded-xl border border-rand bg-paneel p-4 sm:grid-cols-2">
+      <section className="grid gap-3 rounded-2xl border border-rand bg-paneel p-4 sm:grid-cols-2">
         <label className="flex flex-col gap-1 text-sm">
           <span className="text-gedempt">Seizoen</span>
           <select
             value={jaar}
-            onChange={(e) => router.push(`/vaarplanning/seizoen?jaar=${e.target.value}`)}
+            onChange={(e) =>
+              router.push(`/vaarplanning/seizoen?jaar=${e.target.value}`)
+            }
             className={invoerKlasse}
           >
             {[jaar - 1, jaar, jaar + 1, jaar + 2].map((j) => (
@@ -252,11 +273,11 @@ export default function Seizoensplanner({
         </p>
       </section>
 
-      <section className="rounded-xl border border-rand bg-paneel p-4">
-        <h2 className="text-sm font-medium">Lange weekenden</h2>
+      <section className="rounded-2xl border border-rand bg-paneel p-4">
+        <h2 className="bovenschrift">Lange weekenden</h2>
         <p className="mb-3 text-xs text-gedempt">
-          Je krijgt de hele week plus de maandag erna; de rest van die week volgt
-          weer het even-onevenpatroon.
+          Je krijgt de hele week plus de maandag erna; de rest van die week
+          volgt weer het even-onevenpatroon.
         </p>
         <ul className="flex flex-col gap-2">
           {feestdagen.map((feestdag) => (
@@ -264,7 +285,7 @@ export default function Seizoensplanner({
               key={feestdag.code}
               // Op een telefoon onder elkaar: naast elkaar houdt de keuzelijst zijn
               // breedte en wordt de tekst ernaast tot een woord per regel geperst.
-              className="flex flex-col gap-2 rounded-lg border border-rand p-3 sm:flex-row sm:items-center sm:gap-3"
+              className="flex flex-col gap-2 rounded-xl border border-rand bg-verzonken p-3 sm:flex-row sm:items-center sm:gap-3"
             >
               <div className="min-w-0 sm:flex-1">
                 <p className="font-medium">{feestdag.naam}</p>
@@ -307,20 +328,21 @@ export default function Seizoensplanner({
         </ul>
 
         {planning.botsingen.length > 0 && (
-          <p className="mt-3 rounded-lg bg-accent-zacht p-3 text-sm">
+          <p className="mt-3 rounded-xl bg-marine-tint p-3 text-sm">
             {planning.botsingen.map((botsing) => (
               <span key={botsing.verliezer} className="block">
                 {botsing.winnaar} overlapt met {botsing.verliezer} op{" "}
                 {botsing.dagen.length} dag
-                {botsing.dagen.length === 1 ? "" : "en"}; {botsing.winnaar} wint daar.
+                {botsing.dagen.length === 1 ? "" : "en"}; {botsing.winnaar} wint
+                daar.
               </span>
             ))}
           </p>
         )}
       </section>
 
-      <section className="rounded-xl border border-rand bg-paneel p-4">
-        <h2 className="text-sm font-medium">Vakanties inplannen</h2>
+      <section className="rounded-2xl border border-rand bg-paneel p-4">
+        <h2 className="bovenschrift">Vakanties inplannen</h2>
         <p className="mb-3 text-xs text-gedempt">
           Aaneengesloten weken dwars door het patroon heen. Een nieuwe periode
           vervangt een bestaande waar ze elkaar overlappen.
@@ -343,16 +365,15 @@ export default function Seizoensplanner({
               .sort((a, b) => a.vanMaandag.localeCompare(b.vanMaandag))
               .map((periode) => {
                 const eind = plusDagen(periode.totMaandag, 6);
-                const aantalWeken =
-                  weken.filter(
-                    (w) =>
-                      w.maandag >= periode.vanMaandag &&
-                      w.maandag <= periode.totMaandag,
-                  ).length;
+                const aantalWeken = weken.filter(
+                  (w) =>
+                    w.maandag >= periode.vanMaandag &&
+                    w.maandag <= periode.totMaandag,
+                ).length;
                 return (
                   <li
                     key={periode.id}
-                    className="flex flex-wrap items-center gap-3 rounded-lg border border-rand p-2 text-sm"
+                    className="flex flex-wrap items-center gap-3 rounded-xl border border-rand bg-verzonken p-2 text-sm"
                   >
                     <span
                       className="inline-block h-3 w-3 shrink-0 rounded"
@@ -371,7 +392,7 @@ export default function Seizoensplanner({
                     <button
                       type="button"
                       onClick={() => setBewerkt(periode)}
-                      className="text-xs text-accent underline"
+                      className="text-xs text-link underline"
                     >
                       wijzigen
                     </button>
@@ -394,13 +415,13 @@ export default function Seizoensplanner({
         )}
       </section>
 
-      <section className="rounded-xl border border-rand bg-paneel p-4">
-        <h2 className="mb-3 text-sm font-medium">Verdeling</h2>
+      <section className="rounded-2xl border border-rand bg-paneel p-4">
+        <h2 className="bovenschrift mb-3">Verdeling</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           {cijfers.map((rij) => (
             <div
               key={rij.coupleId}
-              className="rounded-lg border border-rand p-3"
+              className="rounded-xl border border-rand bg-verzonken p-3"
               style={{ borderLeft: `4px solid ${kleurVan.get(rij.coupleId)}` }}
             >
               <p className="font-medium">{naamVan.get(rij.coupleId)}</p>
@@ -417,9 +438,9 @@ export default function Seizoensplanner({
         </p>
       </section>
 
-      <section className="rounded-xl border border-rand bg-paneel p-4">
+      <section className="rounded-2xl border border-rand bg-paneel p-4">
         <div className="mb-3 flex flex-wrap items-baseline gap-2">
-          <h2 className="text-sm font-medium">
+          <h2 className="bovenschrift">
             Concept — {planning.blokken.length} blokken
           </h2>
           <p className="text-xs text-gedempt">
@@ -450,141 +471,157 @@ export default function Seizoensplanner({
             const ingepland = blok.reden === "handmatig";
             // Ook een week die niet aan een feestdag is toegewezen kan er een
             // bevatten -- Koningsdag valt zo midden in een gewone week.
-            const raaktFeestdagen = feestdagenRakend(feestdagen, blok.van, blok.tot);
+            const raaktFeestdagen = feestdagenRakend(
+              feestdagen,
+              blok.van,
+              blok.tot,
+            );
             return (
-            <li
-              key={blok.van}
-              // Twee losse signalen: de tint zegt dat er schoolvakantie of bouwvak is,
-              // de streep aan de voorkant dat jij die week zelf hebt ingepland.
-              style={{
-                background: bouwvak
-                  ? "var(--vakantie-sterk)"
-                  : grotendeels
-                    ? "var(--vakantie-zacht)"
+              <li
+                key={blok.van}
+                // Twee losse signalen: de tint zegt dat er schoolvakantie of bouwvak is,
+                // de streep aan de voorkant dat jij die week zelf hebt ingepland.
+                style={{
+                  background: bouwvak
+                    ? "var(--vakantie-sterk)"
+                    : grotendeels
+                      ? "var(--vakantie-zacht)"
+                      : undefined,
+                  borderLeft: ingepland
+                    ? `6px solid ${kleurVan.get(blok.coupleId)}`
                     : undefined,
-                borderLeft: ingepland
-                  ? `6px solid ${kleurVan.get(blok.coupleId)}`
-                  : undefined,
-              }}
-              // Op een telefoon onder elkaar: datum met weeknummer, dan de labels,
-              // dan wie er vaart. Naast elkaar wordt elke regel anders afgekapt.
-              className="flex flex-col gap-1 rounded-lg border border-rand p-2 text-sm sm:flex-row sm:flex-wrap sm:items-center sm:gap-3"
-            >
-              <span className="flex min-w-0 items-center gap-3 sm:flex-1">
-                <span
-                  className="inline-block h-3 w-3 shrink-0 rounded"
-                  style={{ background: kleurVan.get(blok.coupleId) }}
-                />
-                {/* De weekdag alleen tonen bij blokken die geen hele maandag-zondagweek
+                }}
+                // Op een telefoon onder elkaar: datum met weeknummer, dan de labels,
+                // dan wie er vaart. Naast elkaar wordt elke regel anders afgekapt.
+                className="flex flex-col gap-1 rounded-xl border border-rand bg-verzonken p-2 text-sm sm:flex-row sm:flex-wrap sm:items-center sm:gap-3"
+              >
+                <span className="flex min-w-0 items-center gap-3 sm:flex-1">
+                  <span
+                    className="inline-block h-3 w-3 shrink-0 rounded"
+                    style={{ background: kleurVan.get(blok.coupleId) }}
+                  />
+                  {/* De weekdag alleen tonen bij blokken die geen hele maandag-zondagweek
                     zijn; daar zit het lange weekend en dat is wat je wilt zien. */}
-                <span className="cijfers min-w-0 flex-1">
-                  {heelWeek(blok) ? "" : `${dagnaam(blok.van)} `}
-                  {formatDatum(blok.van)}
-                  {blok.tot !== blok.van &&
-                    ` t/m ${heelWeek(blok) ? "" : `${dagnaam(blok.tot)} `}${formatDatum(blok.tot)}`}
+                  <span className="cijfers min-w-0 flex-1">
+                    {heelWeek(blok) ? "" : `${dagnaam(blok.van)} `}
+                    {formatDatum(blok.van)}
+                    {blok.tot !== blok.van &&
+                      ` t/m ${heelWeek(blok) ? "" : `${dagnaam(blok.tot)} `}${formatDatum(blok.tot)}`}
+                  </span>
+                  <span className="cijfers shrink-0 text-xs text-gedempt">
+                    {weekLabel(blok)}
+                  </span>
                 </span>
-                <span className="cijfers shrink-0 text-xs text-gedempt">
-                  {weekLabel(blok)}
-                </span>
-              </span>
-              {raaktFeestdagen.length > 0 && (
-                <span className="flex flex-wrap gap-1 sm:shrink-0">
-                  {raaktFeestdagen.map((feestdag) => (
-                    <span
-                      key={feestdag.code}
-                      title={`${formatDatumMetDag(feestdag.van)}${
-                        feestdag.tot === feestdag.van
-                          ? ""
-                          : ` tot en met ${formatDatumMetDag(feestdag.tot)}`
-                      }`}
-                      className="rounded-full bg-accent-zacht px-2 py-0.5 text-xs text-accent"
-                    >
-                      {feestdag.naam}
-                    </span>
-                  ))}
-                </span>
-              )}
-              {raakt.length > 0 && (
-                <span className="flex flex-wrap gap-1 sm:shrink-0">
-                  {raakt.map((vakantie) => (
-                    <span
-                      key={vakantie.naam}
-                      className={`rounded-full px-2 py-0.5 text-xs ${
-                        vakantie.soort === "bouwvak" && vakantie.dagen === werkdagenInBlok
-                          ? "font-medium"
-                          : "text-gedempt"
-                      }`}
-                      style={{
-                        background:
-                          vakantie.soort === "bouwvak" && vakantie.dagen === werkdagenInBlok
-                            ? "var(--vakantie-rand)"
-                            : "var(--vakantie-zacht)",
-                        color:
-                          vakantie.soort === "bouwvak" && vakantie.dagen === werkdagenInBlok
-                            ? "var(--paneel)"
-                            : undefined,
-                      }}
-                    >
-                      {vakantie.naam}
-                      {/* Raakt de vakantie maar een deel van het blok, zeg dan hoeveel
+                {raaktFeestdagen.length > 0 && (
+                  <span className="flex flex-wrap gap-1 sm:shrink-0">
+                    {raaktFeestdagen.map((feestdag) => (
+                      <span
+                        key={feestdag.code}
+                        title={`${formatDatumMetDag(feestdag.van)}${
+                          feestdag.tot === feestdag.van
+                            ? ""
+                            : ` tot en met ${formatDatumMetDag(feestdag.tot)}`
+                        }`}
+                        className="rounded-md bg-messing-tint px-2 py-1 text-[10.5px] font-semibold text-messing-inkt"
+                      >
+                        {feestdag.naam}
+                      </span>
+                    ))}
+                  </span>
+                )}
+                {raakt.length > 0 && (
+                  <span className="flex flex-wrap gap-1 sm:shrink-0">
+                    {raakt.map((vakantie) => (
+                      <span
+                        key={vakantie.naam}
+                        className={`rounded-full px-2 py-0.5 text-xs ${
+                          vakantie.soort === "bouwvak" &&
+                          vakantie.dagen === werkdagenInBlok
+                            ? "font-medium"
+                            : "text-gedempt"
+                        }`}
+                        style={{
+                          background:
+                            vakantie.soort === "bouwvak" &&
+                            vakantie.dagen === werkdagenInBlok
+                              ? "var(--vakantie-rand)"
+                              : "var(--vakantie-zacht)",
+                          color:
+                            vakantie.soort === "bouwvak" &&
+                            vakantie.dagen === werkdagenInBlok
+                              ? "var(--paneel)"
+                              : undefined,
+                        }}
+                      >
+                        {vakantie.naam}
+                        {/* Raakt de vakantie maar een deel van het blok, zeg dan hoeveel
                           dagen. Anders lijkt het weekend voor de herfstvakantie een
                           volle vakantieweek. */}
-                      {vakantie.dagen < werkdagenInBlok && ` ${vakantie.dagen} van ${werkdagenInBlok} werkdagen`}
-                    </span>
-                  ))}
+                        {vakantie.dagen < werkdagenInBlok &&
+                          ` ${vakantie.dagen} van ${werkdagenInBlok} werkdagen`}
+                      </span>
+                    ))}
+                  </span>
+                )}
+                <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1 sm:contents">
+                  <span className="sm:truncate">
+                    {naamVan.get(blok.coupleId)}
+                    {blok.naam && blok.reden === "handmatig" && (
+                      <span className="text-gedempt"> — {blok.naam}</span>
+                    )}
+                  </span>
+                  <span className="text-xs text-gedempt">
+                    {REDEN_TEKST[blok.reden]} · {blok.aantalDagen} dg
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => wisselBlok(blok)}
+                    className="text-xs text-link underline"
+                  >
+                    omzetten
+                  </button>
                 </span>
-              )}
-              <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1 sm:contents">
-                <span className="sm:truncate">
-                  {naamVan.get(blok.coupleId)}
-                  {blok.naam && blok.reden === "handmatig" && (
-                    <span className="text-gedempt"> — {blok.naam}</span>
-                  )}
-                </span>
-                <span className="text-xs text-gedempt">
-                  {REDEN_TEKST[blok.reden]} · {blok.aantalDagen} dg
-                </span>
-                <button
-                  type="button"
-                  onClick={() => wisselBlok(blok)}
-                  className="text-xs text-accent underline"
-                >
-                  omzetten
-                </button>
-              </span>
-            </li>
+              </li>
             );
           })}
         </ul>
       </section>
 
-      <section className="flex flex-col gap-3 rounded-xl border border-rand bg-paneel p-4">
-        <h2 className="text-sm font-medium">Publiceren</h2>
+      <section className="flex flex-col gap-3 rounded-2xl border border-rand bg-paneel p-4">
+        <h2 className="bovenschrift">Publiceren</h2>
         <p className="text-xs text-gedempt">
-          Een eerdere seizoensplanning van {jaar} wordt vervangen. Reserveringen die
-          iemand zelf maakte blijven staan.
+          Een eerdere seizoensplanning van {jaar} wordt vervangen. Reserveringen
+          die iemand zelf maakte blijven staan.
         </p>
         <div className="flex flex-wrap items-center gap-3">
           <form action={kijkStand}>
             <input type="hidden" name="jaar" value={jaar} />
             <button
               disabled={kijkt || !kanPubliceren}
-              className="rounded-lg border border-rand px-3 py-2 text-sm disabled:opacity-50"
+              className="rounded-xl border border-rand-sterk px-3 py-2.5 text-sm disabled:opacity-50"
             >
               {kijkt ? "Kijken…" : "Wat staat er nu?"}
             </button>
           </form>
           <form action={publiceer}>
-            <input type="hidden" name="payload" value={JSON.stringify(invoer)} />
+            <input
+              type="hidden"
+              name="payload"
+              value={JSON.stringify(invoer)}
+            />
             <button
               disabled={bezig || !kanPubliceren}
-              className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+              className="rounded-xl bg-inkt px-4 py-2.5 text-sm font-semibold text-linnen disabled:opacity-50"
             >
-              {bezig ? "Publiceren…" : `Publiceer ${planning.blokken.length} blokken`}
+              {bezig
+                ? "Publiceren…"
+                : `Publiceer ${planning.blokken.length} blokken`}
             </button>
           </form>
         </div>
-        {standState && <p className="text-sm text-gedempt">{standState.melding}</p>}
+        {standState && (
+          <p className="text-sm text-gedempt">{standState.melding}</p>
+        )}
         {publiceerState && (
           <p
             className={`text-sm ${
@@ -600,7 +637,7 @@ export default function Seizoensplanner({
 }
 
 const invoerKlasse =
-  "rounded-lg border border-rand bg-achtergrond px-3 py-2 text-sm";
+  "rounded-xl border border-rand-sterk bg-paneel px-3 py-2.5 text-sm";
 
 /** "wk 12" of "wk 12-13" voor blokken die over een weekgrens lopen. */
 function weekLabel(blok: Blok): string {
@@ -742,10 +779,13 @@ function VakantieFormulier({
         <button
           type="button"
           onClick={() => {
-            onToevoegen({ vanMaandag, totMaandag, coupleId, naam }, bewerkt?.id);
+            onToevoegen(
+              { vanMaandag, totMaandag, coupleId, naam },
+              bewerkt?.id,
+            );
             setNaam("");
           }}
-          className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white"
+          className="rounded-xl bg-inkt px-4 py-2.5 text-sm font-semibold text-linnen"
         >
           {bewerkt ? "Bijwerken" : "Inplannen"}
         </button>

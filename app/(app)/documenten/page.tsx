@@ -4,6 +4,7 @@ import { vereisGebruiker } from "@/lib/auth";
 import DocumentUpload from "@/components/DocumentUpload";
 import DocumentLijst from "@/components/DocumentLijst";
 import { heeftBlob } from "@/lib/opslag";
+import { Schermbody, Schermkop } from "@/components/Scherm";
 
 export default async function DocumentenPagina() {
   await vereisGebruiker();
@@ -28,18 +29,20 @@ export default async function DocumentenPagina() {
     .orderBy(desc(documents.geuploadOp));
 
   return (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-2xl font-semibold tracking-tight">Documenten</h1>
-      <p className="text-sm text-gedempt">
-        Bonnen die bij een uitgave horen staan hier ook.
-      </p>
-      <DocumentUpload heeftBlob={heeftBlob()} />
-      <DocumentLijst
-        rijen={rijen.map((rij) => ({
-          ...rij,
-          geuploadOp: rij.geuploadOp.toISOString(),
-        }))}
+    <>
+      <Schermkop
+        titel="Documenten"
+        onderschrift="bonnen bij een uitgave staan hier ook"
       />
-    </div>
+      <Schermbody>
+        <DocumentUpload heeftBlob={heeftBlob()} />
+        <DocumentLijst
+          rijen={rijen.map((rij) => ({
+            ...rij,
+            geuploadOp: rij.geuploadOp.toISOString(),
+          }))}
+        />
+      </Schermbody>
+    </>
   );
 }

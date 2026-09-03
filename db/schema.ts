@@ -224,3 +224,60 @@ export const aiGebruik = pgTable("ai_gebruik", {
     .notNull()
     .defaultNow(),
 });
+
+/**
+ * De takenlijst voor de boot: klusjes voor onderweg, onderhoud dat een keer moet
+ * gebeuren en de winterklaarlijst. Bewust dezelfde posten als de begroting -- een
+ * taak hoort bij Motor of Exterieur, precies zoals de rekening die eruit volgt.
+ *
+ * Een taak is van iemand (`userId`), van een huishouden (`coupleId`) of van
+ * niemand. Staat `samen` aan, dan is het een klus voor meer handen en melden
+ * mensen zich aan via `taakHelpers`.
+ */
+export type TaakSoort = "gewoon" | "winterklaar";
+
+export const taken = pgTable(
+  "taken",
+  {
+    id: serial("id").primaryKey(),
+    titel: text("titel").notNull(),
+    toelichting: text("toelichting").notNull().default(""),
+    postId: integer("post_id").references(() => posten.id, {
+      onDelete: "set null",
+    }),
+    /** Uiterlijk wanneer, als er een moment aan vastzit. */
+    deadline: date("deadline"),
+    soort: text("soort").$type<TaakSoort>().notNull().default("gewoon"),
+    /** Een klus voor meer handen; anderen kunnen zich aanmelden. */
+    samen: boolean("samen").notNull().default(false),
+    /** Wie hem oppakt, en anders welk huishouden. Allebei mag leeg zijn. */
+    userId: integer("user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    coupleId: integer("couple_id").references(() => couples.id),
+    klaar: boolean("klaar").notNull().default(false),
+    klaarOp: timestamp("klaar_op", { withTimezone: true }),
+    klaarDoor: integer("klaar_door").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    aangemaaktOp: timestamp("aangemaakt_op", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("taken_klaar_idx").on(t.klaar)],
+);
+
+/** Wie zich heeft aangemeld voor een klus die je samen doet. */
+export const taakHelpers = pgTable(
+  "taak_helpers",
+  {
+    id: serial("id").primaryKey(),
+    taakId: integer("taak_id")
+      .notNull()
+      .references(() => taken.id, { onDelete: "cascade" }),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+  },
+  (t) => [unique("taak_helpers_taak_user").on(t.taakId, t.userId)],
+);

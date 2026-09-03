@@ -9,6 +9,7 @@ import { formatEuro } from "@/lib/geld";
 import { formatDatum } from "@/lib/datum";
 import { verwijderUitgaveAction } from "../actions";
 import Gegevenstabel from "@/components/Gegevenstabel";
+import { Bladkop, Bovenschrift, Paneel, Schermbody } from "@/components/Scherm";
 
 export default async function UitgaveDetail({
   params,
@@ -37,117 +38,116 @@ export default async function UitgaveDetail({
   const verwijder = verwijderUitgaveAction.bind(null, id);
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <Link href="/uitgaven" className="text-sm text-accent underline">
-          ← Uitgaven
-        </Link>
-        <div className="ml-auto flex gap-3">
+    <>
+      <Bladkop terug="/uitgaven" titel="Uitgave" />
+
+      <Schermbody>
+        <section className="rounded-2xl bg-inkt p-[18px] text-linnen">
+          <p className="bovenschrift !text-messing">
+            {formatDatum(uitgave.datum)}
+          </p>
+          <h1 className="titel mt-1.5 text-[26px] leading-tight text-pretty">
+            {uitgave.leverancier || "Zonder leverancier"}
+          </h1>
+          <p className="titel cijfers mt-2 text-[34px] leading-none">
+            {formatEuro(totaal)}
+          </p>
+          {/* Kosten gaan altijd half om half; ieders aandeel is dus de helft. */}
+          <p className="mt-2.5 text-[12.5px] text-linnen/70 text-pretty">
+            Voorgeschoten door {betaler?.naam ?? "onbekend"} · ieder{" "}
+            <span className="cijfers">
+              {formatEuro(Math.round(totaal / 2))}
+            </span>
+          </p>
+          {uitgave.opmerking && (
+            <p className="mt-3 text-sm text-linnen/85">{uitgave.opmerking}</p>
+          )}
+          <p className="mt-3 text-[11px] text-linnen/45">
+            ingevoerd door {uitgave.invoerder}
+          </p>
+        </section>
+
+        <section className="overflow-hidden rounded-2xl border border-rand bg-paneel pb-1">
+          <Gegevenstabel
+            rijen={uitgave.regels}
+            sleutel={(regel) => regel.id}
+            leeg="Deze uitgave heeft geen regels."
+            kolommen={[
+              {
+                kop: "Omschrijving",
+                titel: true,
+                cel: (regel) => (
+                  <>
+                    {regel.omschrijving}
+                    {regel.bron === "ai" && (
+                      <span className="ml-2 rounded-md bg-messing-tint px-2 py-1 text-[10.5px] font-semibold text-messing-inkt">
+                        uit bon
+                      </span>
+                    )}
+                  </>
+                ),
+              },
+              {
+                kop: "Post",
+                cel: (regel) => (
+                  <span className="text-gedempt">
+                    {postNamen.get(regel.postId) ?? "—"}
+                  </span>
+                ),
+              },
+              {
+                kop: "Aantal",
+                rechts: true,
+                cel: (regel) => <span className="cijfers">{regel.aantal}</span>,
+              },
+              {
+                kop: "Bedrag",
+                rechts: true,
+                cel: (regel) => (
+                  <span className="cijfers">
+                    {formatEuro(regel.bedragCent)}
+                  </span>
+                ),
+              },
+            ]}
+          />
+        </section>
+
+        {uitgave.bonnen.length > 0 && (
+          <Paneel>
+            <Bovenschrift className="mb-3">Bonnen en bijlagen</Bovenschrift>
+            <ul className="flex flex-wrap gap-3">
+              {uitgave.bonnen.map((bon) => (
+                <li key={bon.id}>
+                  <a href={bon.url} target="_blank" rel="noreferrer">
+                    <BestandTegel
+                      naam={bon.naam}
+                      mime={bon.mime}
+                      voorbeeldUrl={bon.voorbeeldUrl}
+                      zijde={176}
+                    />
+                  </a>
+                  <p className="mt-1 text-xs text-gedempt">origineel openen</p>
+                </li>
+              ))}
+            </ul>
+          </Paneel>
+        )}
+
+        <div className="flex gap-2.5">
           <Link
             href={`/uitgaven/${id}/bewerken`}
-            className="rounded-lg border border-rand px-3 py-2 text-sm"
+            className="flex-1 rounded-xl border border-rand-sterk bg-paneel px-4 py-3 text-center text-sm font-semibold transition hover:border-inkt"
           >
             Bewerken
           </Link>
-          <form action={verwijder}>
-            <button className="rounded-lg border border-rand px-3 py-2 text-sm text-slecht">
+          <form action={verwijder} className="flex-1">
+            <button className="w-full rounded-xl border border-rand px-4 py-3 text-sm text-slecht transition hover:border-slecht">
               Verwijderen
             </button>
           </form>
         </div>
-      </div>
-
-      <header className="rounded-xl border border-rand bg-paneel p-5">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {uitgave.leverancier || "Zonder leverancier"}
-        </h1>
-        <p className="mt-1 text-sm text-gedempt">
-          {formatDatum(uitgave.datum)} · voorgeschoten door{" "}
-          {betaler?.naam ?? "onbekend"} · ingevoerd door {uitgave.invoerder}
-        </p>
-        {uitgave.opmerking && (
-          <p className="mt-3 text-sm">{uitgave.opmerking}</p>
-        )}
-        <dl className="mt-4 flex flex-wrap gap-x-6 gap-y-1 text-sm">
-          <div>
-            <dt className="inline text-gedempt">Totaal: </dt>
-            <dd className="cijfers inline font-medium">
-              {formatEuro(totaal)}
-            </dd>
-          </div>
-          {/* Kosten gaan altijd half om half; ieders aandeel is dus de helft en
-              staat er niet apart bij. */}
-          <div>
-            <dt className="inline text-gedempt">Ieder: </dt>
-            <dd className="cijfers inline">{formatEuro(Math.round(totaal / 2))}</dd>
-          </div>
-        </dl>
-      </header>
-
-      <section className="rounded-xl border border-rand bg-paneel pb-1">
-        <Gegevenstabel
-          rijen={uitgave.regels}
-          sleutel={(regel) => regel.id}
-          leeg="Deze uitgave heeft geen regels."
-          kolommen={[
-            {
-              kop: "Omschrijving",
-              titel: true,
-              cel: (regel) => (
-                <>
-                  {regel.omschrijving}
-                  {regel.bron === "ai" && (
-                    <span className="ml-2 rounded-full bg-accent-zacht px-2 py-0.5 text-xs text-accent">
-                      uit bon
-                    </span>
-                  )}
-                </>
-              ),
-            },
-            {
-              kop: "Post",
-              cel: (regel) => (
-                <span className="text-gedempt">
-                  {postNamen.get(regel.postId) ?? "—"}
-                </span>
-              ),
-            },
-            {
-              kop: "Aantal",
-              rechts: true,
-              cel: (regel) => <span className="cijfers">{regel.aantal}</span>,
-            },
-            {
-              kop: "Bedrag",
-              rechts: true,
-              cel: (regel) => (
-                <span className="cijfers">{formatEuro(regel.bedragCent)}</span>
-              ),
-            },
-          ]}
-        />
-      </section>
-
-      {uitgave.bonnen.length > 0 && (
-        <section className="rounded-xl border border-rand bg-paneel p-4">
-          <h2 className="mb-3 text-sm font-medium">Bonnen en bijlagen</h2>
-          <ul className="flex flex-wrap gap-3">
-            {uitgave.bonnen.map((bon) => (
-              <li key={bon.id}>
-                <a href={bon.url} target="_blank" rel="noreferrer">
-                  <BestandTegel
-                    naam={bon.naam}
-                    mime={bon.mime}
-                    voorbeeldUrl={bon.voorbeeldUrl}
-                    zijde={176}
-                  />
-                </a>
-                <p className="mt-1 text-xs text-gedempt">origineel openen</p>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-    </div>
+      </Schermbody>
+    </>
   );
 }

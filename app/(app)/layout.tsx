@@ -19,8 +19,14 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
 
   return (
     <>
-      <Nav naam={gebruiker.naam} huishouden={gebruiker.coupleNaam} />
-      <main className="mx-auto w-full max-w-5xl flex-1 p-4 pb-16">
+      <Nav
+        naam={gebruiker.naam}
+        huishouden={gebruiker.coupleNaam}
+        beheerder={gebruiker.beheerder}
+      />
+      {/* De onderbalk zweeft over de pagina, dus onderaan ruimte houden -- anders
+          valt de laatste regel of knop eronder. */}
+      <main className="mx-auto w-full max-w-5xl flex-1 pb-[calc(96px+env(safe-area-inset-bottom))]">
         {children}
       </main>
     </>

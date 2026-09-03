@@ -10,7 +10,7 @@ import {
 import type { AgendaStatus } from "@/lib/instellingen";
 import Melding from "./Melding";
 
-const invoer = "rounded-lg border border-rand bg-achtergrond px-3 py-2 text-sm";
+const invoer = "rounded-xl border border-rand-sterk bg-paneel px-3.5 py-2.5 text-sm";
 
 export default function AgendaFormulier({ status }: { status: AgendaStatus }) {
   const [bewaarState, bewaar, bezig] = useActionState<MeldingState, FormData>(
@@ -29,7 +29,7 @@ export default function AgendaFormulier({ status }: { status: AgendaStatus }) {
   return (
     <div className="flex flex-col gap-4">
       {status.onleesbaar ? (
-        <p className="rounded-lg bg-accent-zacht p-3 text-sm">
+        <p className="rounded-xl bg-marine-tint p-3 text-sm">
           Er staat een sleutel opgeslagen, maar hij is niet te ontcijferen. Dat
           gebeurt als <code>SESSION_SECRET</code> is veranderd. Plak hem opnieuw.
         </p>
@@ -83,7 +83,7 @@ export default function AgendaFormulier({ status }: { status: AgendaStatus }) {
         <div className="flex flex-wrap items-center gap-3">
           <button
             disabled={bezig}
-            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="rounded-xl bg-inkt px-4 py-2.5 text-sm font-semibold text-linnen disabled:opacity-50"
           >
             {bezig ? "Bezig…" : "Opslaan"}
           </button>
@@ -96,7 +96,7 @@ export default function AgendaFormulier({ status }: { status: AgendaStatus }) {
           <form action={test}>
             <button
               disabled={testen}
-              className="rounded-lg border border-rand px-3 py-2 text-sm disabled:opacity-50"
+              className="rounded-xl border border-rand-sterk px-3.5 py-2.5 text-sm disabled:opacity-50"
             >
               {testen ? "Testen…" : "Verbinding testen"}
             </button>
@@ -104,7 +104,7 @@ export default function AgendaFormulier({ status }: { status: AgendaStatus }) {
           <form action={loskoppelen}>
             <button
               disabled={bezigLos}
-              className="rounded-lg border border-rand px-3 py-2 text-sm text-slecht disabled:opacity-50"
+              className="rounded-xl border border-rand-sterk px-3.5 py-2.5 text-sm text-slecht disabled:opacity-50"
             >
               Ontkoppelen
             </button>

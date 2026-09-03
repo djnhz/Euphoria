@@ -5,7 +5,7 @@ import { zetPinAction, type MeldingState } from "@/app/(app)/instellingen/action
 import Melding from "./Melding";
 
 const invoer =
-  "cijfers rounded-lg border border-rand bg-achtergrond px-3 py-2 text-sm tracking-widest sm:w-28";
+  "cijfers rounded-xl border border-rand-sterk bg-paneel px-3.5 py-2.5 text-sm tracking-widest sm:w-28";
 
 export default function PincodeBeheer({
   gebruikers,
@@ -52,7 +52,7 @@ function Regel({ id, naam }: { id: number; naam: string }) {
         />
         <button
           disabled={bezig}
-          className="shrink-0 rounded-lg border border-rand px-3 py-2 text-sm disabled:opacity-50"
+          className="shrink-0 rounded-xl border border-rand-sterk px-3.5 py-2.5 text-sm disabled:opacity-50"
         >
           Instellen
         </button>
