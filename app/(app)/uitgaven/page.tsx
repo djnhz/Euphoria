@@ -110,6 +110,14 @@ export default async function UitgavenPagina({
             {jaar ? ` · ${jaar}` : ""}
           </>
         }
+        rechts={
+          <Link
+            href="/uitgaven/nieuw"
+            className="hidden rounded-xl bg-inkt px-4 py-2.5 text-sm font-semibold text-linnen transition hover:bg-inkt-hover lg:block"
+          >
+            Bon indienen
+          </Link>
+        }
         tabs={<Segment items={KOSTEN_TABS} actief="/uitgaven" />}
       >
         <div className="mt-2.5">
@@ -122,14 +130,16 @@ export default async function UitgavenPagina({
         </div>
       </Schermkop>
 
-      <Schermbody>
+      <Schermbody className="xl:grid xl:grid-cols-2 xl:items-start xl:gap-x-6">
         {rijen.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-rand-sterk p-6 text-center text-sm text-gedempt">
             Niets gevonden met deze filters.
           </p>
         ) : (
           <>
-            <PerHoofdpost rijen={rijen} totaal={totaal} />
+            <div className="xl:col-span-2">
+              <PerHoofdpost rijen={rijen} totaal={totaal} />
+            </div>
 
             {groep === "geen" ? (
               <Lijst rijen={rijen} kleuren={kleurVanHuishouden} />
@@ -150,23 +160,25 @@ export default async function UitgavenPagina({
             )}
 
             {jaarRegels.length > 0 && (
-              <Kostengrafieken
-                data={{
-                  betaaldPerMaand: perMaandPerBetaler(jaarRegels),
-                  saldoVerloop: saldoPerMaand(jaarRegels),
-                  namen: {
-                    a: huishoudens[0]?.naam ?? "Huishouden A",
-                    b: huishoudens[1]?.naam ?? "Huishouden B",
-                  },
-                }}
-              />
+              <div className="xl:col-span-2">
+                <Kostengrafieken
+                  data={{
+                    betaaldPerMaand: perMaandPerBetaler(jaarRegels),
+                    saldoVerloop: saldoPerMaand(jaarRegels),
+                    namen: {
+                      a: huishoudens[0]?.naam ?? "Huishouden A",
+                      b: huishoudens[1]?.naam ?? "Huishouden B",
+                    },
+                  }}
+                />
+              </div>
             )}
           </>
         )}
       </Schermbody>
 
-      <div className="fixed inset-x-0 bottom-[calc(72px+env(safe-area-inset-bottom))] z-10 px-[18px]">
-        <div className="mx-auto w-full max-w-5xl">
+      <div className="fixed inset-x-0 bottom-[calc(72px+env(safe-area-inset-bottom))] z-10 px-[18px] lg:hidden">
+        <div className="mx-auto w-full max-w-[1400px] lg:px-6">
           <Link
             href="/uitgaven/nieuw"
             className="block rounded-2xl bg-inkt px-4 py-3.5 text-center text-[15px] font-semibold text-linnen shadow-[0_12px_24px_-10px_rgba(22,40,63,0.6)] transition hover:bg-inkt-hover"

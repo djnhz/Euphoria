@@ -68,6 +68,7 @@ export default async function TakenPagina({
             ? "nog geen taken"
             : `${open.length} open · ${week.length} deze week`
         }
+        rechts={<TaakToevoegen {...gedeeld} inKop />}
         tabs={
           <Segment
             items={TABS}
@@ -76,7 +77,7 @@ export default async function TakenPagina({
         }
       />
 
-      <Schermbody className="gap-[18px]">
+      <Schermbody className="gap-[18px] xl:grid xl:grid-cols-2 xl:items-start xl:gap-x-6">
         {lijst === "open" && (
           <>
             {taken.length > 0 && <Voortgang stand={stand} />}
@@ -193,7 +194,7 @@ function Voortgang({
   stand: { klaar: number; totaal: number; procent: number };
 }) {
   return (
-    <div className="flex items-center gap-3.5 rounded-2xl bg-inkt p-4 text-linnen">
+    <div className="flex items-center gap-3.5 rounded-2xl bg-inkt p-4 text-linnen xl:col-span-2 xl:p-6">
       <div
         className="flex h-13 w-13 shrink-0 items-center justify-center rounded-full"
         style={{

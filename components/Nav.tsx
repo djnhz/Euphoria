@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import GebruikerMenu from "./GebruikerMenu";
+import Logo from "./Logo";
 
 /**
  * Vier bestemmingen onderin, geen hamburgermenu meer. Wat eerst losse items waren
@@ -48,17 +49,39 @@ export default function Nav({
   return (
     <>
       <header className="sticky top-0 z-20 bg-inkt-diep">
-        <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-[18px] py-3">
-          <Link
-            href="/"
-            aria-label="Euphoria"
-            className="flex items-center gap-3 text-linnen"
-          >
-            <Boot />
-            <span className="titel text-[15px] uppercase tracking-[0.28em]">
-              Euphoria
-            </span>
+        <div className="mx-auto flex w-full max-w-[1400px] items-center justify-between gap-6 px-[18px] py-3">
+          {/* Het eigen logo, in de versie met lichte inkt: de balk is marineblauw. */}
+          <Link href="/" aria-label="Euphoria" className="flex shrink-0">
+            <Logo hoogte={46} opDonker />
           </Link>
+
+          {/* Vanaf een tabletbreedte is er ruimte naast het woordmerk, en dan hoort
+              de navigatie daar: een balk onderaan een breed scherm is een reep
+              lucht met vier woorden erin. */}
+          {!isBlad && (
+            <nav className="hidden flex-1 justify-center gap-1 lg:flex">
+              {TABS.map((tab) => {
+                const actief = isActief(tab);
+                const Icoon = tab.icoon;
+                return (
+                  <Link
+                    key={tab.href}
+                    href={tab.href}
+                    aria-current={actief ? "page" : undefined}
+                    className={`flex items-center gap-2 rounded-full px-3.5 py-2 text-sm transition ${
+                      actief
+                        ? "bg-linnen/12 font-semibold text-linnen"
+                        : "text-linnen/60 hover:text-linnen"
+                    }`}
+                  >
+                    <Icoon />
+                    {tab.label}
+                  </Link>
+                );
+              })}
+            </nav>
+          )}
+
           <GebruikerMenu
             naam={naam}
             huishouden={huishouden}
@@ -67,10 +90,10 @@ export default function Nav({
         </div>
       </header>
 
-      {/* De balk zit vast onderin en de pagina houdt er ruimte voor vrij; op een
-          brede schermbreedte blijft hij staan, want er zijn maar vier plekken. */}
+      {/* Op een telefoon zit de balk vast onderin, binnen duimbereik; de pagina
+          houdt er ruimte voor vrij. Op een breed scherm staat hij bovenin. */}
       {!isBlad && (
-        <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-rand bg-linnen pb-[env(safe-area-inset-bottom)]">
+        <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-rand bg-linnen pb-[env(safe-area-inset-bottom)] lg:hidden">
           <div className="mx-auto flex w-full max-w-5xl px-1.5 pt-2 pb-2.5">
             {TABS.map((tab) => {
               const actief = isActief(tab);
@@ -97,20 +120,6 @@ export default function Nav({
         </nav>
       )}
     </>
-  );
-}
-
-/** Het zeilbootje uit het logo, in vlakken zodat het klein nog leesbaar is. */
-function Boot() {
-  return (
-    <svg viewBox="0 0 100 84" width="24" height="20" aria-hidden>
-      <path d="M48 4 L48 56 L17 56 Z" fill="#F7F4EC" />
-      <path d="M55 20 L55 56 L83 56 Z" fill="#9DB4CE" />
-      <path
-        d="M6 60 L94 60 C86 74 74 78 50 78 C26 78 14 74 6 60 Z"
-        fill="#F7F4EC"
-      />
-    </svg>
   );
 }
 

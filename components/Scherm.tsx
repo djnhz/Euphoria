@@ -20,10 +20,12 @@ export function Schermkop({
   children?: ReactNode;
 }) {
   return (
-    <div className="border-b border-rand px-[18px] pt-4 pb-3.5">
+    <div className="border-b border-rand px-[18px] pt-4 pb-3.5 lg:px-8 lg:pt-7 lg:pb-5">
       <div className="mb-3 flex items-end justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="titel truncate text-[28px] leading-tight">{titel}</h1>
+          <h1 className="titel truncate text-[28px] leading-tight lg:text-[36px]">
+            {titel}
+          </h1>
           {onderschrift && (
             <div className="cijfers mt-0.5 text-xs text-gedempt">
               {onderschrift}
@@ -47,7 +49,7 @@ export function Schermbody({
   className?: string;
 }) {
   return (
-    <div className={`flex flex-col gap-4 px-[18px] py-[18px] ${className}`}>
+    <div className={`flex flex-col gap-4 px-[18px] py-[18px] lg:px-8 lg:py-7 ${className}`}>
       {children}
     </div>
   );
@@ -155,7 +157,7 @@ export function Bladkop({
   titel: string;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-rand px-[18px] py-3.5">
+    <div className="flex items-center justify-between gap-3 border-b border-rand px-[18px] py-3.5 lg:px-8">
       <Link href={terug} className="text-[15px] text-gedempt">
         Annuleren
       </Link>

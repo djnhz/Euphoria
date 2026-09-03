@@ -197,16 +197,43 @@ export function TaakToevoegen({
   posten,
   huishoudens,
   jij,
+  inKop = false,
 }: {
   posten: Keuze[];
   huishoudens: Keuze[];
   jij: number;
+  /** In de kop staat hij als gewone knop; onderaan zweeft hij boven de lijst. */
+  inKop?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+
+  if (inKop) {
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="hidden rounded-xl bg-inkt px-4 py-2.5 text-sm font-semibold text-linnen transition hover:bg-inkt-hover lg:block"
+        >
+          Taak toevoegen
+        </button>
+        {open && (
+          <TaakSheet
+            taak={null}
+            posten={posten}
+            huishoudens={huishoudens}
+            jij={jij}
+            sluit={() => setOpen(false)}
+          />
+        )}
+      </>
+    );
+  }
+
   return (
     <>
-      <div className="fixed inset-x-0 bottom-[calc(72px+env(safe-area-inset-bottom))] z-10 px-[18px]">
-        <div className="mx-auto w-full max-w-5xl">
+      <div className="fixed inset-x-0 bottom-[calc(72px+env(safe-area-inset-bottom))] z-10 px-[18px] lg:hidden">
+        <div className="mx-auto w-full max-w-[1400px] lg:px-6">
           <button
             type="button"
             onClick={() => setOpen(true)}
@@ -475,7 +502,9 @@ export function Bolletje({
 
 function onderregel(taak: TaakInvoer): string {
   if (taak.klaar) {
-    const wie = taak.klaarDoorNaam ? `gedaan door ${taak.klaarDoorNaam}` : "gedaan";
+    const wie = taak.klaarDoorNaam
+      ? `gedaan door ${taak.klaarDoorNaam}`
+      : "gedaan";
     const wanneer = taak.klaarOp
       ? ` · ${formatDatum(new Date(taak.klaarOp).toISOString().slice(0, 10))}`
       : "";

@@ -26,7 +26,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
       />
       {/* De onderbalk zweeft over de pagina, dus onderaan ruimte houden -- anders
           valt de laatste regel of knop eronder. */}
-      <main className="mx-auto w-full max-w-5xl flex-1 pb-[calc(96px+env(safe-area-inset-bottom))]">
+      <main className="mx-auto w-full max-w-[1400px] flex-1 pb-[calc(96px+env(safe-area-inset-bottom))] lg:pb-10">
         {children}
       </main>
     </>

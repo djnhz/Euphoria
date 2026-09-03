@@ -158,12 +158,11 @@ export default function BegrotingFormulier({
     <div className="flex flex-col gap-4">
       <Stand begroot={totalen.begroot} besteed={totalen.werkelijk} />
 
-      <div className="flex flex-col gap-2.5">
-        <div className="bovenschrift flex justify-between px-1">
-          <span>Post</span>
-          <span>Begroot</span>
-        </div>
-
+      <div className="bovenschrift flex justify-between px-1">
+        <span>Post</span>
+        <span>Begroot</span>
+      </div>
+      <div className="grid gap-2.5 lg:grid-cols-2 lg:items-start">
         {zichtbaar.map((post) => (
           <PostKaart
             key={post.id}

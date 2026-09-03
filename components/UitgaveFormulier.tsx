@@ -544,7 +544,7 @@ export default function UitgaveFormulier({
           hoef je niet terug te scrollen om te zien waar je op uitkomt. Kosten gaan
           altijd half om half, dus alleen dit ene bedrag zegt iets. */}
       <div className="fixed inset-x-0 bottom-0 z-10 border-t border-rand bg-linnen pb-[env(safe-area-inset-bottom)]">
-        <div className="mx-auto w-full max-w-5xl px-[18px] pt-3 pb-4">
+        <div className="mx-auto w-full max-w-[1400px] px-[18px] pt-3 pb-4 lg:px-8">
           <div className="mb-3 flex items-baseline justify-between">
             <span className="text-[13px] text-gedempt">Totaal</span>
             <span className="titel cijfers text-2xl">{formatEuro(totaal)}</span>
