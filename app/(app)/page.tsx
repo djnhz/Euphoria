@@ -38,7 +38,30 @@ export default async function Overzicht() {
     ? await haalReserveringen(nu, plusDagen(nu, 180))
     : [];
   const geboekt = "fout" in opgehaald ? [] : opgehaald;
-  const reserveringen = geboekt.slice(0, 3);
+
+  /**
+   * Wat er komt, uit één bron. Staat het in de agenda, dan is dat het antwoord --
+   * een gepubliceerde seizoensplanning zit daar immers in. Alleen zolang er niets
+   * geboekt is valt het terug op het concept, met erbij dat het nog een concept is.
+   */
+  const komende = (() => {
+    const uitPlanning = geboekt.some((r) => r.bron === "euphoria-seizoen");
+    if (geboekt.length > 0) {
+      return {
+        bron: "agenda" as const,
+        reserveringen: geboekt.slice(0, 4),
+        beurten: [],
+        conceptOpenstaand: planning.gepland && !uitPlanning,
+      };
+    }
+    return {
+      bron:
+        planning.beurten.length > 0 ? ("planning" as const) : ("geen" as const),
+      reserveringen: [],
+      beurten: planning.beurten.slice(0, 4),
+      conceptOpenstaand: false,
+    };
+  })();
 
   const kleurVan = new Map(
     huishoudens.map((h, i) => [h.id, huishoudKleur(i)] as const),
@@ -49,18 +72,16 @@ export default async function Overzicht() {
   };
 
   /**
-   * De aftelling komt uit de seizoensplanning als die er is, en anders uit de
-   * agenda zelf. Zonder die tweede weg staat er "nog geen seizoensplanning" te
-   * pronken terwijl de weken gewoon in de agenda staan -- de planning is maar één
-   * manier om ze daar te krijgen.
+   * Dezelfde regel als voor de lijst hieronder: wat in de agenda staat telt, en de
+   * planning vult alleen aan zolang daar niets staat. Anders telt dit scherm af
+   * naar een week uit een concept dat niemand buiten dit scherm kent.
    */
   const mijn =
-    jouwBeurt(planning.beurten, gebruiker.coupleId) ??
     uitReservering(
       geboekt.find((r) => r.coupleId === gebruiker.coupleId),
       nu,
       huishoudens.find((h) => h.id === gebruiker.coupleId)?.naam ?? "Jullie",
-    );
+    ) ?? jouwBeurt(planning.beurten, gebruiker.coupleId);
   const open = taken.filter((t) => !t.klaar);
   const stand = voortgang(taken);
   const saldo = saldoCent(await haalRegels());
@@ -81,10 +102,86 @@ export default async function Overzicht() {
           het kost. Op een telefoon gewoon onder elkaar in dezelfde volgorde. */}
       <div className="grid gap-4 px-[18px] py-[18px] lg:grid-cols-2 lg:items-start lg:gap-6 lg:px-8 lg:py-7 xl:grid-cols-3">
         <div className="flex flex-col gap-4 lg:gap-6">
-          {planning.beurten.length > 0 && (
+          {/* Eén lijst, geen twee. Een seizoensplanning is een concept tot je
+              hem publiceert; dáárna zijn het gewone afspraken in de agenda. Die
+              twee naast elkaar tonen is hetzelfde tweemaal laten zien -- en zodra
+              iemand een dag vrijgeeft spreken ze elkaar tegen. De agenda wint,
+              want dat is wat er echt staat. */}
+          {komende.bron === "agenda" && (
             <section>
               <div className="mb-2.5 flex items-baseline justify-between">
-                <div className="bovenschrift">Seizoen {planning.jaar}</div>
+                <div className="bovenschrift">Komende weken</div>
+                <Link href="/vaarplanning" className="text-xs text-link">
+                  kalender
+                </Link>
+              </div>
+              <div className="flex flex-col gap-2">
+                {komende.reserveringen.map((reservering) => (
+                  <div
+                    key={reservering.id}
+                    className="rounded-2xl border border-rand bg-paneel p-3.5"
+                  >
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                      <span
+                        className="w-[3px] self-stretch rounded-sm"
+                        style={{
+                          background:
+                            kleurVan.get(reservering.coupleId ?? -1) ??
+                            "var(--neutraal)",
+                        }}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[13.5px] font-semibold">
+                          {reservering.titel || "Gereserveerd"}
+                        </p>
+                        <p className="cijfers text-[11.5px] text-gedempt">
+                          {periode(reservering)}
+                          {reservering.bron === "euphoria-seizoen" &&
+                            " · uit de planning"}
+                        </p>
+                      </div>
+                      {reservering.van <= nu ? (
+                        <span className="shrink-0 rounded-md bg-accent-zacht px-2 py-1 text-[10.5px] font-semibold">
+                          nu
+                        </span>
+                      ) : (
+                        <span className="cijfers shrink-0 text-[11px] text-gedempt">
+                          over {dagenTot(nu, reservering.van)} d
+                        </span>
+                      )}
+                      {/* Dagen vrijgeven of de hele reservering weghalen, zonder
+                          eerst naar de kalender te hoeven. */}
+                      {magBewerken(reservering, gebruiker.coupleId) && (
+                        <ReserveringBewerken
+                          reservering={reservering}
+                          compact
+                        />
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Staat er wel een planning maar niets daarvan in de agenda, dan is
+                  het nog een concept en weet niemand het buiten dit scherm. */}
+              {komende.conceptOpenstaand && (
+                <Link
+                  href="/vaarplanning/seizoen"
+                  className="mt-2 block rounded-2xl border border-dashed border-messing bg-messing-tint px-3.5 py-3 text-[12.5px] text-messing-inkt text-pretty"
+                >
+                  De seizoensplanning van {planning.jaar} staat nog als concept
+                  en is niet in de agenda gezet. Publiceren →
+                </Link>
+              )}
+            </section>
+          )}
+
+          {komende.bron === "planning" && (
+            <section>
+              <div className="mb-2.5 flex items-baseline justify-between">
+                <div className="bovenschrift">
+                  Seizoen {planning.jaar} · concept
+                </div>
                 <Link
                   href="/vaarplanning/seizoen"
                   className="text-xs text-link"
@@ -93,7 +190,7 @@ export default async function Overzicht() {
                 </Link>
               </div>
               <div className="flex flex-col gap-2">
-                {planning.beurten.slice(0, 3).map((beurt) => (
+                {komende.beurten.map((beurt) => (
                   <div
                     key={beurt.van}
                     className="flex items-center gap-3 rounded-2xl border border-rand bg-paneel p-3.5"
@@ -128,61 +225,11 @@ export default async function Overzicht() {
                   </div>
                 ))}
               </div>
-            </section>
-          )}
-
-          {reserveringen.length > 0 && (
-            <section>
-              <div className="mb-2.5 flex items-baseline justify-between">
-                <div className="bovenschrift">Komende reserveringen</div>
-                <Link href="/vaarplanning" className="text-xs text-link">
-                  kalender
-                </Link>
-              </div>
-              <div className="flex flex-col gap-2">
-                {reserveringen.map((reservering) => (
-                  <div
-                    key={reservering.id}
-                    className="rounded-2xl border border-rand bg-paneel p-3.5"
-                  >
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                      <span
-                        className="w-[3px] self-stretch rounded-sm"
-                        style={{
-                          background:
-                            kleurVan.get(reservering.coupleId ?? -1) ??
-                            "var(--neutraal)",
-                        }}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-[13.5px] font-semibold">
-                          {reservering.titel || "Gereserveerd"}
-                        </p>
-                        <p className="cijfers text-[11.5px] text-gedempt">
-                          {periode(reservering)}
-                        </p>
-                      </div>
-                      {reservering.van <= nu ? (
-                        <span className="shrink-0 rounded-md bg-accent-zacht px-2 py-1 text-[10.5px] font-semibold">
-                          nu
-                        </span>
-                      ) : (
-                        <span className="cijfers shrink-0 text-[11px] text-gedempt">
-                          over {dagenTot(nu, reservering.van)} d
-                        </span>
-                      )}
-                      {/* Dagen vrijgeven of de hele reservering weghalen, zonder
-                          eerst naar de kalender te hoeven. */}
-                      {magBewerken(reservering, gebruiker.coupleId) && (
-                        <ReserveringBewerken
-                          reservering={reservering}
-                          compact
-                        />
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <p className="mt-2 rounded-2xl border border-dashed border-rand-sterk px-3.5 py-3 text-[12.5px] text-gedempt text-pretty">
+                {agenda.gekoppeld
+                  ? "Nog niet in de agenda gezet, dus alleen hier te zien."
+                  : "De Google-agenda is niet gekoppeld, dus dit is de planning en niet wat er echt geboekt staat."}
+              </p>
             </section>
           )}
         </div>
