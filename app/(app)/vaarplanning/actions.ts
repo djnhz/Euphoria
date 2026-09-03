@@ -114,8 +114,12 @@ export async function geefDagenVrijAction(
   // Op huishouden en niet op persoon: de blokken uit de seizoensplanning staan op
   // naam van een huishouden en van niemand in het bijzonder, en binnen een gezin
   // hoeft niemand te wachten tot degene die boekte tijd heeft.
-  if (mijne.coupleId !== gebruiker.coupleId) {
-    return { fout: "Deze week is van het andere huishouden." };
+  //
+  // Staat er geen huishouden bij, dan is de afspraak rechtstreeks in Google Agenda
+  // gezet. Die hoort niemand toe en mag dus door iedereen bijgesteld worden -- daar
+  // in de agenda kan dat immers ook.
+  if (mijne.coupleId !== null && mijne.coupleId !== gebruiker.coupleId) {
+    return { fout: "Deze week staat op naam van het andere huishouden." };
   }
 
   const uitkomst = await geefDagenVrij(id, dagen);

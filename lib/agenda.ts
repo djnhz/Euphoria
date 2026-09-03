@@ -25,6 +25,8 @@ export type Reservering = {
   coupleId: number | null;
   /** "euphoria-seizoen" als dit blok uit de seizoensplanning komt. */
   bron: string | null;
+  /** Niets van dit alles: dan is de afspraak buiten de app om gemaakt. */
+  uitApp: boolean;
 };
 
 export type AgendaFout = { fout: string };
@@ -149,6 +151,7 @@ export async function haalReserveringen(
         userId: eigen.userId ? Number(eigen.userId) : null,
         coupleId: eigen.coupleId ? Number(eigen.coupleId) : null,
         bron: eigen.bron ?? null,
+        uitApp: Boolean(eigen.bron),
       };
     });
 }

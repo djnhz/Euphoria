@@ -276,9 +276,11 @@ export default function Vaarkalender({
                   </p>
                 </div>
                 {/* Weken van je eigen huishouden kun je hier aanpassen, of ze nu
-                    zelf geboekt zijn of uit de seizoensplanning komen. De rest
-                    beheer je in Google Agenda zelf. */}
-                {reservering.coupleId === eigenCoupleId && (
+                    zelf geboekt zijn of uit de seizoensplanning komen. En wat
+                    rechtstreeks in Google Agenda is gezet staat op niemands naam,
+                    dus dat mag ook -- daar kan iedereen er immers ook bij. */}
+                {(reservering.coupleId === eigenCoupleId ||
+                  reservering.coupleId === null) && (
                   <Bewerken reservering={reservering} />
                 )}
               </li>
@@ -377,6 +379,13 @@ function Bewerken({ reservering }: { reservering: Reservering }) {
             );
           })}
         </div>
+
+        {!reservering.uitApp && (
+          <p className="mt-2.5 text-xs text-gedempt text-pretty">
+            Deze afspraak is rechtstreeks in Google Agenda gezet, dus de app
+            weet niet van wie hij is.
+          </p>
+        )}
 
         {/* Een blok uit de seizoensplanning mag je hier bijschaven, maar het is
             goed om te weten dat opnieuw publiceren het terugzet zoals het was. */}
