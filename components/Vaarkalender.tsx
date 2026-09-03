@@ -38,7 +38,7 @@ export default function Vaarkalender({
   vandaag,
   reserveringen,
   huishoudens,
-  eigenUserId,
+  eigenCoupleId,
   eigenNaam,
 }: {
   jaar: number;
@@ -46,7 +46,8 @@ export default function Vaarkalender({
   vandaag: string;
   reserveringen: Reservering[];
   huishoudens: { id: number; naam: string; volgorde: number }[];
-  eigenUserId: number;
+  /** Weken van je eigen huishouden mag je aanpassen, ook die uit de planning. */
+  eigenCoupleId: number;
   /** Standaardtitel voor een nieuwe reservering; je mag hem overschrijven. */
   eigenNaam: string;
 }) {
@@ -274,9 +275,10 @@ export default function Vaarkalender({
                     {reservering.opmerking && ` · ${reservering.opmerking}`}
                   </p>
                 </div>
-                {/* Alleen wat je zelf via de app hebt geboekt kun je hier
-                    aanpassen; de rest beheer je in Google Agenda zelf. */}
-                {reservering.userId === eigenUserId && (
+                {/* Weken van je eigen huishouden kun je hier aanpassen, of ze nu
+                    zelf geboekt zijn of uit de seizoensplanning komen. De rest
+                    beheer je in Google Agenda zelf. */}
+                {reservering.coupleId === eigenCoupleId && (
                   <Bewerken reservering={reservering} />
                 )}
               </li>
@@ -375,6 +377,15 @@ function Bewerken({ reservering }: { reservering: Reservering }) {
             );
           })}
         </div>
+
+        {/* Een blok uit de seizoensplanning mag je hier bijschaven, maar het is
+            goed om te weten dat opnieuw publiceren het terugzet zoals het was. */}
+        {reservering.bron === "euphoria-seizoen" && (
+          <p className="mt-2.5 text-xs text-messing-inkt text-pretty">
+            Deze week komt uit de seizoensplanning. Publiceert de beheerder het
+            seizoen opnieuw, dan staat hij er weer helemaal in.
+          </p>
+        )}
 
         {gekozen.length > 0 && (
           <p className="mt-2.5 text-xs text-gedempt text-pretty">

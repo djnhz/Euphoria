@@ -23,6 +23,8 @@ export type Reservering = {
   /** Wie de reservering maakte, voor zover de app dat heeft vastgelegd. */
   userId: number | null;
   coupleId: number | null;
+  /** "euphoria-seizoen" als dit blok uit de seizoensplanning komt. */
+  bron: string | null;
 };
 
 export type AgendaFout = { fout: string };
@@ -51,7 +53,10 @@ async function verbinding(): Promise<
     if (!token) return { ok: false, fout: "Google gaf geen toegangstoken." };
     return { ok: true, token, agendaId };
   } catch (fout) {
-    return { ok: false, fout: `Aanmelden bij Google mislukte: ${(fout as Error).message}` };
+    return {
+      ok: false,
+      fout: `Aanmelden bij Google mislukte: ${(fout as Error).message}`,
+    };
   }
 }
 
@@ -143,6 +148,7 @@ export async function haalReserveringen(
         opmerking: item.description ?? "",
         userId: eigen.userId ? Number(eigen.userId) : null,
         coupleId: eigen.coupleId ? Number(eigen.coupleId) : null,
+        bron: eigen.bron ?? null,
       };
     });
 }
@@ -366,7 +372,11 @@ export async function geefDagenVrij(
   const verbonden = await verbinding();
   if (!verbonden.ok) return { fout: verbonden.fout };
 
-  const gevonden = await haalRuweAfspraak(verbonden.token, verbonden.agendaId, id);
+  const gevonden = await haalRuweAfspraak(
+    verbonden.token,
+    verbonden.agendaId,
+    id,
+  );
   if ("fout" in gevonden) return gevonden;
   const { item } = gevonden;
 

@@ -85,8 +85,8 @@ export type VrijgeefState = { fout?: string; gelukt?: string } | null;
  * helemaal weg; vink je er een paar in het midden aan, dan blijven de stukken
  * ervoor en erna staan als losse reserveringen.
  *
- * Alleen de eigen reservering: wat iemand anders of de seizoensplanning heeft
- * neergezet laat dit scherm met rust.
+ * Alleen weken van het eigen huishouden -- ook de blokken uit de
+ * seizoensplanning, want juist daar wil je een losse dag kunnen teruggeven.
  */
 export async function geefDagenVrijAction(
   _vorige: VrijgeefState,
@@ -111,8 +111,11 @@ export async function geefDagenVrijAction(
   if ("fout" in bestaand) return { fout: bestaand.fout };
   const mijne = bestaand.find((r) => r.id === id);
   if (!mijne) return { fout: "Deze reservering staat er niet meer." };
-  if (mijne.userId !== gebruiker.id) {
-    return { fout: "Deze reservering is niet van jou." };
+  // Op huishouden en niet op persoon: de blokken uit de seizoensplanning staan op
+  // naam van een huishouden en van niemand in het bijzonder, en binnen een gezin
+  // hoeft niemand te wachten tot degene die boekte tijd heeft.
+  if (mijne.coupleId !== gebruiker.coupleId) {
+    return { fout: "Deze week is van het andere huishouden." };
   }
 
   const uitkomst = await geefDagenVrij(id, dagen);

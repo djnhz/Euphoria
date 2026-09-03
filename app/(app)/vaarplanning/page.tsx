@@ -47,12 +47,13 @@ export default async function VaarplanningPagina({
         {kop}
         <Schermbody>
           <p className="rounded-2xl border border-dashed border-rand-sterk p-5 text-sm text-gedempt text-pretty">
-            De Google-agenda is nog niet gekoppeld, dus reserveringen kunnen we niet
-            ophalen. Dat regel je bij{" "}
+            De Google-agenda is nog niet gekoppeld, dus reserveringen kunnen we
+            niet ophalen. Dat regel je bij{" "}
             <Link href="/instellingen" className="text-link underline">
               Instellingen
             </Link>
-            . {/* Ook zonder agenda kun je een seizoen uitrekenen; alleen publiceren
+            .{" "}
+            {/* Ook zonder agenda kun je een seizoen uitrekenen; alleen publiceren
                    lukt dan niet, en dat zegt dat scherm zelf. */}
             Het seizoen verdelen kan wel.
           </p>
@@ -90,7 +91,7 @@ export default async function VaarplanningPagina({
             naam: h.naam,
             volgorde: h.volgorde,
           }))}
-          eigenUserId={gebruiker.id}
+          eigenCoupleId={gebruiker.coupleId}
           eigenNaam={gebruiker.naam}
         />
       </Schermbody>
