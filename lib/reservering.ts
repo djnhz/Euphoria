@@ -32,3 +32,17 @@ export function plandVrijgeven(
   const [eerste, ...rest] = aaneengeslotenBlokken(over);
   return { soort: "inkorten", houden: eerste, extra: rest };
 }
+
+/**
+ * Mag deze gebruiker deze reservering bijstellen? Zonder huishouden is de afspraak
+ * rechtstreeks in Google Agenda gezet; die hoort niemand toe, en daar kan iedereen
+ * ook in de agenda zelf bij.
+ */
+export function magBewerken(
+  reservering: { coupleId: number | null },
+  eigenCoupleId: number,
+): boolean {
+  return (
+    reservering.coupleId === null || reservering.coupleId === eigenCoupleId
+  );
+}

@@ -7,11 +7,11 @@ import Link from "next/link";
 import type { Reservering } from "@/lib/agenda";
 import { formatDatum } from "@/lib/datum";
 import {
-  geefDagenVrijAction,
   reserveerAction,
   type ReserveerState,
-  type VrijgeefState,
 } from "@/app/(app)/vaarplanning/actions";
+import ReserveringBewerken from "./ReserveringBewerken";
+import { magBewerken } from "@/lib/reservering";
 
 const MAANDNAMEN = [
   "januari",
@@ -279,9 +279,8 @@ export default function Vaarkalender({
                     zelf geboekt zijn of uit de seizoensplanning komen. En wat
                     rechtstreeks in Google Agenda is gezet staat op niemands naam,
                     dus dat mag ook -- daar kan iedereen er immers ook bij. */}
-                {(reservering.coupleId === eigenCoupleId ||
-                  reservering.coupleId === null) && (
-                  <Bewerken reservering={reservering} />
+                {magBewerken(reservering, eigenCoupleId) && (
+                  <ReserveringBewerken reservering={reservering} />
                 )}
               </li>
             ))}
@@ -290,155 +289,6 @@ export default function Vaarkalender({
       </section>
     </div>
   );
-}
-
-/**
- * Een reservering krimpen of opdelen door dagen vrij te geven. Vink je alles aan,
- * dan gaat hij helemaal weg -- dat is dezelfde handeling, dus dezelfde knop, in
- * plaats van een aparte annuleerknop ernaast.
- */
-function Bewerken({ reservering }: { reservering: Reservering }) {
-  const [open, setOpen] = useState(false);
-  const [state, vrijgeven, bezig] = useActionState<VrijgeefState, FormData>(
-    geefDagenVrijAction,
-    null,
-  );
-  const [gekozen, setGekozen] = useState<string[]>([]);
-  const dagen = useMemo(
-    () => dagenTussen(reservering.van, reservering.tot),
-    [reservering.van, reservering.tot],
-  );
-  const alles = gekozen.length === dagen.length;
-
-  // Gelukt? Dan is de lijst eronder al bijgewerkt en hoeft dit niet open te
-  // blijven. Tijdens het renderen bijstellen in plaats van in een effect: dat
-  // scheelt een tweede beeld waarin het blok nog even openstaat.
-  const [verwerkt, setVerwerkt] = useState<VrijgeefState>(null);
-  if (state?.gelukt && state !== verwerkt) {
-    setVerwerkt(state);
-    setOpen(false);
-    setGekozen([]);
-  }
-
-  if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="shrink-0 rounded-xl border border-rand-sterk px-3 py-2 text-sm transition hover:border-inkt"
-      >
-        Aanpassen
-      </button>
-    );
-  }
-
-  return (
-    <form action={vrijgeven} className="w-full">
-      <input type="hidden" name="id" value={reservering.id} />
-
-      <div className="mt-1 rounded-xl border border-rand bg-verzonken p-3">
-        <div className="mb-2 flex items-baseline justify-between gap-3">
-          <p className="bovenschrift">Welke dagen geef je vrij?</p>
-          <button
-            type="button"
-            onClick={() => setGekozen(alles ? [] : dagen)}
-            className="text-xs text-link underline"
-          >
-            {alles ? "geen enkele" : "alle dagen"}
-          </button>
-        </div>
-
-        <div className="flex flex-wrap gap-1.5">
-          {dagen.map((dag) => {
-            const aan = gekozen.includes(dag);
-            return (
-              <label
-                key={dag}
-                className={`cursor-pointer rounded-lg border px-2.5 py-1.5 text-xs transition ${
-                  aan
-                    ? "border-transparent bg-inkt font-semibold text-linnen"
-                    : "border-rand-sterk bg-paneel hover:border-inkt"
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  name="dag"
-                  value={dag}
-                  checked={aan}
-                  onChange={(e) =>
-                    setGekozen((huidig) =>
-                      e.target.checked
-                        ? [...huidig, dag]
-                        : huidig.filter((d) => d !== dag),
-                    )
-                  }
-                  className="sr-only"
-                />
-                <span className="cijfers">{kortDag(dag)}</span>
-              </label>
-            );
-          })}
-        </div>
-
-        {!reservering.uitApp && (
-          <p className="mt-2.5 text-xs text-gedempt text-pretty">
-            Deze afspraak is rechtstreeks in Google Agenda gezet, dus de app
-            weet niet van wie hij is.
-          </p>
-        )}
-
-        {/* Een blok uit de seizoensplanning mag je hier bijschaven, maar het is
-            goed om te weten dat opnieuw publiceren het terugzet zoals het was. */}
-        {reservering.bron === "euphoria-seizoen" && (
-          <p className="mt-2.5 text-xs text-messing-inkt text-pretty">
-            Deze week komt uit de seizoensplanning. Publiceert de beheerder het
-            seizoen opnieuw, dan staat hij er weer helemaal in.
-          </p>
-        )}
-
-        {gekozen.length > 0 && (
-          <p className="mt-2.5 text-xs text-gedempt text-pretty">
-            {alles
-              ? "Alles aangevinkt: de hele reservering verdwijnt."
-              : `Er ${dagen.length - gekozen.length === 1 ? "blijft" : "blijven"} ${dagen.length - gekozen.length} ${dagen.length - gekozen.length === 1 ? "dag" : "dagen"} staan.`}
-          </p>
-        )}
-
-        {state?.fout && (
-          <p className="mt-2 text-sm text-slecht">{state.fout}</p>
-        )}
-
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <button
-            disabled={bezig || gekozen.length === 0}
-            className="rounded-xl bg-inkt px-3.5 py-2.5 text-sm font-semibold text-linnen disabled:opacity-40"
-          >
-            {bezig
-              ? "Bezig…"
-              : alles
-                ? "Reservering weghalen"
-                : "Dagen vrijgeven"}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setOpen(false);
-              setGekozen([]);
-            }}
-            className="text-sm text-gedempt underline"
-          >
-            laat maar
-          </button>
-        </div>
-      </div>
-    </form>
-  );
-}
-
-/** "wo 12" -- kort genoeg om er zeven naast elkaar te zetten op een telefoon. */
-function kortDag(iso: string): string {
-  const dag = new Date(`${iso}T00:00:00Z`).getUTCDay();
-  return `${DAGKOPPEN[(dag + 6) % 7]} ${Number(iso.slice(8))}`;
 }
 
 const invoer =

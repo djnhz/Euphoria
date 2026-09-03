@@ -12,6 +12,8 @@ import { haalReserveringen } from "@/lib/agenda";
 import { agendaStatus } from "@/lib/instellingen";
 import { Bovenschrift, Paneel } from "@/components/Scherm";
 import { TaakRij } from "@/components/TaakOnderdelen";
+import ReserveringBewerken from "@/components/ReserveringBewerken";
+import { magBewerken } from "@/lib/reservering";
 import { taakPosten } from "@/lib/taken";
 
 export default async function Overzicht() {
@@ -141,33 +143,43 @@ export default async function Overzicht() {
                 {reserveringen.map((reservering) => (
                   <div
                     key={reservering.id}
-                    className="flex items-center gap-3 rounded-2xl border border-rand bg-paneel p-3.5"
+                    className="rounded-2xl border border-rand bg-paneel p-3.5"
                   >
-                    <span
-                      className="w-[3px] self-stretch rounded-sm"
-                      style={{
-                        background:
-                          kleurVan.get(reservering.coupleId ?? -1) ??
-                          "var(--neutraal)",
-                      }}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[13.5px] font-semibold">
-                        {reservering.titel || "Gereserveerd"}
-                      </p>
-                      <p className="cijfers text-[11.5px] text-gedempt">
-                        {periode(reservering)}
-                      </p>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                      <span
+                        className="w-[3px] self-stretch rounded-sm"
+                        style={{
+                          background:
+                            kleurVan.get(reservering.coupleId ?? -1) ??
+                            "var(--neutraal)",
+                        }}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[13.5px] font-semibold">
+                          {reservering.titel || "Gereserveerd"}
+                        </p>
+                        <p className="cijfers text-[11.5px] text-gedempt">
+                          {periode(reservering)}
+                        </p>
+                      </div>
+                      {reservering.van <= nu ? (
+                        <span className="shrink-0 rounded-md bg-accent-zacht px-2 py-1 text-[10.5px] font-semibold">
+                          nu
+                        </span>
+                      ) : (
+                        <span className="cijfers shrink-0 text-[11px] text-gedempt">
+                          over {dagenTot(nu, reservering.van)} d
+                        </span>
+                      )}
+                      {/* Dagen vrijgeven of de hele reservering weghalen, zonder
+                          eerst naar de kalender te hoeven. */}
+                      {magBewerken(reservering, gebruiker.coupleId) && (
+                        <ReserveringBewerken
+                          reservering={reservering}
+                          compact
+                        />
+                      )}
                     </div>
-                    {reservering.van <= nu ? (
-                      <span className="shrink-0 rounded-md bg-accent-zacht px-2 py-1 text-[10.5px] font-semibold">
-                        nu
-                      </span>
-                    ) : (
-                      <span className="cijfers shrink-0 text-[11px] text-gedempt">
-                        over {dagenTot(nu, reservering.van)} d
-                      </span>
-                    )}
                   </div>
                 ))}
               </div>
