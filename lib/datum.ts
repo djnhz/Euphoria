@@ -95,3 +95,32 @@ export function dagnaam(iso: string): string {
 export function formatDatumMetDag(iso: string): string {
   return `${dagnaam(iso)} ${formatDatum(iso)}`;
 }
+
+/** Elke dag van `van` tot en met `tot`, als ISO-datums. */
+export function dagenTotEnMet(van: string, tot: string): string[] {
+  const dagen: string[] = [];
+  let dag = van;
+  while (dag <= tot) {
+    dagen.push(dag);
+    dag = plusDagen(dag, 1);
+  }
+  return dagen;
+}
+
+/**
+ * Losse dagen samenvoegen tot aaneengesloten blokken. Een gat splitst het blok, en
+ * dat is precies wat er moet gebeuren als iemand een dag midden uit een reservering
+ * vrijgeeft: er blijven dan twee reserveringen over in plaats van één.
+ */
+export function aaneengeslotenBlokken(
+  dagen: readonly string[],
+): { van: string; tot: string }[] {
+  const uniek = [...new Set(dagen)].sort();
+  const blokken: { van: string; tot: string }[] = [];
+  for (const dag of uniek) {
+    const laatste = blokken[blokken.length - 1];
+    if (laatste && plusDagen(laatste.tot, 1) === dag) laatste.tot = dag;
+    else blokken.push({ van: dag, tot: dag });
+  }
+  return blokken;
+}

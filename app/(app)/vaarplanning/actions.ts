@@ -4,9 +4,9 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { vereisGebruiker } from "@/lib/auth";
 import {
+  geefDagenVrij,
   haalReserveringen,
   maakReservering,
-  verwijderReservering,
 } from "@/lib/agenda";
 
 const ReserveringInvoer = z.object({
@@ -78,9 +78,52 @@ export async function reserveerAction(
   return { soort: "gelukt", melding: "Gereserveerd." };
 }
 
-export async function annuleerAction(formData: FormData) {
-  await vereisGebruiker();
+export type VrijgeefState = { fout?: string; gelukt?: string } | null;
+
+/**
+ * Dagen uit een reservering halen. Vink je alle dagen aan, dan valt de reservering
+ * helemaal weg; vink je er een paar in het midden aan, dan blijven de stukken
+ * ervoor en erna staan als losse reserveringen.
+ *
+ * Alleen de eigen reservering: wat iemand anders of de seizoensplanning heeft
+ * neergezet laat dit scherm met rust.
+ */
+export async function geefDagenVrijAction(
+  _vorige: VrijgeefState,
+  formData: FormData,
+): Promise<VrijgeefState> {
+  const gebruiker = await vereisGebruiker();
+
   const id = String(formData.get("id") ?? "");
-  if (id) await verwijderReservering(id);
+  if (!id) return { fout: "Onbekende reservering." };
+
+  const dagen = formData
+    .getAll("dag")
+    .map(String)
+    .filter((dag) => /^\d{4}-\d{2}-\d{2}$/.test(dag));
+  if (dagen.length === 0) {
+    return { fout: "Vink eerst de dagen aan die je wilt vrijgeven." };
+  }
+
+  // De reservering opnieuw ophalen in plaats van het scherm geloven: daartussen
+  // kan iemand anders hem al hebben aangepast.
+  const bestaand = await haalReserveringen(dagen[0], dagen[dagen.length - 1]);
+  if ("fout" in bestaand) return { fout: bestaand.fout };
+  const mijne = bestaand.find((r) => r.id === id);
+  if (!mijne) return { fout: "Deze reservering staat er niet meer." };
+  if (mijne.userId !== gebruiker.id) {
+    return { fout: "Deze reservering is niet van jou." };
+  }
+
+  const uitkomst = await geefDagenVrij(id, dagen);
+  if ("fout" in uitkomst) return { fout: uitkomst.fout };
+
   revalidatePath("/vaarplanning");
+  revalidatePath("/");
+  return {
+    gelukt:
+      uitkomst.resterend === 0
+        ? "De hele reservering is weg."
+        : `${dagen.length} ${dagen.length === 1 ? "dag" : "dagen"} vrijgegeven.`,
+  };
 }

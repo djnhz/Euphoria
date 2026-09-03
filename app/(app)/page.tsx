@@ -65,36 +65,6 @@ export default async function Overzicht() {
           het kost. Op een telefoon gewoon onder elkaar in dezelfde volgorde. */}
       <div className="grid gap-4 px-[18px] py-[18px] lg:grid-cols-2 lg:items-start lg:gap-6 lg:px-8 lg:py-7 xl:grid-cols-3">
         <div className="flex flex-col gap-4 lg:gap-6">
-          {open.length > 0 && (
-            <Paneel>
-              <Bovenschrift
-                className="mb-3"
-                rechts={`${stand.klaar} van ${stand.totaal} klaar`}
-              >
-                {mijn ? "Voor jullie week" : "Op de lijst"}
-              </Bovenschrift>
-              <ul className="-mx-4 divide-y divide-rand border-y border-rand">
-                {open.slice(0, 3).map((taak) => (
-                  <TaakRij
-                    key={taak.id}
-                    taak={taak}
-                    posten={posten}
-                    huishoudens={huishoudens}
-                    jij={gebruiker.id}
-                  />
-                ))}
-              </ul>
-              <Link
-                href="/taken"
-                className="mt-3.5 block text-[12.5px] font-semibold text-link"
-              >
-                Alle taken →
-              </Link>
-            </Paneel>
-          )}
-        </div>
-
-        <div className="flex flex-col gap-4 lg:gap-6">
           {planning.beurten.length > 0 && (
             <section>
               <div className="mb-2.5 flex items-baseline justify-between">
@@ -192,6 +162,36 @@ export default async function Overzicht() {
         </div>
 
         <div className="flex flex-col gap-4 lg:gap-6">
+          {open.length > 0 && (
+            <Paneel>
+              <Bovenschrift
+                className="mb-3"
+                rechts={`${stand.klaar} van ${stand.totaal} klaar`}
+              >
+                {mijn ? "Voor jullie week" : "Op de lijst"}
+              </Bovenschrift>
+              <ul className="-mx-4 divide-y divide-rand border-y border-rand">
+                {open.slice(0, 3).map((taak) => (
+                  <TaakRij
+                    key={taak.id}
+                    taak={taak}
+                    posten={posten}
+                    huishoudens={huishoudens}
+                    jij={gebruiker.id}
+                  />
+                ))}
+              </ul>
+              <Link
+                href="/taken"
+                className="mt-3.5 block text-[12.5px] font-semibold text-link"
+              >
+                Alle taken →
+              </Link>
+            </Paneel>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-4 lg:gap-6">
           <Paneel>
             <Bovenschrift
               className="mb-3.5"
@@ -268,13 +268,6 @@ export default async function Overzicht() {
               </span>
             </Link>
           </Paneel>
-
-          <Link
-            href="/uitgaven/nieuw"
-            className="rounded-xl border border-rand-sterk bg-paneel px-4 py-3.5 text-center text-sm font-semibold transition hover:border-inkt"
-          >
-            Bon indienen
-          </Link>
         </div>
       </div>
     </>
@@ -379,20 +372,14 @@ function Aftelling({
           )}
         </div>
 
-        {/* Op een telefoon vullen de knoppen de breedte; daarnaast is er ruimte om
-          ze naast de aftelling te zetten in plaats van eronder. */}
-        <div className="mt-4 flex gap-2 lg:mt-0 lg:shrink-0">
-          <Link
-            href="/taken"
-            className="flex-1 rounded-xl bg-messing px-4 py-3 text-center text-sm font-semibold text-inkt transition hover:brightness-105 lg:flex-none lg:px-7"
-          >
-            {beurt ? "Week voorbereiden" : "Taken"}
-          </Link>
+        {/* Eén knop, en alleen waar hij iets toevoegt. De taken staan hieronder al
+            met naam en al; een knop ernaartoe zegt niets extra's. */}
+        <div className="mt-4 flex lg:mt-0 lg:shrink-0">
           <Link
             href={beurt ? "/vaarplanning" : "/vaarplanning/seizoen"}
-            className="rounded-xl border border-linnen/30 px-4 py-3 text-center text-sm transition hover:bg-linnen/10 lg:px-7"
+            className="flex-1 rounded-xl border border-linnen/30 px-4 py-3 text-center text-sm transition hover:bg-linnen/10 lg:flex-none lg:px-7"
           >
-            {beurt ? "Planning" : "Plannen"}
+            {beurt ? "Hele planning" : "Seizoen verdelen"}
           </Link>
         </div>
       </div>

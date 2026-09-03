@@ -82,11 +82,26 @@ export default function Nav({
             </nav>
           )}
 
-          <GebruikerMenu
-            naam={naam}
-            huishouden={huishouden}
-            beheerder={beheerder}
-          />
+          <div className="flex shrink-0 items-center gap-2.5">
+            {/* Een bon indienen is waarvoor de app het vaakst opengaat, dus staat
+                hij op elk scherm binnen één tik -- in messing, want dat is hier de
+                kleur van "doe dit". */}
+            {!isBlad && (
+              <Link
+                href="/uitgaven/nieuw"
+                className="flex items-center gap-2 rounded-full bg-messing px-3 py-2 text-[13px] font-semibold text-inkt transition hover:brightness-105 sm:px-4"
+              >
+                <BonPlus />
+                <span className="hidden sm:inline">Bon indienen</span>
+                <span className="sm:hidden">Bon</span>
+              </Link>
+            )}
+            <GebruikerMenu
+              naam={naam}
+              huishouden={huishouden}
+              beheerder={beheerder}
+            />
+          </div>
         </div>
       </header>
 
@@ -158,6 +173,19 @@ function Vinkje() {
     <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden>
       <circle cx="12" cy="12" r="8.5" {...lijn} />
       <path d="M8.5 12.2l2.4 2.4 4.6-5" {...lijn} />
+    </svg>
+  );
+}
+
+/** De bon met een plusje: de knop in de kopbalk. */
+function BonPlus() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden>
+      <path
+        d="M4.5 3.5h10v17l-1.7-1.4-1.6 1.4-1.7-1.4-1.7 1.4-1.6-1.4-1.7 1.4z"
+        {...lijn}
+      />
+      <path d="M18.5 9v7M15 12.5h7" {...lijn} />
     </svg>
   );
 }

@@ -1,6 +1,7 @@
 import "server-only";
 import { JWT } from "google-auth-library";
 import { googleAgendaId, googleServiceAccount } from "./instellingen";
+import { aaneengeslotenBlokken, dagenTotEnMet } from "./datum";
 
 /**
  * Reserveringen staan in Google Agenda en nergens anders. Geen eigen tabel ernaast,
@@ -330,4 +331,94 @@ export async function publiceerSeizoen(
     verwijderd: bestaand.vanSeizoen.length,
     aangemaakt: blokken.length,
   };
+}
+
+/** Eén reservering ophalen, met alles wat nodig is om hem opnieuw weg te schrijven. */
+async function haalRuweAfspraak(
+  token: string,
+  agendaId: string,
+  id: string,
+): Promise<{ ok: true; item: GoogleEvent } | AgendaFout> {
+  const resultaat = await roepAan(
+    token,
+    `/calendars/${encodeURIComponent(agendaId)}/events/${encodeURIComponent(id)}`,
+  );
+  if (!resultaat.ok) return { fout: resultaat.fout };
+  const item = resultaat.data as GoogleEvent;
+  if (!item?.start?.date || !item.end?.date) {
+    return { fout: "Dit is geen reservering van hele dagen." };
+  }
+  return { ok: true, item };
+}
+
+/**
+ * Dagen uit een reservering halen. Geef je de eerste of laatste dagen vrij, dan
+ * krimpt de afspraak; haal je er een dag middenuit, dan valt hij in twee afspraken
+ * uiteen. Blijft er niets over, dan gaat de hele reservering weg.
+ *
+ * De nieuwe stukken erven titel, opmerking en de gegevens over wie geboekt heeft,
+ * zodat ze in de app en in de agenda hetzelfde blijven heten.
+ */
+export async function geefDagenVrij(
+  id: string,
+  vrij: readonly string[],
+): Promise<{ ok: true; resterend: number } | AgendaFout> {
+  const verbonden = await verbinding();
+  if (!verbonden.ok) return { fout: verbonden.fout };
+
+  const gevonden = await haalRuweAfspraak(verbonden.token, verbonden.agendaId, id);
+  if ("fout" in gevonden) return gevonden;
+  const { item } = gevonden;
+
+  const weg = new Set(vrij);
+  const over = dagenTotEnMet(
+    item.start!.date!,
+    vorigeDag(item.end!.date!),
+  ).filter((dag) => !weg.has(dag));
+
+  const pad = `/calendars/${encodeURIComponent(verbonden.agendaId)}/events`;
+
+  if (over.length === 0) {
+    const gewist = await roepAan(
+      verbonden.token,
+      `${pad}/${encodeURIComponent(id)}`,
+      { method: "DELETE" },
+    );
+    return gewist.ok ? { ok: true, resterend: 0 } : { fout: gewist.fout };
+  }
+
+  const stukken = aaneengeslotenBlokken(over);
+
+  // Het eerste stuk blijft dezelfde afspraak; zo houdt hij zijn plek in de agenda
+  // van iedereen die hem al ziet staan.
+  const bijgewerkt = await roepAan(
+    verbonden.token,
+    `${pad}/${encodeURIComponent(id)}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        start: { date: stukken[0].van },
+        end: { date: volgendeDag(stukken[0].tot) },
+      }),
+    },
+  );
+  if (!bijgewerkt.ok) return { fout: bijgewerkt.fout };
+
+  for (const stuk of stukken.slice(1)) {
+    const gemaakt = await roepAan(verbonden.token, pad, {
+      method: "POST",
+      body: JSON.stringify({
+        summary: item.summary ?? "Gereserveerd",
+        description: item.description ?? "",
+        start: { date: stuk.van },
+        end: { date: volgendeDag(stuk.tot) },
+        extendedProperties: {
+          private: item.extendedProperties?.private ?? {},
+        },
+      }),
+    });
+    if (!gemaakt.ok) return { fout: gemaakt.fout };
+  }
+
+  return { ok: true, resterend: over.length };
 }
