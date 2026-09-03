@@ -299,7 +299,7 @@ function Aftelling({
   kleur: string;
 }) {
   return (
-    <section className="relative overflow-hidden bg-inkt px-5 pt-6 pb-5 text-linnen lg:px-8 lg:pt-10 lg:pb-9">
+    <section className="relative overflow-hidden bg-inkt px-[18px] pt-4 pb-4 text-linnen lg:px-8 lg:pt-8 lg:pb-7">
       <div
         aria-hidden
         className="pointer-events-none absolute -top-2.5 -right-8 opacity-[0.09] lg:-top-6 lg:right-10"
@@ -319,40 +319,39 @@ function Aftelling({
         </svg>
       </div>
 
-      <div className="relative lg:flex lg:items-end lg:justify-between lg:gap-10">
+      <div className="relative flex items-end justify-between gap-4 lg:gap-10">
         <div className="min-w-0">
           {beurt ? (
             <>
               <p className="bovenschrift !text-messing">
                 {beurt.bezig ? "Jullie week loopt" : "Jullie week begint over"}
               </p>
-              <div className="mt-1.5 flex items-end gap-3">
-                <span className="titel cijfers text-[66px] leading-[0.9] font-normal">
+              {/* Het getal en de periode op één regel: het aantal dagen zegt niets
+                  zonder de datums erbij, en zo scheelt het een halve schermhoogte. */}
+              <div className="mt-1 flex items-baseline gap-2.5">
+                <span className="titel cijfers text-[44px] leading-none font-normal">
                   {beurt.bezig ? "nu" : beurt.dagenTot}
                 </span>
                 {!beurt.bezig && (
-                  <span className="titel text-2xl leading-relaxed text-linnen/80">
+                  <span className="titel text-lg text-linnen/80">
                     {beurt.dagenTot === 1 ? "dag" : "dagen"}
                   </span>
                 )}
               </div>
-              <p className="mt-2 text-sm text-linnen/80">
-                {volledigePeriode(beurt)} · week {beurt.week}
-              </p>
-              <p className="mt-3.5 flex items-center gap-2.5 text-[12.5px] text-linnen/60">
+              <p className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[12.5px] text-linnen/70">
+                <span>
+                  {volledigePeriode(beurt)} · week {beurt.week}
+                </span>
+                {/* Geen streepje ertussen: bij een smal scherm valt het huishouden
+                    naar de volgende regel en blijft zo'n scheiding bungelen. */}
                 <span className="inline-flex items-center gap-2">
                   <span
                     className="h-2 w-2 rounded-sm"
                     style={{ background: kleur }}
                   />
-                  {beurt.coupleNaam} aan boord
+                  {beurt.coupleNaam}
+                  {beurt.naam && ` · ${beurt.naam}`}
                 </span>
-                {beurt.naam && (
-                  <>
-                    <span className="h-3 w-px bg-linnen/20" />
-                    <span>{beurt.naam}</span>
-                  </>
-                )}
               </p>
             </>
           ) : (
@@ -372,16 +371,15 @@ function Aftelling({
           )}
         </div>
 
-        {/* Eén knop, en alleen waar hij iets toevoegt. De taken staan hieronder al
-            met naam en al; een knop ernaartoe zegt niets extra's. */}
-        <div className="mt-4 flex lg:mt-0 lg:shrink-0">
-          <Link
-            href={beurt ? "/vaarplanning" : "/vaarplanning/seizoen"}
-            className="flex-1 rounded-xl border border-linnen/30 px-4 py-3 text-center text-sm transition hover:bg-linnen/10 lg:flex-none lg:px-7"
-          >
-            {beurt ? "Hele planning" : "Seizoen verdelen"}
-          </Link>
-        </div>
+        {/* Eén knop, en alleen waar hij iets toevoegt. Naast de aftelling in plaats
+            van eronder: over de volle breedte vroeg hij meer aandacht dan hij waard
+            is, en het scheelt weer een regel. */}
+        <Link
+          href={beurt ? "/vaarplanning" : "/vaarplanning/seizoen"}
+          className="shrink-0 rounded-xl border border-linnen/30 px-3.5 py-2.5 text-center text-[13px] transition hover:bg-linnen/10 lg:px-7 lg:text-sm"
+        >
+          {beurt ? "Hele planning" : "Seizoen verdelen"}
+        </Link>
       </div>
     </section>
   );
