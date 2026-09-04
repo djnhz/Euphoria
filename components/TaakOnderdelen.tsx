@@ -73,7 +73,7 @@ export function TaakRij({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex min-w-0 flex-1 flex-col items-start text-left"
+        className="flex min-w-0 flex-1 flex-col text-left"
       >
         <span
           className={`truncate text-sm font-semibold ${

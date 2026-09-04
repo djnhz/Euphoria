@@ -101,7 +101,7 @@ export default async function Overzicht() {
       {/* Op een breed scherm naast elkaar: links waar je mee bezig bent, rechts wat
           het kost. Op een telefoon gewoon onder elkaar in dezelfde volgorde. */}
       <div className="grid gap-4 px-[18px] py-[18px] lg:grid-cols-2 lg:items-start lg:gap-6 lg:px-8 lg:py-7 xl:grid-cols-3">
-        <div className="flex flex-col gap-4 lg:gap-6">
+        <div className="flex min-w-0 flex-col gap-4 lg:gap-6">
           {/* Eén lijst, geen twee. Een seizoensplanning is een concept tot je
               hem publiceert; dáárna zijn het gewone afspraken in de agenda. Die
               twee naast elkaar tonen is hetzelfde tweemaal laten zien -- en zodra
@@ -234,7 +234,7 @@ export default async function Overzicht() {
           )}
         </div>
 
-        <div className="flex flex-col gap-4 lg:gap-6">
+        <div className="flex min-w-0 flex-col gap-4 lg:gap-6">
           {open.length > 0 && (
             <Paneel>
               <Bovenschrift
@@ -264,7 +264,7 @@ export default async function Overzicht() {
           )}
         </div>
 
-        <div className="flex flex-col gap-4 lg:gap-6">
+        <div className="flex min-w-0 flex-col gap-4 lg:gap-6">
           <Paneel>
             <Bovenschrift
               className="mb-3.5"
@@ -299,7 +299,7 @@ export default async function Overzicht() {
                       <div className="flex items-baseline justify-between gap-3 text-[13px]">
                         <Link
                           href={`/uitgaven?jaar=${jaar}&post=${rij.id}`}
-                          className="truncate hover:text-link"
+                          className="min-w-0 truncate hover:text-link"
                         >
                           {rij.naam}
                         </Link>
@@ -456,7 +456,6 @@ function Aftelling({
                     style={{ background: kleur }}
                   />
                   {beurt.coupleNaam}
-                  {beurt.naam && ` · ${beurt.naam}`}
                 </span>
               </p>
             </>
