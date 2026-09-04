@@ -6,6 +6,8 @@ import { and, asc, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { db, aiGebruik, posten, documents, expenseLines, expenses } from "@/db";
 import { vereisGebruiker } from "@/lib/auth";
+import { anderen, stuurMelding } from "@/lib/melding";
+import { formatEuro } from "@/lib/geld";
 import { verwijderBestand } from "@/lib/opslag";
 import {
   analyseerBon,
@@ -89,6 +91,18 @@ export async function bewaarUitgaveAction(
       .where(and(eq(documents.id, documentId), isNull(documents.expenseId)));
   }
 
+  // Bericht naar de rest. Bewust ná het opslaan en zonder await op het resultaat
+  // te laten leunen: een bon indienen mag niet stuklopen op een melding.
+  const totaal = invoer.regels.reduce(
+    (som, r) => som + r.bedragCent * (r.aantal ?? 1),
+    0,
+  );
+  await stuurMelding(await anderen(gebruiker.id), "bon", {
+    titel: "Nieuwe bon",
+    tekst: `${gebruiker.naam} diende ${formatEuro(totaal)} in${invoer.leverancier ? ` bij ${invoer.leverancier}` : ""}.`,
+    url: `/uitgaven/${uitgave.id}`,
+  });
+
   revalidatePath("/");
   revalidatePath("/uitgaven");
   redirect(`/uitgaven/${uitgave.id}`);
@@ -156,7 +170,6 @@ export async function verwijderUitgaveAction(id: number) {
   revalidatePath("/documenten");
   redirect("/uitgaven");
 }
-
 
 /** Hexadecimale SHA-256, precies 64 tekens. */
 const HashInvoer = z
@@ -307,7 +320,11 @@ export async function analyseerDocumentAction(
     .where(eq(documents.id, documentId));
   if (!document) return { bon: null, fout: "Dat bestand bestaat niet meer." };
 
-  const bron = await kiesBron(document.mime, document.url, document.voorbeeldUrl);
+  const bron = await kiesBron(
+    document.mime,
+    document.url,
+    document.voorbeeldUrl,
+  );
   if (!bron.ok) return { bon: null, fout: bron.reden };
 
   const actievePosten = await db

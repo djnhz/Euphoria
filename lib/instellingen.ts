@@ -231,7 +231,10 @@ export async function googleServiceAccount(): Promise<ServiceAccount | null> {
   try {
     const ontleed = JSON.parse(leesbaar) as Partial<ServiceAccount>;
     if (!ontleed.client_email || !ontleed.private_key) return null;
-    return { client_email: ontleed.client_email, private_key: ontleed.private_key };
+    return {
+      client_email: ontleed.client_email,
+      private_key: ontleed.private_key,
+    };
   } catch {
     return null;
   }
@@ -245,7 +248,12 @@ export async function agendaStatus(): Promise<AgendaStatus> {
   const agendaId = await googleAgendaId();
   const opgeslagen = await leesRuw(SLEUTEL_GOOGLE);
   if (!opgeslagen) {
-    return { gekoppeld: false, serviceEmail: null, agendaId, onleesbaar: false };
+    return {
+      gekoppeld: false,
+      serviceEmail: null,
+      agendaId,
+      onleesbaar: false,
+    };
   }
   const account = await googleServiceAccount();
   return {
@@ -282,4 +290,26 @@ export async function zetGoogleAgendaId(agendaId: string) {
 export async function ontkoppelGoogle() {
   await wis(SLEUTEL_GOOGLE);
   await wis(SLEUTEL_AGENDA);
+}
+
+/**
+ * Algemene toegang tot de sleutel-waardetabel, voor instellingen die geen eigen
+ * paar functies verdienen -- zoals het VAPID-sleutelpaar voor de meldingen.
+ * `Geheim` gaat versleuteld de database in, `Gewoon` niet.
+ */
+export async function leesGewoon(sleutel: string): Promise<string | null> {
+  return leesRuw(sleutel);
+}
+
+export async function bewaarGewoon(sleutel: string, waarde: string) {
+  await schrijf(sleutel, waarde);
+}
+
+export async function leesGeheim(sleutel: string): Promise<string | null> {
+  const opgeslagen = await leesRuw(sleutel);
+  return opgeslagen ? ontsleutel(opgeslagen) : null;
+}
+
+export async function bewaarGeheim(sleutel: string, waarde: string) {
+  await schrijf(sleutel, versleutel(waarde));
 }

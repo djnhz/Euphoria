@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { and, eq } from "drizzle-orm";
 import { db, taken, taakHelpers, posten, couples } from "@/db";
 import { vereisGebruiker } from "@/lib/auth";
+import { anderen, stuurMelding } from "@/lib/melding";
 import type { TaakSoort } from "@/db";
 
 export type TaakState = { fout?: string; gelukt?: string } | null;
@@ -54,7 +55,15 @@ async function leesVelden(formData: FormData) {
     formData.get("soort") === "winterklaar" ? "winterklaar" : "gewoon";
   const samen = formData.get("samen") === "aan";
 
-  return { titel, toelichting, deadline, postId, coupleId, soort, samen } as const;
+  return {
+    titel,
+    toelichting,
+    deadline,
+    postId,
+    coupleId,
+    soort,
+    samen,
+  } as const;
 }
 
 export async function nieuweTaakAction(
@@ -72,6 +81,12 @@ export async function nieuweTaakAction(
   await db.insert(taken).values({
     ...velden,
     userId: voorMij ? gebruiker.id : null,
+  });
+
+  await stuurMelding(await anderen(gebruiker.id), "taak", {
+    titel: velden.samen ? "Klus om samen te doen" : "Nieuwe taak",
+    tekst: `${gebruiker.naam} zette "${velden.titel}" op de lijst.`,
+    url: "/taken",
   });
 
   revalidatePath("/taken");
@@ -128,6 +143,18 @@ export async function helpMeeAction(id: number, meedoen: boolean) {
       .insert(taakHelpers)
       .values({ taakId: id, userId: gebruiker.id })
       .onConflictDoNothing();
+
+    const [taak] = await db
+      .select({ titel: taken.titel })
+      .from(taken)
+      .where(eq(taken.id, id));
+    if (taak) {
+      await stuurMelding(await anderen(gebruiker.id), "taak", {
+        titel: "Iemand helpt mee",
+        tekst: `${gebruiker.naam} pakt "${taak.titel}" mee op.`,
+        url: "/taken",
+      });
+    }
   } else {
     await db
       .delete(taakHelpers)

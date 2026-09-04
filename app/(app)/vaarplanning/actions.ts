@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { vereisGebruiker } from "@/lib/auth";
+import { anderen, stuurMelding } from "@/lib/melding";
+import { formatDatum } from "@/lib/datum";
 import {
   geefDagenVrij,
   haalReserveringen,
@@ -128,6 +130,16 @@ export async function geefDagenVrijAction(
   revalidatePath("/vaarplanning");
   revalidatePath("/");
   const aantal = `${dagen.length} ${dagen.length === 1 ? "dag" : "dagen"}`;
+
+  // Dit is het bericht dat iedereen wil: er is boot vrijgekomen.
+  await stuurMelding(await anderen(gebruiker.id), "vrijgave", {
+    titel: "Dagen vrijgegeven",
+    tekst:
+      dagen.length === 1
+        ? `${gebruiker.naam} gaf ${formatDatum(dagen[0])} vrij uit "${mijne.titel}".`
+        : `${gebruiker.naam} gaf ${aantal} vrij uit "${mijne.titel}", vanaf ${formatDatum(dagen[0])}.`,
+    url: "/vaarplanning",
+  });
   return {
     gelukt:
       uitkomst.stukken === 0

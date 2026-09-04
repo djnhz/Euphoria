@@ -34,6 +34,14 @@ export const users = pgTable("users", {
   failedAttempts: integer("failed_attempts").notNull().default(0),
   /** Mag de seizoensplanning maken. Minstens een gebruiker hoort dit te zijn. */
   beheerder: boolean("beheerder").notNull().default(false),
+  /**
+   * Waar deze gebruiker bericht van wil. Wat hij mag ontvangen hangt daarnaast af
+   * van zijn rol: een bon en een taak zijn er voor de beheerder, een vrijgegeven
+   * dag voor iedereen. Zie lib/melding.ts.
+   */
+  meldBon: boolean("meld_bon").notNull().default(true),
+  meldTaak: boolean("meld_taak").notNull().default(true),
+  meldVrijgave: boolean("meld_vrijgave").notNull().default(true),
   lockedUntil: timestamp("locked_until", { withTimezone: true }),
 });
 
@@ -280,4 +288,29 @@ export const taakHelpers = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
   },
   (t) => [unique("taak_helpers_taak_user").on(t.taakId, t.userId)],
+);
+
+/**
+ * Eén rij per toestel waarop iemand meldingen heeft aangezet. De browser geeft het
+ * endpoint en twee sleutels; daarmee versleutelt de server het bericht zo dat alleen
+ * dat toestel het kan lezen. Raakt een toestel zoek, dan geeft de pushdienst een 404
+ * of 410 terug en gooit lib/melding.ts de rij weg.
+ */
+export const pushAbonnementen = pgTable(
+  "push_abonnementen",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    endpoint: text("endpoint").notNull().unique(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    /** Waar het abonnement vandaan komt, zodat je in een lijst ziet welk toestel. */
+    toestel: text("toestel").notNull().default(""),
+    aangemaaktOp: timestamp("aangemaakt_op", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("push_abonnementen_user_idx").on(t.userId)],
 );

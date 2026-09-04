@@ -1,4 +1,4 @@
-import { asc } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { db, couples, users } from "@/db";
 import { vereisGebruiker } from "@/lib/auth";
 import NamenFormulier from "@/components/NamenFormulier";
@@ -11,9 +11,47 @@ import { formatEuro } from "@/lib/geld";
 import AgendaFormulier from "@/components/AgendaFormulier";
 import BeheerderFormulier from "@/components/BeheerderFormulier";
 import { Paneel, Schermbody, Schermkop } from "@/components/Scherm";
+import MeldingenFormulier from "@/components/MeldingenFormulier";
+import SleutelsFormulier from "@/components/SleutelsFormulier";
+import {
+  aantalToestellen,
+  keuzesVoor,
+  vapidStand,
+  MELDING_LABELS,
+} from "@/lib/melding";
 
 export default async function InstellingenPagina() {
   const gebruiker = await vereisGebruiker();
+
+  const [vapid, toestellen, voorkeuren] = await Promise.all([
+    vapidStand(),
+    aantalToestellen(gebruiker.id),
+    db
+      .select({
+        bon: users.meldBon,
+        taak: users.meldTaak,
+        vrijgave: users.meldVrijgave,
+      })
+      .from(users)
+      .where(eq(users.id, gebruiker.id)),
+  ]);
+  const mijn = voorkeuren[0] ?? { bon: true, taak: true, vrijgave: true };
+  const meldingKeuzes = keuzesVoor(gebruiker).map((soort) => ({
+    soort,
+    titel: MELDING_LABELS[soort].titel,
+    uitleg: MELDING_LABELS[soort].uitleg,
+    aan: mijn[soort],
+  }));
+  const meldingenBlok = (
+    <Paneel>
+      <h2 className="mb-3 text-sm font-semibold">Meldingen</h2>
+      <MeldingenFormulier
+        vapidPubliek={vapid.publiek}
+        keuzes={meldingKeuzes}
+        toestellen={toestellen}
+      />
+    </Paneel>
+  );
 
   // Zonder beheerdersrechten valt er hier maar een ding te doen, dus dan halen we de
   // rest ook niet op.
@@ -25,6 +63,7 @@ export default async function InstellingenPagina() {
           <Paneel>
             <PinFormulier />
           </Paneel>
+          {meldingenBlok}
           <p className="text-sm text-gedempt text-pretty">
             De rest — namen, de koppelingen en de pincodes van iedereen —
             beheert de beheerder.
@@ -52,6 +91,15 @@ export default async function InstellingenPagina() {
     <>
       <Schermkop titel="Instellingen" onderschrift="beheer van de app" />
       <Schermbody className="gap-6">
+        {meldingenBlok}
+        {!vapid.ingesteld && (
+          <Paneel>
+            <h2 className="mb-2 text-sm font-semibold">
+              Meldingen klaarzetten
+            </h2>
+            <SleutelsFormulier />
+          </Paneel>
+        )}
         <section className="rounded-2xl border border-rand bg-paneel p-4">
           <h2 className="mb-4 text-sm font-medium">
             Pincode van {gebruiker.naam}
