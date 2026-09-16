@@ -223,24 +223,6 @@ export default function PostBlad({
             />
           </Veld>
 
-          {/* Verhangen kan alleen als deze post zelf niets onder zich heeft. */}
-          {post.subposten.length === 0 && hoofdposten.length > 0 && (
-            <Veld label="Hoort onder">
-              <select
-                value={ouderId}
-                onChange={(e) => setOuderId(Number(e.target.value))}
-                className={invoer}
-              >
-                <option value={0}>eigen hoofdpost</option>
-                {hoofdposten.map((hoofd) => (
-                  <option key={hoofd.id} value={hoofd.id}>
-                    {hoofd.naam}
-                  </option>
-                ))}
-              </select>
-            </Veld>
-          )}
-
           <label className="flex items-center gap-2 text-sm text-gedempt">
             <input
               type="checkbox"
@@ -339,6 +321,29 @@ export default function PostBlad({
 
         {melding?.fout && (
           <p className="mt-4 text-sm text-slecht text-pretty">{melding.fout}</p>
+        )}
+
+        {/* Verplaatsen doe je zelden en het is geen eigenschap van de post zoals
+            naam en kleur. Het staat daarom hier bij de andere ingrepen, en alleen als
+            het kan: een post met subposten kan zelf nergens onder hangen. */}
+        {post.subposten.length === 0 && hoofdposten.length > 0 && (
+          <div className="mt-5 border-t border-rand pt-4">
+            <label className="flex flex-col gap-1.5">
+              <span className="bovenschrift">Verplaatsen</span>
+              <select
+                value={ouderId}
+                onChange={(e) => setOuderId(Number(e.target.value))}
+                className={invoer}
+              >
+                <option value={0}>losse hoofdpost</option>
+                {hoofdposten.map((hoofd) => (
+                  <option key={hoofd.id} value={hoofd.id}>
+                    onder {hoofd.naam}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
         )}
 
         {/* Rustiger dan "+ Regel", want dit is de uitzondering: een subpost is een

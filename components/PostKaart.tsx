@@ -49,7 +49,7 @@ export default function PostKaart({
   const verschil = ietsBegroot ? totaal - besteed : null;
 
   return (
-    <section className="rounded-2xl border border-rand bg-paneel p-4">
+    <section className="min-w-0 rounded-2xl border border-rand bg-paneel p-4">
       <div className="mb-2.5 flex items-center gap-2.5">
         <span
           aria-hidden
@@ -129,10 +129,9 @@ export default function PostKaart({
               <span className="min-w-0 flex-1 truncate text-tekst/70">
                 {regel.naam || "nog geen naam"}
               </span>
-              <span className="cijfers w-[104px] shrink-0 text-right text-[11.5px] text-gedempt">
+              <span className="cijfers shrink-0 text-right text-[11.5px] text-gedempt">
                 {formatEuro(regel.bedragCent)}
               </span>
-              <span aria-hidden className="w-10 shrink-0" />
             </li>
           ))}
 
@@ -154,7 +153,6 @@ export default function PostKaart({
                 bewaarNu={bewaarNu}
                 klein
               />
-              <span aria-hidden className="w-10 shrink-0" />
             </li>
           )}
 
@@ -175,7 +173,7 @@ export default function PostKaart({
                     {sub.naam}
                   </Link>
                   {subRegels.length > 0 ? (
-                    <span className="cijfers w-[104px] shrink-0 text-right text-[11.5px] text-gedempt">
+                    <span className="cijfers w-[88px] shrink-0 text-right text-[11.5px] text-gedempt">
                       {formatEuro(sub.begrootCent ?? 0)}
                     </span>
                   ) : (
@@ -201,10 +199,9 @@ export default function PostKaart({
                         <span className="min-w-0 flex-1 truncate text-gedempt">
                           {regel.naam || "nog geen naam"}
                         </span>
-                        <span className="cijfers w-[104px] shrink-0 text-right text-[11px] text-gedempt">
+                        <span className="cijfers shrink-0 text-right text-[11px] text-gedempt">
                           {formatEuro(regel.bedragCent)}
                         </span>
-                        <span aria-hidden className="w-10 shrink-0" />
                       </li>
                     ))}
                   </ul>
@@ -241,10 +238,10 @@ function Bedragveld({
       onChange={(e) => pasBedragAan(post.id, e.target.value)}
       onBlur={(e) => bewaarNu(post.id, e.target.value)}
       aria-label={`Begroot voor ${post.naam}`}
-      className={`cijfers w-[104px] shrink-0 rounded-lg border bg-verzonken text-right ${
+      className={`cijfers shrink-0 rounded-lg border bg-verzonken text-right ${
         klein
-          ? "border-rand px-2 py-1.5 text-xs"
-          : "border-rand-sterk px-2.5 py-2 text-[13px]"
+          ? "w-[88px] border-rand px-2 py-1.5 text-xs"
+          : "w-[104px] border-rand-sterk px-2.5 py-2 text-[13px]"
       }`}
     />
   );
