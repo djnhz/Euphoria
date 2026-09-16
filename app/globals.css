@@ -115,3 +115,31 @@ body {
   text-transform: uppercase;
   color: var(--gedempt);
 }
+
+/**
+ * De systeemschuifbalk is een grijze plank in een linnen scherm. Dun en in de
+ * neutrale kleur, en alleen waar binnen een blok geschoven wordt -- helemaal
+ * verbergen haalt de aanwijzing weg dat er nog iets onder staat.
+ */
+.schuif {
+  scrollbar-width: thin;
+  scrollbar-color: var(--neutraal) transparent;
+}
+
+.schuif::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.schuif::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.schuif::-webkit-scrollbar-thumb {
+  background: var(--neutraal);
+  border-radius: 3px;
+}
+
+.schuif::-webkit-scrollbar-thumb:hover {
+  background: var(--gedempt);
+}
