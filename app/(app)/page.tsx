@@ -2,7 +2,7 @@ import Link from "next/link";
 import { asc } from "drizzle-orm";
 import { db, couples } from "@/db";
 import { vereisGebruiker } from "@/lib/auth";
-import { budgetOverzicht, haalRegels, totaalBegroot } from "@/lib/data";
+import { budgetOverzicht, haalRegels } from "@/lib/data";
 import { formatEuro, saldoCent } from "@/lib/geld";
 import { komendeBeurten, jouwBeurt, type Beurt } from "@/lib/aanboord";
 import { alleTaken, voortgang } from "@/lib/taken";
@@ -291,7 +291,7 @@ export default async function Overzicht() {
                     en een post zonder begroting viel zo helemaal weg terwijl er wel
                     geld naartoe ging. */}
                 {budget.map((rij) => {
-                  const eigen = totaalBegroot(rij);
+                  const eigen = rij.begrootCent;
                   const deel =
                     eigen && eigen > 0 ? rij.werkelijkCent / eigen : null;
                   return (

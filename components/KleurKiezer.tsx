@@ -21,16 +21,23 @@ export default function KleurKiezer({
   naam = "kleur",
   begin,
   label,
+  onKies,
 }: {
   naam?: string;
   begin: string;
   label: string;
+  /** Voor een blad dat zijn eigen staat bijhoudt in plaats van een formulier op te sturen. */
+  onKies?: (kleur: string) => void;
 }) {
-  const [kleur, setKleur] = useState(begin);
+  const [kleur, zetKleur] = useState(begin);
+  const setKleur = (nieuw: string) => {
+    zetKleur(nieuw);
+    onKies?.(nieuw);
+  };
 
   return (
-    <span className="flex items-center gap-1.5">
-      <input type="hidden" name={naam} value={kleur} />
+    <span className="flex flex-wrap items-center gap-1.5">
+      {!onKies && <input type="hidden" name={naam} value={kleur} />}
       {PALET.map((optie) => (
         <button
           key={optie}
@@ -39,7 +46,7 @@ export default function KleurKiezer({
           aria-label={`Kleur ${optie}`}
           aria-pressed={kleur.toLowerCase() === optie.toLowerCase()}
           style={{ background: optie }}
-          className={`h-6 w-6 rounded-md transition ${
+          className={`h-8 w-8 rounded-md transition ${
             kleur.toLowerCase() === optie.toLowerCase()
               ? "ring-2 ring-inkt ring-offset-1"
               : "opacity-70 hover:opacity-100"
@@ -51,7 +58,7 @@ export default function KleurKiezer({
         value={kleur}
         onChange={(e) => setKleur(e.target.value)}
         aria-label={label}
-        className="h-6 w-6 shrink-0 rounded-md border border-rand bg-transparent"
+        className="h-8 w-8 shrink-0 rounded-md border border-rand bg-transparent"
       />
     </span>
   );

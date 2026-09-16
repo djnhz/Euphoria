@@ -13,6 +13,12 @@ import {
   posten,
   users,
 } from "@/db";
+import {
+  bouwBoom,
+  totaalBegroot,
+  type BegrotingsPost,
+  type PostRegel,
+} from "./begroting";
 import { saldoCent, type SaldoRegel } from "./geld";
 import type { Sortering } from "./sorteren";
 
@@ -86,7 +92,10 @@ export function saldoUitRegels(regels: readonly SaldoRegel[]) {
  * anders valt een taartpunt uiteen in stukjes die los niets zeggen.
  */
 export function totaalPerHoofdpost(regels: readonly RegelRij[]) {
-  const perId = new Map<number, { naam: string; kleur: string; cent: number }>();
+  const perId = new Map<
+    number,
+    { naam: string; kleur: string; cent: number }
+  >();
   for (const regel of regels) {
     const huidig = perId.get(regel.hoofdpostId) ?? {
       naam: regel.hoofdpostNaam,
@@ -139,70 +148,37 @@ export function saldoPerMaand(regels: readonly RegelRij[]) {
   return perMaand.map((cent) => (loper += cent));
 }
 
-export type BegrotingsRegel = {
-  id: number;
-  naam: string;
-  kleur: string;
-  actief: boolean;
-  /** Null voor een hoofdpost. */
-  ouderId: number | null;
-  begrootCent: number | null;
-  /** Alleen wat rechtstreeks op deze post is geboekt. */
-  eigenCent: number;
-  /** Inclusief de subposten eronder; voor een subpost gelijk aan `eigenCent`. */
-  werkelijkCent: number;
-  /**
-   * Doet deze post dit jaar mee: er staat een bedrag voor, er is op geboekt, of een
-   * subpost eronder doet mee. Een post die je pas volgend jaar gaat gebruiken hoort
-   * niet in het overzicht van dit jaar te staan.
-   */
-  inGebruik: boolean;
-  subposten: BegrotingsRegel[];
-};
-
 /**
  * De begroting van een jaar als boom: hoofdposten met hun subposten eronder, elk met
- * het begrote bedrag en wat er werkelijk is uitgegeven. Een hoofdpost telt de
- * subposten mee, want dat is wat je van een hoofdpost wilt weten.
+ * de regels die het bedrag opbouwen en wat er werkelijk is uitgegeven. Het rekenwerk
+ * staat in lib/begroting.ts zodat het zonder database te testen is.
  */
-export async function begroting(jaar: number): Promise<BegrotingsRegel[]> {
-  const [alle, begroot, regels] = await Promise.all([
+export async function begroting(jaar: number): Promise<BegrotingsPost[]> {
+  const [alle, rijen, regels] = await Promise.all([
     db.select().from(posten).orderBy(asc(posten.naam)),
     db.select().from(budgets).where(eq(budgets.jaar, jaar)),
     haalRegels(jaar),
   ]);
 
-  const perPost = new Map(begroot.map((r) => [r.postId, r.bedragCent]));
+  // Een post heeft nul of meer rijen; het bedrag is de som van zijn regels.
+  const perPost = new Map<number, PostRegel[]>();
+  for (const rij of rijen) {
+    const lijst = perPost.get(rij.postId) ?? [];
+    lijst.push({
+      id: rij.id,
+      naam: rij.naam,
+      bedragCent: rij.bedragCent,
+      volgorde: rij.volgorde,
+    });
+    perPost.set(rij.postId, lijst);
+  }
+
   const eigen = new Map<number, number>();
   for (const regel of regels) {
     eigen.set(regel.postId, (eigen.get(regel.postId) ?? 0) + regel.bedragCent);
   }
 
-  function maakRegel(post: (typeof alle)[number]): BegrotingsRegel {
-    const subposten = alle
-      .filter((p) => p.ouderId === post.id)
-      .map((p) => maakRegel(p));
-    const eigenCent = eigen.get(post.id) ?? 0;
-    const begrootCent = perPost.get(post.id) ?? null;
-    return {
-      id: post.id,
-      naam: post.naam,
-      kleur: post.kleur,
-      actief: post.actief,
-      ouderId: post.ouderId,
-      begrootCent,
-      eigenCent,
-      werkelijkCent:
-        eigenCent + subposten.reduce((som, s) => som + s.werkelijkCent, 0),
-      inGebruik:
-        begrootCent !== null ||
-        eigenCent > 0 ||
-        subposten.some((sub) => sub.inGebruik),
-      subposten,
-    };
-  }
-
-  return alle.filter((p) => p.ouderId === null).map((p) => maakRegel(p));
+  return bouwBoom(alle, perPost, eigen);
 }
 
 /** Voor het dashboard: alleen hoofdposten waar iets mee is, begroot of uitgegeven. */
@@ -217,15 +193,6 @@ export async function budgetOverzicht(jaar: number) {
     }))
     .filter((r) => r.begrootCent !== null || r.werkelijkCent > 0)
     .sort((a, b) => b.werkelijkCent - a.werkelijkCent);
-}
-
-/** Begroot op deze post plus alles wat eronder hangt; null als nergens iets staat. */
-export function totaalBegroot(regel: BegrotingsRegel): number | null {
-  const delen = [
-    regel.begrootCent,
-    ...regel.subposten.map((s) => totaalBegroot(s)),
-  ].filter((cent): cent is number => cent !== null);
-  return delen.length === 0 ? null : delen.reduce((som, cent) => som + cent, 0);
 }
 
 /** Jaren waarvoor iets begroot is, zodat het jaaroverzicht ze kan aanbieden. */

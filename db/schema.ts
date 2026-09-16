@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   pgTable,
   serial,
@@ -8,6 +9,7 @@ import {
   date,
   index,
   unique,
+  uniqueIndex,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
@@ -64,9 +66,14 @@ export const posten = pgTable("posten", {
 });
 
 /**
- * Begroting: per jaar een bedrag per post. Een jaar zonder rijen is simpelweg niet
- * begroot; een post zonder rij in dat jaar ook niet. Begroten mag op een hoofdpost,
- * op zijn subposten, of allebei -- het scherm telt op wat er staat.
+ * Begroting: per jaar nul of meer regels per post. Het begrote bedrag van een post is
+ * de som van zijn regels; een post zonder rijen is simpelweg niet begroot. Begroten
+ * mag op een hoofdpost, op zijn subposten, of allebei -- het scherm telt op wat er staat.
+ *
+ * `naam` is het scharnier. Is hij `null`, dan is dit het losse bedrag van de post, zoals
+ * de begroting altijd werkte. Staat er iets in -- ook een lege string -- dan is het een
+ * begrotingsregel: onderbouwing die alleen hier bestaat en waarop je niet kunt boeken.
+ * Een nieuwe regel begint zonder naam, dus de lege string kan de markering niet zijn.
  */
 export const budgets = pgTable(
   "budgets",
@@ -77,8 +84,20 @@ export const budgets = pgTable(
       .notNull()
       .references(() => posten.id, { onDelete: "cascade" }),
     bedragCent: integer("bedrag_cent").notNull(),
+    naam: text("naam"),
+    volgorde: integer("volgorde").notNull().default(0),
   },
-  (t) => [unique("budgets_jaar_post").on(t.jaar, t.postId)],
+  (t) => [
+    /**
+     * Alleen het losse bedrag is uniek per post. Regels mogen er zoveel zijn als je
+     * wilt. Zonder deze index zou het opslaan-tijdens-typen bij een dubbele afvuring
+     * twee rijen maken en het bedrag stilletjes verdubbelen.
+     */
+    uniqueIndex("budgets_jaar_post_los")
+      .on(t.jaar, t.postId)
+      .where(sql`naam is null`),
+    index("budgets_jaar_idx").on(t.jaar),
+  ],
 );
 
 export type AnalyseStatus = "geen" | "gelukt" | "mislukt";

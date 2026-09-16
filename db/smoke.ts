@@ -109,14 +109,11 @@ async function main() {
   console.log("✔ verdelen en saldo kloppen tegen de echte database");
 
   // Begroting: wat erin gaat moet er naast de werkelijke uitgaven weer uitkomen.
+  // Een rij zonder naam is het losse bedrag van de post.
   const jaar = Number(vandaag().slice(0, 4));
   await db
     .insert(budgets)
-    .values({ jaar, postId: post.id, bedragCent: 20_000 })
-    .onConflictDoUpdate({
-      target: [budgets.jaar, budgets.postId],
-      set: { bedragCent: 20_000 },
-    });
+    .values({ jaar, postId: post.id, bedragCent: 20_000, naam: null });
 
   // Het overzicht toont hoofdposten; de subpost telt daar dus in op.
   const overzicht = await budgetOverzicht(jaar);
@@ -129,6 +126,34 @@ async function main() {
     "werkelijk moet de som van beide uitgaven zijn",
   );
   console.log("✔ begroting en werkelijke uitgaven komen naast elkaar terug");
+
+  // Twee keer hetzelfde losse bedrag schrijven mag er geen twee rijen van maken; dat
+  // is waar de partiele unieke index voor is. Zonder die index verdubbelt het bedrag.
+  let dubbelGeweigerd = false;
+  try {
+    await db
+      .insert(budgets)
+      .values({ jaar, postId: post.id, bedragCent: 20_000, naam: null });
+  } catch {
+    dubbelGeweigerd = true;
+  }
+  assert.ok(dubbelGeweigerd, "een tweede los bedrag op dezelfde post hoort te botsen");
+  console.log("✔ het losse bedrag blijft uniek per post en jaar");
+
+  // Regels eronder: die tellen op, en het losse bedrag telt dan niet meer mee.
+  await db.insert(budgets).values([
+    { jaar, postId: post.id, bedragCent: 12_000, naam: "haalbeurt", volgorde: 0 },
+    { jaar, postId: post.id, bedragCent: 3_000, naam: "poetsen", volgorde: 1 },
+  ]);
+  const metRegels = await budgetOverzicht(jaar);
+  const naRegels = metRegels.find((r) => r.id === hoofdpost.id);
+  assert.ok(naRegels, "de hoofdpost hoort er nog te staan");
+  assert.equal(
+    naRegels.begrootCent,
+    15_000,
+    "de regels tellen op en het losse bedrag telt niet meer mee",
+  );
+  console.log("✔ begrotingsregels tellen op en verdringen het losse bedrag");
 }
 
 main()
