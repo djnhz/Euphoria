@@ -1,59 +1,159 @@
 "use client";
 
-import { useActionState } from "react";
-import KleurKiezer from "./KleurKiezer";
-import {
-  nieuwePostAction,
-  type BegrotingState,
-} from "@/app/(app)/begroting/actions";
+import { useState } from "react";
+import type { BegrotingsPost } from "@/lib/begroting";
+import { POSTKLEUREN } from "@/lib/kleuren";
 
 /**
- * Een post erbij. Met `ouderId` gevuld wordt het een subpost van die post, en dan
- * staat de hoofdpost dus al vast -- vandaar geen keuzelijst.
+ * Een post erbij. Staat op de plek van het detailblad, zodat je hem meteen ziet
+ * verschijnen op de plaats waar hij daarna te bewerken is.
  *
- * Eigen bestand omdat zowel het overzicht als het bewerkblad hem gebruikt; anders
- * zouden die twee elkaar over en weer moeten importeren.
+ * "Plek" bepaalt of het een eigen hoofdpost wordt of een subpost onder een bestaande.
+ * Dieper dan twee lagen kan niet, dus een subpost staat er niet tussen.
  */
 export default function NieuwePost({
-  ouderId,
-  klaar,
+  jaar,
+  hoofdposten,
+  beginOuderId = null,
+  toevoegen,
+  annuleer,
+  fout,
+  terug,
 }: {
-  ouderId: number | null;
-  /** Wordt aangeroepen zodra het toevoegen gelukt is, zodat het blad kan sluiten. */
-  klaar?: () => void;
+  jaar: number;
+  hoofdposten: BegrotingsPost[];
+  beginOuderId?: number | null;
+  toevoegen: (invoer: {
+    naam: string;
+    kleur: string;
+    ouderId: number | null;
+    bedrag: string;
+  }) => Promise<void>;
+  annuleer: () => void;
+  fout: string | null;
+  /** Alleen op een telefoon: de weg terug naar de lijst. */
+  terug?: () => void;
 }) {
-  const [state, toevoegen, bezig] = useActionState<BegrotingState, FormData>(
-    async (vorige, formulier) => {
-      const uitkomst = await nieuwePostAction(vorige, formulier);
-      if (!uitkomst?.fout) klaar?.();
-      return uitkomst;
-    },
-    null,
-  );
+  const [naam, zetNaam] = useState("");
+  const [kleur, zetKleur] = useState<string>(POSTKLEUREN[1]);
+  const [ouderId, zetOuderId] = useState<number | null>(beginOuderId);
+  const [bedrag, zetBedrag] = useState("");
+  const [bezig, zetBezig] = useState(false);
+
+  async function opslaan() {
+    if (naam.trim() === "" || bezig) return;
+    zetBezig(true);
+    await toevoegen({ naam, kleur, ouderId, bedrag });
+    zetBezig(false);
+  }
 
   return (
-    <form action={toevoegen} className="flex flex-col gap-3">
-      {ouderId !== null && <input type="hidden" name="ouder" value={ouderId} />}
-      <input
-        name="naam"
-        required
-        maxLength={60}
-        placeholder={ouderId === null ? "Nieuwe post" : "Naam van de subpost"}
-        className="rounded-xl border border-rand-sterk bg-paneel px-3.5 py-3 text-[15px]"
-      />
-      <div className="flex flex-wrap items-center gap-3">
-        <KleurKiezer begin="#2F5C8A" label="Kleur" />
-        <button
-          disabled={bezig}
-          className="ml-auto rounded-xl bg-inkt px-4 py-3 text-sm font-semibold text-linnen disabled:opacity-50"
-        >
-          Toevoegen
-        </button>
-      </div>
-      {state?.fout && (
-        <p className="text-sm text-slecht text-pretty">{state.fout}</p>
+    <div className="overflow-hidden rounded-2xl border border-rand bg-paneel">
+      {terug && (
+        <div className="border-b border-rand pl-1">
+          <button
+            type="button"
+            onClick={terug}
+            className="min-h-11 px-3 text-[15px] text-link"
+          >
+            ‹ Begroting
+          </button>
+        </div>
       )}
-      {state?.gelukt && <p className="text-sm text-goed">{state.gelukt}</p>}
-    </form>
+
+      <div className="flex flex-col gap-4 px-5 py-5 lg:px-6">
+        <div>
+          <div className="bovenschrift">Nieuwe post</div>
+          <div className="titel mt-1 text-[26px] leading-tight">
+            Wat wil je begroten?
+          </div>
+        </div>
+
+        <label className="flex flex-col gap-1.5 text-[12.5px] text-gedempt">
+          Naam
+          <input
+            value={naam}
+            autoFocus
+            onChange={(e) => zetNaam(e.target.value)}
+            maxLength={60}
+            placeholder="bijv. Zeilen en tuigage"
+            className="min-h-11 rounded-xl border border-rand-sterk bg-paneel px-3.5 py-3 text-[15px] text-tekst"
+          />
+        </label>
+
+        <div className="flex flex-col gap-1.5 text-[12.5px] text-gedempt">
+          Kleur
+          <div className="flex flex-wrap gap-2">
+            {POSTKLEUREN.map((optie) => {
+              const aan = optie.toLowerCase() === kleur.toLowerCase();
+              return (
+                <button
+                  key={optie}
+                  type="button"
+                  onClick={() => zetKleur(optie)}
+                  aria-label={`Kleur ${optie}`}
+                  aria-pressed={aan}
+                  style={{ background: optie }}
+                  className={`h-8 w-8 rounded-lg transition ${
+                    aan
+                      ? "ring-2 ring-inkt ring-offset-1"
+                      : "opacity-70 hover:opacity-100"
+                  }`}
+                />
+              );
+            })}
+          </div>
+        </div>
+
+        <label className="flex flex-col gap-1.5 text-[12.5px] text-gedempt">
+          Plek
+          <select
+            value={ouderId ?? 0}
+            onChange={(e) => zetOuderId(Number(e.target.value) || null)}
+            className="min-h-11 rounded-xl border border-rand-sterk bg-paneel px-3.5 py-3 text-[15px] text-tekst"
+          >
+            <option value={0}>Eigen hoofdpost</option>
+            {hoofdposten
+              .filter((post) => post.ouderId === null)
+              .map((post) => (
+                <option key={post.id} value={post.id}>
+                  Subpost onder {post.naam}
+                </option>
+              ))}
+          </select>
+        </label>
+
+        <label className="flex flex-col gap-1.5 text-[12.5px] text-gedempt">
+          Begroot voor {jaar} (mag leeg)
+          <input
+            value={bedrag}
+            inputMode="decimal"
+            onChange={(e) => zetBedrag(e.target.value)}
+            placeholder="—"
+            className="cijfers min-h-11 w-full rounded-xl border border-rand-sterk bg-verzonken px-3.5 py-3 text-right text-base text-tekst sm:w-[180px]"
+          />
+        </label>
+
+        {fout && <p className="text-sm text-slecht text-pretty">{fout}</p>}
+
+        <div className="mt-1 flex flex-wrap gap-2.5">
+          <button
+            type="button"
+            onClick={() => void opslaan()}
+            disabled={bezig || naam.trim() === ""}
+            className="min-h-11 rounded-xl bg-inkt px-5 text-sm font-semibold text-linnen disabled:opacity-50"
+          >
+            Toevoegen
+          </button>
+          <button
+            type="button"
+            onClick={annuleer}
+            className="min-h-11 rounded-xl border border-rand-sterk bg-paneel px-4 text-sm"
+          >
+            Annuleren
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

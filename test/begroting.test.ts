@@ -6,8 +6,11 @@ import {
   heeftRegels,
   opVolgorde,
   totaalBegroot,
+  ontwerpVan,
+  begrootVanOntwerp,
   type PostRegel,
 } from "../lib/begroting.ts";
+import { parseEuro } from "../lib/geld.ts";
 
 /**
  * Het scharnier van dit alles: `naam === null` is het losse bedrag van een post,
@@ -100,11 +103,7 @@ const POSTEN = [
 ];
 
 test("een hoofdpost zonder eigen bedrag doet mee als zijn subpost meedoet", () => {
-  const boom = bouwBoom(
-    POSTEN,
-    new Map([[2, [los(40_000, 5)]]]),
-    new Map(),
-  );
+  const boom = bouwBoom(POSTEN, new Map([[2, [los(40_000, 5)]]]), new Map());
   const onderhoud = boom.find((p) => p.id === 1);
   assert.ok(onderhoud);
   assert.equal(onderhoud.begrootCent, null, "zelf niets begroot");
@@ -160,4 +159,90 @@ test("totaalBegroot telt de post en zijn subposten op", () => {
     new Map(),
   );
   assert.equal(totaalBegroot(boom[0]), 30_000);
+});
+
+// --- uitgaven per post ---
+
+test("het aantal bonregels komt per post mee, en telt niet op naar de hoofdpost", () => {
+  const boom = bouwBoom(
+    POSTEN,
+    new Map(),
+    new Map([[2, 5_000]]),
+    new Map([
+      [1, 2],
+      [2, 3],
+    ]),
+  );
+  const onderhoud = boom.find((p) => p.id === 1);
+  assert.ok(onderhoud);
+  assert.equal(onderhoud.uitgaven, 2);
+  assert.equal(onderhoud.subposten[0].uitgaven, 3);
+});
+
+test("zonder telling staat er gewoon nul, geen undefined", () => {
+  const boom = bouwBoom(POSTEN, new Map(), new Map());
+  assert.equal(boom[0].uitgaven, 0);
+});
+
+// --- ontwerpVan: van database naar velden op het scherm ---
+
+function bouw(regels: PostRegel[]) {
+  const boom = bouwBoom([POSTEN[0]], new Map([[1, regels]]), new Map());
+  return ontwerpVan(boom[0]);
+}
+
+test("een los bedrag komt in het snelle veld te staan, met een komma", () => {
+  const ontwerp = bouw([los(65_050)]);
+  assert.equal(ontwerp.los, "650,50");
+  assert.deepEqual(ontwerp.regels, []);
+});
+
+test("zijn er regels, dan blijft het snelle veld leeg", () => {
+  const ontwerp = bouw([los(65_000), regel("haalbeurt", 35_000, 2)]);
+  assert.equal(ontwerp.los, "", "anders zou je twee bedragen zien staan");
+  assert.equal(ontwerp.regels.length, 1);
+  assert.equal(ontwerp.regels[0].naam, "haalbeurt");
+  assert.equal(ontwerp.regels[0].bedrag, "350,00");
+});
+
+test("elke regel houdt een eigen sleutel, ook als twee namen gelijk zijn", () => {
+  const ontwerp = bouw([regel("poetsen", 100, 7), regel("poetsen", 200, 9)]);
+  assert.notEqual(ontwerp.regels[0].sleutel, ontwerp.regels[1].sleutel);
+});
+
+// --- begrootVanOntwerp: hetzelfde antwoord als de server, maar tijdens het typen ---
+
+const leeg = {
+  naam: "Onderhoud",
+  kleur: "#16283F",
+  actief: true,
+  ouderId: null,
+  los: "",
+  regels: [],
+};
+
+test("een leeg scherm is niet begroot, niet nul", () => {
+  assert.equal(begrootVanOntwerp(leeg, parseEuro), null);
+});
+
+test("het losse veld telt zoals je het typt", () => {
+  assert.equal(
+    begrootVanOntwerp({ ...leeg, los: "1250,40" }, parseEuro),
+    125_040,
+  );
+});
+
+test("regels tellen op, en een half getypte regel telt als nul", () => {
+  const ontwerp = {
+    ...leeg,
+    los: "9999",
+    regels: [
+      { sleutel: "a", naam: "haalbeurt", bedrag: "350" },
+      { sleutel: "b", naam: "", bedrag: "" },
+      { sleutel: "c", naam: "antifouling", bedrag: "180,50" },
+    ],
+  };
+  // Het losse bedrag doet niet meer mee zodra er regels staan -- dezelfde regel als
+  // op de server, zodat het scherm niet iets anders optelt dan wat wordt opgeslagen.
+  assert.equal(begrootVanOntwerp(ontwerp, parseEuro), 53_050);
 });

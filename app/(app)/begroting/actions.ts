@@ -6,7 +6,12 @@ import { db, budgets, expenseLines, posten } from "@/db";
 import { vereisGebruiker } from "@/lib/auth";
 import { parseEuro } from "@/lib/geld";
 
-export type BegrotingState = { fout?: string; gelukt?: string } | null;
+export type BegrotingState = {
+  fout?: string;
+  gelukt?: string;
+  /** Het nummer van een zojuist aangemaakte post, zodat het scherm hem kan openen. */
+  id?: number;
+} | null;
 
 const KLEUR = /^#[0-9a-fA-F]{6}$/;
 
@@ -102,6 +107,10 @@ export type PostInvoer = {
  * Neon spreekt over HTTP en kent geen transacties, en de rest van deze app gebruikt ze
  * ook nergens. Daarom eerst de oude regels weg en dan de nieuwe erin: gaat er halverwege
  * iets mis, dan staat er hooguit een post zonder begroting en nooit een verzonnen bedrag.
+ *
+ * Bewust zonder `revalidatePath`, net als `zetBedragAction`: het detailblad slaat op
+ * terwijl je typt, en een verversing zou de velden onder je handen terugzetten. Elke
+ * pagina is toch al dynamisch, dus de volgende keer dat je ergens heen gaat klopt het.
  */
 export async function bewaarPostAction(
   jaar: number,
@@ -212,25 +221,24 @@ export async function bewaarPostAction(
     );
   }
 
-  revalidatePath("/begroting");
-  revalidatePath("/uitgaven");
-  revalidatePath("/");
-  return { gelukt: `${naam} opgeslagen.` };
+  return { gelukt: "opgeslagen" };
 }
 
 /**
  * Een nieuwe post. Zonder ouder is het een hoofdpost, met ouder een subpost daaronder.
  * Dieper dan twee lagen kan niet: een subpost van een subpost wordt geweigerd.
  */
-export async function nieuwePostAction(
-  _vorige: BegrotingState,
-  formData: FormData,
-): Promise<BegrotingState> {
+export async function nieuwePostAction(invoer: {
+  naam: string;
+  kleur: string;
+  /** Null of 0 maakt er een hoofdpost van. */
+  ouderId: number | null;
+}): Promise<BegrotingState> {
   await vereisGebruiker();
 
-  const naam = String(formData.get("naam") ?? "").trim();
-  const kleur = String(formData.get("kleur") ?? "#64748b");
-  const ouder = Number(formData.get("ouder"));
+  const naam = invoer.naam.trim();
+  const kleur = invoer.kleur;
+  const ouder = Number(invoer.ouderId ?? 0);
   if (naam.length < 1 || naam.length > 60) return { fout: "Vul een naam in." };
   if (!KLEUR.test(kleur)) return { fout: "Ongeldige kleur." };
 
@@ -247,8 +255,12 @@ export async function nieuwePostAction(
     ouderId = ouder;
   }
 
+  let nieuw: { id: number } | undefined;
   try {
-    await db.insert(posten).values({ naam, kleur, ouderId });
+    [nieuw] = await db
+      .insert(posten)
+      .values({ naam, kleur, ouderId })
+      .returning({ id: posten.id });
   } catch {
     return { fout: "Die post bestaat al." };
   }
@@ -256,7 +268,7 @@ export async function nieuwePostAction(
   revalidatePath("/begroting");
   revalidatePath("/uitgaven");
   revalidatePath("/");
-  return { gelukt: `${naam} toegevoegd.` };
+  return { gelukt: `${naam} toegevoegd.`, id: nieuw?.id };
 }
 
 /**
@@ -264,13 +276,9 @@ export async function nieuwePostAction(
  * ergens anders heen schuiven zou de cijfers veranderen zonder dat je het ziet.
  * Subposten eronder worden zelf hoofdpost, en begrote bedragen gaan mee weg.
  */
-export async function verwijderPostAction(
-  _vorige: BegrotingState,
-  formData: FormData,
-): Promise<BegrotingState> {
+export async function verwijderPostAction(id: number): Promise<BegrotingState> {
   await vereisGebruiker();
 
-  const id = Number(formData.get("id"));
   if (!Number.isInteger(id)) return { fout: "Onbekende post." };
 
   const [post] = await db
@@ -300,12 +308,10 @@ export async function verwijderPostAction(
 
 /** Vorig jaar als startpunt overnemen; bestaande bedragen blijven staan. */
 export async function neemVorigJaarOverAction(
-  _vorige: BegrotingState,
-  formData: FormData,
+  jaar: number,
 ): Promise<BegrotingState> {
   await vereisGebruiker();
 
-  const jaar = Number(formData.get("jaar"));
   if (!Number.isInteger(jaar)) return { fout: "Ongeldig jaar." };
 
   const vorig = await db

@@ -174,11 +174,13 @@ export async function begroting(jaar: number): Promise<BegrotingsPost[]> {
   }
 
   const eigen = new Map<number, number>();
+  const aantal = new Map<number, number>();
   for (const regel of regels) {
     eigen.set(regel.postId, (eigen.get(regel.postId) ?? 0) + regel.bedragCent);
+    aantal.set(regel.postId, (aantal.get(regel.postId) ?? 0) + 1);
   }
 
-  return bouwBoom(alle, perPost, eigen);
+  return bouwBoom(alle, perPost, eigen, aantal);
 }
 
 /** Voor het dashboard: alleen hoofdposten waar iets mee is, begroot of uitgegeven. */

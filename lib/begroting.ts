@@ -63,6 +63,8 @@ export type BegrotingsPost = {
   begrootCent: number | null;
   /** Alleen wat rechtstreeks op deze post is geboekt. */
   eigenCent: number;
+  /** Het aantal bonregels dat rechtstreeks op deze post staat. */
+  uitgaven: number;
   /** Inclusief de subposten eronder; voor een subpost gelijk aan `eigenCent`. */
   werkelijkCent: number;
   /**
@@ -90,6 +92,8 @@ export function bouwBoom(
   posten: readonly RuwePost[],
   regelsPerPost: ReadonlyMap<number, PostRegel[]>,
   eigenPerPost: ReadonlyMap<number, number>,
+  /** Hoeveel bonregels er op elke post staan; voor "3 uitgaven in 2026". */
+  aantalPerPost: ReadonlyMap<number, number> = new Map(),
 ): BegrotingsPost[] {
   function maakPost(post: RuwePost): BegrotingsPost {
     const subposten = posten
@@ -107,6 +111,7 @@ export function bouwBoom(
       regels,
       begrootCent,
       eigenCent,
+      uitgaven: aantalPerPost.get(post.id) ?? 0,
       werkelijkCent:
         eigenCent + subposten.reduce((som, s) => som + s.werkelijkCent, 0),
       inGebruik:
@@ -118,6 +123,64 @@ export function bouwBoom(
   }
 
   return posten.filter((p) => p.ouderId === null).map((p) => maakPost(p));
+}
+
+/**
+ * Een regel zoals hij op het scherm staat: nog als tekst, want je bent aan het typen.
+ * `sleutel` is alleen voor React -- een nieuwe regel heeft nog geen nummer uit de
+ * database, en de index gebruiken laat de velden verspringen zodra je er een weghaalt.
+ */
+export type RegelInvoer = { sleutel: string; naam: string; bedrag: string };
+
+/** Een post zoals het scherm hem bijhoudt terwijl je hem bewerkt. */
+export type PostOntwerp = {
+  naam: string;
+  kleur: string;
+  actief: boolean;
+  ouderId: number | null;
+  /** Het losse bedrag als tekst; leeg zodra de post uit regels bestaat. */
+  los: string;
+  regels: RegelInvoer[];
+};
+
+function alsTekst(cent: number): string {
+  return (cent / 100).toFixed(2).replace(".", ",");
+}
+
+/** Wat er in de velden hoort te staan als je een post opent. */
+export function ontwerpVan(post: BegrotingsPost): PostOntwerp {
+  const regels = post.regels.filter((rij) => rij.naam !== null);
+  const los = post.regels.find((rij) => rij.naam === null);
+  return {
+    naam: post.naam,
+    kleur: post.kleur,
+    actief: post.actief,
+    ouderId: post.ouderId,
+    los: regels.length > 0 || !los ? "" : alsTekst(los.bedragCent),
+    regels: regels.map((rij) => ({
+      sleutel: `regel-${rij.id}`,
+      naam: rij.naam ?? "",
+      bedrag: alsTekst(rij.bedragCent),
+    })),
+  };
+}
+
+/**
+ * Wat er volgens het scherm begroot staat. Dezelfde regel als op de server: zijn er
+ * regels, dan tellen alleen die mee. Een regel waar nog niets in staat telt als nul,
+ * zodat het totaal niet op "niets begroot" springt zodra je er een bijzet.
+ */
+export function begrootVanOntwerp(
+  ontwerp: PostOntwerp,
+  parse: (tekst: string) => number | null,
+): number | null {
+  if (ontwerp.regels.length > 0) {
+    return ontwerp.regels.reduce(
+      (som, regel) => som + (parse(regel.bedrag) ?? 0),
+      0,
+    );
+  }
+  return parse(ontwerp.los);
 }
 
 /** Zo min mogelijk eisen, zodat ook een verrijkte rij uit het dashboard erin past. */

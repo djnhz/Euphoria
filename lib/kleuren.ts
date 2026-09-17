@@ -19,3 +19,18 @@ export const REEKSKLEUREN = [
   "#3F6B54",
   "#C7C0B2",
 ] as const;
+
+/**
+ * De kleuren die een begrotingspost kan krijgen. Een vaste rij in plaats van een
+ * vrije kiezer: zonder dat krijgt elke post de kleur die de systeemkiezer toevallig
+ * bovenaan zet, en daar valt een marineblauw scherm meteen uit elkaar.
+ */
+export const POSTKLEUREN = [
+  "#16283F",
+  "#2F5C8A",
+  "#9DB4CE",
+  "#C9A662",
+  "#8A6A2F",
+  "#3F6B54",
+  "#C7C0B2",
+] as const;
