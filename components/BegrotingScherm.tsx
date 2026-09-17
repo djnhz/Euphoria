@@ -455,16 +455,18 @@ export default function BegrotingScherm({
             </button>
           </div>
 
-          {/* De meldingen van de lijst; het blad heeft zijn eigen statusregel. */}
-          {(status.fout || status.melding) && modus !== "detail" && (
-            <p className="px-1 text-sm text-pretty">
-              {status.fout ? (
-                <span className="text-slecht">{status.fout}</span>
-              ) : (
-                <span className="text-goed">{status.melding}</span>
-              )}
-            </p>
-          )}
+          {/* Staat het blad ernaast, dan meldt dat zelf wel; anders hoort het hier,
+              want overnemen en verwijderen mogen niet in stilte mislukken. */}
+          {(status.fout || status.melding) &&
+            !(breed && modus === "detail" && gekozen) && (
+              <p className="px-1 text-sm text-pretty">
+                {status.fout ? (
+                  <span className="text-slecht">{status.fout}</span>
+                ) : (
+                  <span className="text-goed">{status.melding}</span>
+                )}
+              </p>
+            )}
         </div>
 
         {/* Op een laptop staat het blad ernaast en blijft het staan bij scrollen. */}
