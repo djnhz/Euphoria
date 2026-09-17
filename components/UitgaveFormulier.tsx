@@ -304,7 +304,9 @@ export default function UitgaveFormulier({
           }}
           className="block w-full text-sm file:mr-3 file:rounded-xl file:border-0 file:bg-inkt file:px-3.5 file:py-2.5 file:text-sm file:font-semibold file:text-linnen"
         />
-        {bezigMetUpload && <p className="mt-3 text-sm text-gedempt">Opslaan…</p>}
+        {bezigMetUpload && (
+          <p className="mt-3 text-sm text-gedempt">Opslaan…</p>
+        )}
         {dubbel && (
           <DubbelWaarschuwing
             vraag={dubbel}
@@ -336,7 +338,10 @@ export default function UitgaveFormulier({
                     zijde={112}
                   />
                 </a>
-                <p className="mt-1 truncate text-xs text-gedempt" title={bon.naam}>
+                <p
+                  className="mt-1 truncate text-xs text-gedempt"
+                  title={bon.naam}
+                >
                   {bon.naam}
                 </p>
                 {bon.analyseerbaar ? (
@@ -351,7 +356,9 @@ export default function UitgaveFormulier({
                     }
                     className="mt-2 w-full rounded-xl border border-rand-sterk px-2 py-1.5 text-xs disabled:opacity-50"
                   >
-                    {bezigMetAnalyse === bon.documentId ? "Uitlezen…" : "Analyseren"}
+                    {bezigMetAnalyse === bon.documentId
+                      ? "Uitlezen…"
+                      : "Analyseren"}
                   </button>
                 ) : (
                   <p className="mt-2 text-center text-xs text-gedempt">
@@ -515,7 +522,9 @@ export default function UitgaveFormulier({
                 <select
                   value={regel.postId}
                   onChange={(e) =>
-                    pasRegelAan(regel.sleutel, { postId: Number(e.target.value) })
+                    pasRegelAan(regel.sleutel, {
+                      postId: Number(e.target.value),
+                    })
                   }
                   aria-label="Post"
                   className={invoerKlasse}
@@ -535,7 +544,6 @@ export default function UitgaveFormulier({
             </div>
           ))}
         </div>
-
       </section>
 
       {state?.fout && <p className="text-sm text-slecht">{state.fout}</p>}
@@ -590,7 +598,9 @@ function DubbelWaarschuwing({
         {bestaand.uitgave ? (
           <>
             , gekoppeld aan de uitgave van {formatDatum(bestaand.uitgave.datum)}
-            {bestaand.uitgave.leverancier && ` bij ${bestaand.uitgave.leverancier}`}.
+            {bestaand.uitgave.leverancier &&
+              ` bij ${bestaand.uitgave.leverancier}`}
+            .
           </>
         ) : (
           <> in de map {bestaand.map}, nog niet aan een uitgave gekoppeld.</>
@@ -634,7 +644,7 @@ function DubbelWaarschuwing({
 }
 
 const veldStijl =
-  "rounded-xl border border-rand-sterk bg-paneel px-3.5 py-3 text-[15px] outline-none focus:border-inkt";
+  "rounded-xl border border-rand-sterk bg-paneel px-3.5 py-3 text-[15px] focus:border-inkt";
 const invoerKlasse = `w-full ${veldStijl}`;
 
 function Veld({

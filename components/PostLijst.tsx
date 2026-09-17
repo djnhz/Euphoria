@@ -227,7 +227,7 @@ function Cijfer({
 }) {
   return (
     <div className="min-w-0">
-      <div className="text-[9.5px] tracking-[0.14em] text-gedempt uppercase">
+      <div className="text-[11px] tracking-[0.12em] text-gedempt uppercase">
         {label}
       </div>
       <div className={`mt-0.5 truncate text-sm font-medium ${kleur}`}>

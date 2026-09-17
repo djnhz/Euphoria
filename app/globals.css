@@ -36,8 +36,19 @@
   --rand: rgba(22, 40, 63, 0.1);
   --rand-sterk: rgba(22, 40, 63, 0.18);
   --tekst: var(--inkt);
-  --gedempt: rgba(22, 40, 63, 0.55);
-  --zacht: rgba(22, 40, 63, 0.42);
+  /**
+   * De twee gedempte tinten zijn op contrast gezet in plaats van op gevoel.
+   * Gedempt draagt de bedragen en de kopjes -- gewone tekst, dus 4,5:1; op .55
+   * haalde die 3,56:1 en dat las op een telefoon buiten niet. Zacht draagt de
+   * chevrons, het enige teken dat een rij uitklapt: niet-tekstuele bediening
+   * vraagt 3:1, en daar stond .42 met 2,50:1 ruim onder.
+   *
+   * Zacht is op .56 gezet en niet op .50: een chevron staat ook op een
+   * geselecteerde rij, en tegen marine-tint bleef .50 met 2,94:1 nog net onder
+   * de grens. Gemeten op het scherm, niet op wit gerekend.
+   */
+  --gedempt: rgba(22, 40, 63, 0.66); /* 4,96:1 op paneel, 4,86:1 op verzonken */
+  --zacht: rgba(22, 40, 63, 0.56); /* 3,44:1 op de donkerste ondergrond */
   --accent: var(--inkt);
   --accent-zacht: var(--marine-tint);
   --link: var(--messing-inkt);
@@ -142,4 +153,44 @@ body {
 
 .schuif::-webkit-scrollbar-thumb:hover {
   background: var(--gedempt);
+}
+
+/**
+ * Eén zichtbare focusring voor alles wat focus kan krijgen. Stond er niet: overal
+ * `outline-none` met hooguit een randkleur ernaast, en op een veld dat al een rand
+ * heeft is grijs-naar-blauw te weinig om op te tabben. Juist het begrotingsblad
+ * heeft geen opslaanknop, dus tabben is er de manier om vooruit te komen.
+ *
+ * `:focus-visible` in plaats van `:focus`, zodat een muisklik geen ring geeft.
+ * Geen border-radius hier: de outline volgt vanzelf de ronding van het element,
+ * en hem zelf zetten zou de vorm veranderen op het moment dat je erin staat.
+ *
+ * De losse eigenschappen en niet de `outline`-verkorting: met een `var()` erin
+ * blijft die laatste onopgelost tot rekentijd, en dan valt de kleur terug op
+ * `currentColor`. Op de tabbladen werd de ring daardoor grijs in plaats van blauw.
+ *
+ * Meet je de kleur vlak na het tabben, dan lees je iets tussen de tekstkleur en
+ * marine in: Tailwinds `transition` zet ook `outline-color` in overgang, dus de
+ * ring vervaagt er in 150 ms naartoe. De ring zelf staat er wel meteen.
+ */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline-width: 2px;
+  outline-style: solid;
+  outline-color: var(--marine);
+  outline-offset: 2px;
+}
+
+/**
+ * Wie beweging heeft uitgezet, krijgt geen beweging. Niet weglaten omdat het
+ * "maar" overgangen zijn: het zijn er 47, van de draaiende chevron tot elke hover.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

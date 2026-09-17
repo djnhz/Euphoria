@@ -124,7 +124,7 @@ export default function PostDetail({
               maxLength={60}
               aria-label="Naam van de post"
               title="Klik om te hernoemen"
-              className="titel -ml-[7px] block min-h-11 w-full rounded-lg border border-transparent bg-transparent px-1.5 py-1 text-[26px] leading-tight transition hover:border-rand-sterk hover:bg-verzonken focus:border-marine focus:bg-paneel focus:outline-none lg:min-h-0"
+              className="titel -ml-[7px] block min-h-11 w-full rounded-lg border border-transparent bg-transparent px-1.5 py-1 text-[26px] leading-tight transition hover:border-rand-sterk hover:bg-verzonken focus:border-marine focus:bg-paneel lg:min-h-0"
             />
             <div className="flex flex-wrap items-center gap-x-3">
               <Link
@@ -438,7 +438,7 @@ function Opbouw({
                 maxLength={60}
                 placeholder="waarvoor is dit?"
                 aria-label="Naam van de regel"
-                className="-ml-[7px] min-h-11 min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1.5 text-[13.5px] transition hover:border-rand-sterk hover:bg-paneel focus:border-marine focus:bg-paneel focus:outline-none sm:order-1 sm:min-h-0 sm:py-1.5"
+                className="-ml-[7px] min-h-11 min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1.5 text-[13.5px] transition hover:border-rand-sterk hover:bg-paneel focus:border-marine focus:bg-paneel sm:order-1 sm:min-h-0 sm:py-1.5"
               />
               <button
                 type="button"
@@ -541,7 +541,7 @@ function Subposten({
                   onBlur={() => haken.bewaarNu(sub.id)}
                   maxLength={60}
                   aria-label="Naam van de subpost"
-                  className="-ml-[7px] min-h-11 min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1.5 text-sm transition hover:border-rand-sterk hover:bg-paneel focus:border-marine focus:bg-paneel focus:outline-none sm:order-1 sm:min-h-0 sm:py-1.5"
+                  className="-ml-[7px] min-h-11 min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1.5 text-sm transition hover:border-rand-sterk hover:bg-paneel focus:border-marine focus:bg-paneel sm:order-1 sm:min-h-0 sm:py-1.5"
                 />
                 <button
                   type="button"
@@ -698,7 +698,7 @@ function Bedragveld({
         onChange={(e) => onChange(e.target.value)}
         onBlur={onBlur}
         aria-label={label}
-        className={`cijfers min-h-11 w-full rounded-lg border border-rand-sterk bg-paneel text-right focus:border-marine focus:outline-none sm:min-h-0 ${
+        className={`cijfers min-h-11 w-full rounded-lg border border-rand-sterk bg-paneel text-right focus:border-marine sm:min-h-0 ${
           groot
             ? "py-2 pr-7 pl-3 text-lg font-medium"
             : "py-1.5 pr-6 pl-2.5 text-[13px]"

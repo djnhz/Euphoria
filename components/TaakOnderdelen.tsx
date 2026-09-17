@@ -459,7 +459,7 @@ function TaakSheet({
 }
 
 const invoer =
-  "w-full rounded-xl border border-rand-sterk bg-paneel px-3.5 py-3 text-[15px] text-inkt outline-none focus:border-inkt";
+  "w-full rounded-xl border border-rand-sterk bg-paneel px-3.5 py-3 text-[15px] text-inkt focus:border-inkt";
 
 function Veld({
   label,
