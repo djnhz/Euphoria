@@ -1,6 +1,16 @@
 export const MAANDEN = [
-  "jan", "feb", "mrt", "apr", "mei", "jun",
-  "jul", "aug", "sep", "okt", "nov", "dec",
+  "jan",
+  "feb",
+  "mrt",
+  "apr",
+  "mei",
+  "jun",
+  "jul",
+  "aug",
+  "sep",
+  "okt",
+  "nov",
+  "dec",
 ];
 
 /** Vandaag als `YYYY-MM-DD` in lokale tijd. */
@@ -67,7 +77,8 @@ export function dagenInSeizoen(jaar: number): string[] {
 
   const laatsteOktober = `${jaar}-${SEIZOEN_EIND_MAAND}-31`;
   let laatsteZondag = plusDagen(maandagVanWeek(laatsteOktober), 6);
-  if (laatsteZondag > laatsteOktober) laatsteZondag = plusDagen(laatsteZondag, -7);
+  if (laatsteZondag > laatsteOktober)
+    laatsteZondag = plusDagen(laatsteZondag, -7);
 
   const dagen: string[] = [];
   while (dag <= laatsteZondag) {
@@ -123,4 +134,42 @@ export function aaneengeslotenBlokken(
     else blokken.push({ van: dag, tot: dag });
   }
   return blokken;
+}
+
+/**
+ * Zes weken van maandag tot zondag, met lege plekken voor en na de maand. Zowel de
+ * grote kalender als de kleine in de periodekiezer tekent hiermee, zodat een dag op
+ * beide plekken op dezelfde plek in het raster staat.
+ */
+export function maandRaster(
+  jaar: number,
+  maand: number,
+): { sleutel: string; datum: string | null }[] {
+  const eersteDag = new Date(Date.UTC(jaar, maand - 1, 1));
+  // getUTCDay geeft zondag als 0; wij beginnen op maandag.
+  const verschuiving = (eersteDag.getUTCDay() + 6) % 7;
+  const dagenInMaand = new Date(Date.UTC(jaar, maand, 0)).getUTCDate();
+
+  const cellen: { sleutel: string; datum: string | null }[] = [];
+  for (let i = 0; i < verschuiving; i++) {
+    cellen.push({ sleutel: `leeg-voor-${i}`, datum: null });
+  }
+  for (let dag = 1; dag <= dagenInMaand; dag++) {
+    const datum = `${jaar}-${String(maand).padStart(2, "0")}-${String(dag).padStart(2, "0")}`;
+    cellen.push({ sleutel: datum, datum });
+  }
+  while (cellen.length % 7 !== 0) {
+    cellen.push({ sleutel: `leeg-na-${cellen.length}`, datum: null });
+  }
+  return cellen;
+}
+
+/** Een maand terug of vooruit, met de jaarwissel erin verwerkt. */
+export function verschuifMaand(
+  jaar: number,
+  maand: number,
+  stappen: number,
+): { jaar: number; maand: number } {
+  const totaal = jaar * 12 + (maand - 1) + stappen;
+  return { jaar: Math.floor(totaal / 12), maand: (totaal % 12) + 1 };
 }

@@ -5,11 +5,12 @@ import { HUISHOUDKLEUREN } from "@/lib/kleuren";
 import { useActionState, useMemo, useState } from "react";
 import Link from "next/link";
 import type { Reservering } from "@/lib/agenda";
-import { formatDatum } from "@/lib/datum";
+import { dagenTotEnMet, formatDatum, maandRaster } from "@/lib/datum";
 import {
   reserveerAction,
   type ReserveerState,
 } from "@/app/(app)/vaarplanning/actions";
+import PeriodeKiezer from "./PeriodeKiezer";
 import ReserveringBewerken from "./ReserveringBewerken";
 import { magBewerken } from "@/lib/reservering";
 
@@ -88,7 +89,7 @@ export default function Vaarkalender({
   const perDag = useMemo(() => {
     const kaart = new Map<string, Reservering[]>();
     for (const reservering of reserveringen) {
-      for (const dag of dagenTussen(reservering.van, reservering.tot)) {
+      for (const dag of dagenTotEnMet(reservering.van, reservering.tot)) {
         kaart.set(dag, [...(kaart.get(dag) ?? []), reservering]);
       }
     }
@@ -224,25 +225,17 @@ export default function Vaarkalender({
             className={invoer}
           />
         </Veld>
-        {/* De datums komen uit de kalender hierboven en gaan verborgen mee. */}
+        {/* De datums gaan verborgen mee; kiezen doe je in de uitklap of hierboven. */}
         <input type="hidden" name="van" value={van} />
         <input type="hidden" name="totEnMet" value={totEnMet} />
-        <Veld label={eind === null ? "Kies de laatste dag" : "Wanneer"}>
-          <p
-            aria-live="polite"
-            className={`flex min-h-11 items-center rounded-xl border px-3.5 text-sm ${
-              eind === null
-                ? "border-dashed border-messing-inkt text-link"
-                : "border-rand-sterk bg-verzonken"
-            }`}
-          >
-            {eind === null
-              ? `Vanaf ${formatDatum(begin)} — tik de laatste dag aan`
-              : van === totEnMet
-                ? formatDatum(van)
-                : `${formatDatum(van)} t/m ${formatDatum(totEnMet)}`}
-          </p>
-        </Veld>
+        <PeriodeKiezer
+          van={van}
+          totEnMet={totEnMet}
+          kies={(vanaf, tot) => {
+            setBegin(vanaf);
+            setEind(tot);
+          }}
+        />
         <Veld label="Opmerking">
           <input
             name="opmerking"
@@ -340,38 +333,4 @@ function Veld({
       {children}
     </label>
   );
-}
-
-/** Zes weken van maandag tot zondag, met lege plekken buiten de maand. */
-function maandRaster(jaar: number, maand: number) {
-  const eersteDag = new Date(Date.UTC(jaar, maand - 1, 1));
-  // getUTCDay geeft zondag als 0; wij beginnen op maandag.
-  const verschuiving = (eersteDag.getUTCDay() + 6) % 7;
-  const dagenInMaand = new Date(Date.UTC(jaar, maand, 0)).getUTCDate();
-
-  const cellen: { sleutel: string; datum: string | null }[] = [];
-  for (let i = 0; i < verschuiving; i++) {
-    cellen.push({ sleutel: `leeg-voor-${i}`, datum: null });
-  }
-  for (let dag = 1; dag <= dagenInMaand; dag++) {
-    const datum = `${jaar}-${String(maand).padStart(2, "0")}-${String(dag).padStart(2, "0")}`;
-    cellen.push({ sleutel: datum, datum });
-  }
-  while (cellen.length % 7 !== 0) {
-    cellen.push({ sleutel: `leeg-na-${cellen.length}`, datum: null });
-  }
-  return cellen;
-}
-
-function dagenTussen(van: string, tot: string): string[] {
-  const dagen: string[] = [];
-  const [j, m, d] = van.split("-").map(Number);
-  const loper = new Date(Date.UTC(j, m - 1, d));
-  const einde = new Date(`${tot}T00:00:00Z`);
-  // Ruime bovengrens: een reservering van meer dan een jaar is een invoerfout.
-  while (loper <= einde && dagen.length < 400) {
-    dagen.push(loper.toISOString().slice(0, 10));
-    loper.setUTCDate(loper.getUTCDate() + 1);
-  }
-  return dagen;
 }
