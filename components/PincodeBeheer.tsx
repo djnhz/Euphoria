@@ -1,7 +1,10 @@
 "use client";
 
 import { useActionState } from "react";
-import { zetPinAction, type MeldingState } from "@/app/(app)/instellingen/actions";
+import {
+  zetPinAction,
+  type MeldingState,
+} from "@/app/(app)/instellingen/actions";
 import Melding from "./Melding";
 
 const invoer =
@@ -54,7 +57,7 @@ function Regel({ id, naam }: { id: number; naam: string }) {
           disabled={bezig}
           className="shrink-0 rounded-xl border border-rand-sterk px-3.5 py-2.5 text-sm disabled:opacity-50"
         >
-          Instellen
+          Pincode instellen
         </button>
       </div>
       <Melding state={state} />

@@ -93,7 +93,10 @@ export default function GebruikerMenu({
 
 /** Twee letters: de eerste van de voornaam en van de achternaam, of anders één. */
 export function initialen(naam: string): string {
-  const delen = naam.trim().split(/[\s-]+/).filter(Boolean);
+  const delen = naam
+    .trim()
+    .split(/[\s-]+/)
+    .filter(Boolean);
   if (delen.length === 0) return "?";
   if (delen.length === 1) return delen[0].slice(0, 2).toUpperCase();
   return (delen[0][0] + delen[delen.length - 1][0]).toUpperCase();

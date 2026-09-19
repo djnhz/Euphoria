@@ -81,7 +81,12 @@ export default function DocumentLijst({ rijen }: { rijen: DocumentRij[] }) {
               key={rij.id}
               className="flex items-start gap-3 rounded-xl border border-rand bg-paneel p-3"
             >
-              <a href={rij.url} target="_blank" rel="noreferrer" className="shrink-0">
+              <a
+                href={rij.url}
+                target="_blank"
+                rel="noreferrer"
+                className="shrink-0"
+              >
                 <BestandTegel
                   naam={rij.naam}
                   mime={rij.mime}
@@ -119,7 +124,7 @@ export default function DocumentLijst({ rijen }: { rijen: DocumentRij[] }) {
               <form action={verwijderDocumentAction} className="shrink-0">
                 <input type="hidden" name="id" value={rij.id} />
                 <button className="text-sm text-gedempt underline">
-                  verwijder
+                  Verwijderen
                 </button>
               </form>
             </li>

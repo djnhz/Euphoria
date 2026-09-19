@@ -321,7 +321,7 @@ function TaakSheet({
             disabled={bezig}
             className="text-[15px] font-semibold text-inkt disabled:text-zacht"
           >
-            {bezig ? "…" : "Opslaan"}
+            {bezig ? "Bezig…" : "Taak opslaan"}
           </button>
         </div>
 

@@ -76,9 +76,7 @@ export default function DocumentUpload({ heeftBlob }: { heeftBlob: boolean }) {
           <span className="text-gedempt">Map</span>
           <select
             value={map}
-            onChange={(e) =>
-              setMap(e.target.value as DocumentMap)
-            }
+            onChange={(e) => setMap(e.target.value as DocumentMap)}
             className="rounded-xl border border-rand-sterk bg-paneel px-3.5 py-2.5 text-sm"
           >
             {MAPPEN.map((naam) => (

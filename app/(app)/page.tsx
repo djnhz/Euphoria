@@ -111,8 +111,11 @@ export default async function Overzicht() {
             <section>
               <div className="mb-2.5 flex items-baseline justify-between">
                 <div className="bovenschrift">Komende weken</div>
-                <Link href="/vaarplanning" className="text-xs text-link">
-                  kalender
+                <Link
+                  href="/vaarplanning"
+                  className="-my-2 flex min-h-11 items-center text-xs font-semibold text-link hover:text-inkt"
+                >
+                  Kalender ›
                 </Link>
               </div>
               <div className="flex flex-col gap-2">
@@ -184,9 +187,9 @@ export default async function Overzicht() {
                 </div>
                 <Link
                   href="/vaarplanning/seizoen"
-                  className="text-xs text-link"
+                  className="-my-2 flex min-h-11 items-center text-xs font-semibold text-link hover:text-inkt"
                 >
-                  hele planning
+                  Hele planning ›
                 </Link>
               </div>
               <div className="flex flex-col gap-2">

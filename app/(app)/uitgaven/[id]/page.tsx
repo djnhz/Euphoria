@@ -139,11 +139,11 @@ export default async function UitgaveDetail({
             href={`/uitgaven/${id}/bewerken`}
             className="flex-1 rounded-xl border border-rand-sterk bg-paneel px-4 py-3 text-center text-sm font-semibold transition hover:border-inkt"
           >
-            Bewerken
+            Bon bewerken
           </Link>
           <form action={verwijder} className="flex-1">
             <button className="w-full rounded-xl border border-rand px-4 py-3 text-sm text-slecht transition hover:border-slecht">
-              Verwijderen
+              Bon verwijderen
             </button>
           </form>
         </div>

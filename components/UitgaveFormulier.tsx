@@ -636,7 +636,7 @@ function DubbelWaarschuwing({
           onClick={annuleer}
           className="text-sm text-gedempt underline"
         >
-          laat maar
+          Annuleren
         </button>
       </div>
     </div>

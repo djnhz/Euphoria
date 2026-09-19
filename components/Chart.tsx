@@ -20,9 +20,13 @@ export default function Chart({
   useEffect(() => {
     if (!houder.current) return;
     const donker = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    grafiek.current = echarts.init(houder.current, donker ? "dark" : undefined, {
-      renderer: "canvas",
-    });
+    grafiek.current = echarts.init(
+      houder.current,
+      donker ? "dark" : undefined,
+      {
+        renderer: "canvas",
+      },
+    );
     const meten = new ResizeObserver(() => grafiek.current?.resize());
     meten.observe(houder.current);
     return () => {
@@ -35,7 +39,10 @@ export default function Chart({
   useEffect(() => {
     // `true` vervangt de vorige optie in plaats van hem samen te voegen, zodat
     // verdwenen series ook echt verdwijnen.
-    grafiek.current?.setOption({ backgroundColor: "transparent", ...option }, true);
+    grafiek.current?.setOption(
+      { backgroundColor: "transparent", ...option },
+      true,
+    );
   }, [option]);
 
   // w-full plus min-w-0: anders houdt het canvas zijn oude breedte vast als het

@@ -58,7 +58,10 @@ export default function Gegevenstabel<T>({
         </thead>
         <tbody>
           {rijen.map((rij) => (
-            <tr key={sleutel(rij)} className="border-b border-rand last:border-0">
+            <tr
+              key={sleutel(rij)}
+              className="border-b border-rand last:border-0"
+            >
               {kolommen.map((kolom) => (
                 <td
                   key={kolom.kop}
@@ -82,7 +85,10 @@ export default function Gegevenstabel<T>({
               <div className="font-medium">{titelKolom.cel(rij)}</div>
             )}
             {opKaart.map((kolom) => (
-              <div key={kolom.kop} className="flex items-baseline gap-3 text-sm">
+              <div
+                key={kolom.kop}
+                className="flex items-baseline gap-3 text-sm"
+              >
                 <span className="shrink-0 text-gedempt">{kolom.kop}</span>
                 <span className="ml-auto min-w-0 text-right">
                   {kolom.cel(rij)}

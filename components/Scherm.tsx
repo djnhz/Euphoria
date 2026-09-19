@@ -49,7 +49,9 @@ export function Schermbody({
   className?: string;
 }) {
   return (
-    <div className={`flex flex-col gap-4 px-[18px] py-[18px] lg:px-8 lg:py-7 ${className}`}>
+    <div
+      className={`flex flex-col gap-4 px-[18px] py-[18px] lg:px-8 lg:py-7 ${className}`}
+    >
       {children}
     </div>
   );
@@ -149,13 +151,7 @@ export function Lijst({
  * De kop van een invoerblad: links de uitweg, in het midden waar je mee bezig bent.
  * De opslaanknop staat niet hier maar in de voet, bij het totaal.
  */
-export function Bladkop({
-  terug,
-  titel,
-}: {
-  terug: string;
-  titel: string;
-}) {
+export function Bladkop({ terug, titel }: { terug: string; titel: string }) {
   return (
     <div className="flex items-center justify-between gap-3 border-b border-rand px-[18px] py-3.5 lg:px-8">
       <Link href={terug} className="text-[15px] text-gedempt">

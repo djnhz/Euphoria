@@ -44,7 +44,7 @@ export default function PinFormulier() {
         disabled={bezig}
         className="rounded-xl bg-inkt px-4 py-2.5 text-sm font-semibold text-linnen disabled:opacity-50"
       >
-        Wijzigen
+        Pincode wijzigen
       </button>
       <Melding state={state} />
     </form>

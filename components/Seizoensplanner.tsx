@@ -795,7 +795,7 @@ function VakantieFormulier({
             onClick={onAnnuleren}
             className="text-sm text-gedempt underline"
           >
-            annuleren
+            Annuleren
           </button>
         )}
       </div>
