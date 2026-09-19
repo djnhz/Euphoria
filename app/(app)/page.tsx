@@ -428,7 +428,10 @@ function Aftelling({
         </svg>
       </div>
 
-      <div className="relative flex items-end justify-between gap-4 lg:gap-10">
+      {/* Op een telefoon onder elkaar: naast de aftelling geperst brak "Jullie week
+          begint over" over vier regels en de datumregel over drie. Vanaf `sm` is er
+          breedte genoeg om de knoppen ernaast te zetten. */}
+      <div className="relative flex flex-col items-start gap-4 sm:flex-row sm:items-end sm:justify-between lg:gap-10">
         <div className="min-w-0">
           {beurt ? (
             <>
@@ -488,16 +491,23 @@ function Aftelling({
           knop bij -- dan is het geen aanbod maar een mededeling. Reserveren is nu de
           eerste knop, in messing, want dat is hier de kleur van "doe dit".
         */}
-        <div className="flex shrink-0 flex-wrap gap-2.5">
+        {/*
+          Pillen en geen blokken, zoals "Bon indienen" in de kopbalk: dat is in deze
+          app de vorm van een hoofdactie. `inline-flex` met `items-center` erbij,
+          want met alleen `min-h-11` en verticale padding hangt de tekst scheef in
+          de knop zodra hij hoger wordt dan zijn regel.
+        */}
+        <div className="flex shrink-0 flex-wrap items-center gap-2.5">
           <Link
             href="/vaarplanning"
-            className="min-h-11 shrink-0 rounded-xl bg-messing px-4 py-2.5 text-center text-[13px] font-semibold text-inkt transition hover:brightness-105 lg:px-6 lg:text-sm"
+            className="inline-flex h-11 shrink-0 items-center gap-2 rounded-full bg-messing px-5 text-[13.5px] font-semibold text-inkt shadow-[0_6px_16px_-8px_rgba(0,0,0,0.6)] transition hover:brightness-105 lg:text-sm"
           >
-            Periode reserveren
+            <KalenderPlus />
+            Reserveren
           </Link>
           <Link
             href={beurt ? "/vaarplanning" : "/vaarplanning/seizoen"}
-            className="min-h-11 shrink-0 rounded-xl border border-linnen/30 px-3.5 py-2.5 text-center text-[13px] transition hover:bg-linnen/10 lg:px-5 lg:text-sm"
+            className="inline-flex h-11 shrink-0 items-center rounded-full border border-linnen/35 px-4 text-[13.5px] text-linnen/90 transition hover:border-linnen/60 hover:bg-linnen/10 lg:px-5 lg:text-sm"
           >
             {beurt ? "Hele planning" : "Seizoen verdelen"}
           </Link>
@@ -535,4 +545,23 @@ function volledigePeriode(beurt: { van: string; tot: string }): string {
 /** Bedragen in de kopregel zonder centen; daar gaat het om de orde van grootte. */
 function rond(cent: number): string {
   return new Intl.NumberFormat("nl-NL").format(Math.round(cent / 100));
+}
+
+/** Een kalenderblad met een plus: dagen vastleggen. */
+function KalenderPlus() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden>
+      <g
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+      >
+        <path d="M4 6.5A1.5 1.5 0 0 1 5.5 5h9A1.5 1.5 0 0 1 16 6.5v6" />
+        <path d="M4 6.5v11A1.5 1.5 0 0 0 5.5 19h6" />
+        <path d="M4 9.5h12M7.5 3.5v3M12.5 3.5v3" />
+        <path d="M16.5 14v6M13.5 17h6" />
+      </g>
+    </svg>
+  );
 }
