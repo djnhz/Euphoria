@@ -12,7 +12,7 @@ import {
 import { isSortering } from "@/lib/sorteren";
 import { formatEuro } from "@/lib/geld";
 import { MAANDEN, formatDatum } from "@/lib/datum";
-import { REEKSKLEUREN } from "@/lib/kleuren";
+import { HUISHOUDKLEUREN } from "@/lib/kleuren";
 import UitgaveFilters from "@/components/UitgaveFilters";
 import Kostengrafieken from "@/components/Kostengrafieken";
 import {
@@ -95,8 +95,15 @@ export default async function UitgavenPagina({
   ]);
   const totaal = rijen.reduce((som, r) => som + r.totaalCent, 0);
   const groepen = groep === "geen" ? [] : groepeer(rijen, groep);
+  /**
+   * Marine of messing, dezelfde twee kleuren die een huishouden overal in de app
+   * heeft. Op dit scherm zit die kleur in een klein merkje achter de regel; de
+   * kleur van de regel zelf is die van de post, want daar scan je op.
+   */
   const kleurVanHuishouden = new Map(
-    huishoudens.map((h, i) => [h.naam, REEKSKLEUREN[i === 0 ? 1 : 2]] as const),
+    huishoudens.map(
+      (h, i) => [h.naam, HUISHOUDKLEUREN[i] ?? "#3F6B54"] as const,
+    ),
   );
 
   return (
@@ -110,14 +117,7 @@ export default async function UitgavenPagina({
             {jaar ? ` · ${jaar}` : ""}
           </>
         }
-        rechts={
-          <Link
-            href="/uitgaven/nieuw"
-            className="hidden rounded-xl bg-inkt px-4 py-2.5 text-sm font-semibold text-linnen transition hover:bg-inkt-hover lg:block"
-          >
-            Bon indienen
-          </Link>
-        }
+        /* Geen knop hier: "Bon indienen" staat al op elk scherm in de kopbalk. */
         tabs={<Segment items={KOSTEN_TABS} actief="/uitgaven" />}
       >
         <div className="mt-2.5">
@@ -130,37 +130,54 @@ export default async function UitgavenPagina({
         </div>
       </Schermkop>
 
-      <Schermbody className="xl:grid xl:grid-cols-2 xl:items-start xl:gap-x-6">
+      {/*
+        Op een breed scherm: de lijst links over de volle breedte, de verdeling
+        rechts in een kolom die blijft staan terwijl je scrollt. Eerder stonden hier
+        twee kolommen met maanden naast elkaar, en dan lees je augustus links,
+        juli rechts, juni weer links -- heen en weer in plaats van naar beneden.
+
+        De volgorde in de HTML zet de verdeling eerst, want op een telefoon hoort
+        die boven de lijst. `col-start` en `row-start` zetten hem op een laptop
+        alsnog rechts van de lijst.
+      */}
+      <Schermbody className="xl:grid xl:grid-cols-[minmax(0,1fr)_320px] xl:gap-6">
         {rijen.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-rand-sterk p-6 text-center text-sm text-gedempt">
-            Niets gevonden met deze filters.
+            Geen bonnen met deze filters. Kies een ander jaar of een andere
+            post.
           </p>
         ) : (
           <>
-            <div className="xl:col-span-2">
-              <PerHoofdpost rijen={rijen} totaal={totaal} />
+            <div className="min-w-0 xl:col-start-2 xl:row-start-1">
+              <div className="xl:sticky xl:top-[calc(var(--kopbalk)+20px)]">
+                <PerHoofdpost rijen={rijen} totaal={totaal} />
+              </div>
             </div>
 
-            {groep === "geen" ? (
-              <Lijst rijen={rijen} kleuren={kleurVanHuishouden} />
-            ) : (
-              groepen.map(([naam, groepsrijen]) => (
-                <section key={naam}>
-                  <Bovenschrift
-                    className="mb-2 px-0.5"
-                    rechts={formatEuro(
-                      groepsrijen.reduce((som, r) => som + r.totaalCent, 0),
-                    )}
-                  >
-                    {naam}
-                  </Bovenschrift>
-                  <Lijst rijen={groepsrijen} kleuren={kleurVanHuishouden} />
-                </section>
-              ))
-            )}
+            <div className="flex min-w-0 flex-col gap-4 xl:col-start-1 xl:row-start-1">
+              {groep === "geen" ? (
+                <Lijst rijen={rijen} kleuren={kleurVanHuishouden} />
+              ) : (
+                groepen.map(([naam, groepsrijen]) => (
+                  <section key={naam}>
+                    {/* Plakkend onder de kopbalk: bij zes maanden onder elkaar
+                        weet je anders niet meer waar je bent. */}
+                    <div className="sticky top-[var(--kopbalk)] z-10 mb-2 bg-achtergrond py-1.5">
+                      <Bovenschrift
+                        className="px-0.5"
+                        rechts={formatEuro(
+                          groepsrijen.reduce((som, r) => som + r.totaalCent, 0),
+                        )}
+                      >
+                        {naam}
+                      </Bovenschrift>
+                    </div>
+                    <Lijst rijen={groepsrijen} kleuren={kleurVanHuishouden} />
+                  </section>
+                ))
+              )}
 
-            {jaarRegels.length > 0 && (
-              <div className="xl:col-span-2">
+              {jaarRegels.length > 0 && (
                 <Kostengrafieken
                   data={{
                     betaaldPerMaand: perMaandPerBetaler(jaarRegels),
@@ -171,22 +188,11 @@ export default async function UitgavenPagina({
                     },
                   }}
                 />
-              </div>
-            )}
+              )}
+            </div>
           </>
         )}
       </Schermbody>
-
-      <div className="fixed inset-x-0 bottom-[calc(72px+env(safe-area-inset-bottom))] z-10 px-[18px] lg:hidden">
-        <div className="mx-auto w-full max-w-[1400px] lg:px-6">
-          <Link
-            href="/uitgaven/nieuw"
-            className="block rounded-2xl bg-inkt px-4 py-3.5 text-center text-[15px] font-semibold text-linnen shadow-[0_12px_24px_-10px_rgba(22,40,63,0.6)] transition hover:bg-inkt-hover"
-          >
-            Bon indienen
-          </Link>
-        </div>
-      </div>
     </>
   );
 }
@@ -197,49 +203,78 @@ export default async function UitgavenPagina({
  * kost meer ruimte en zegt minder.
  */
 function PerHoofdpost({ rijen, totaal }: { rijen: Rij[]; totaal: number }) {
-  const per = new Map<string, number>();
+  // De kleur komt van de post zelf en niet van de plek in de rangschikking. Anders
+  // is Elektronica hier donkerblauw en op de begroting groen, en betekent kleur
+  // op het ene scherm iets anders dan op het andere.
+  const per = new Map<string, { cent: number; kleur: string }>();
   for (const rij of rijen) {
-    per.set(rij.hoofdpost, (per.get(rij.hoofdpost) ?? 0) + rij.totaalCent);
+    const huidig = per.get(rij.hoofdpost);
+    per.set(rij.hoofdpost, {
+      cent: (huidig?.cent ?? 0) + rij.totaalCent,
+      kleur: rij.hoofdpostKleur,
+    });
   }
-  const gesorteerd = [...per.entries()].sort((a, b) => b[1] - a[1]);
+  const gesorteerd = [...per.entries()].sort((a, b) => b[1].cent - a[1].cent);
   if (gesorteerd.length < 2 || totaal === 0) return null;
 
-  const top = gesorteerd.slice(0, 4);
-  const restCent = gesorteerd.slice(4).reduce((som, [, c]) => som + c, 0);
-  const delen = restCent > 0 ? [...top, ["Overig", restCent] as const] : top;
+  const top = gesorteerd.slice(0, 5);
+  const restCent = gesorteerd.slice(5).reduce((som, [, v]) => som + v.cent, 0);
+  const delen =
+    restCent > 0
+      ? [
+          ...top,
+          ["Rest", { cent: restCent, kleur: "var(--neutraal)" }] as const,
+        ]
+      : top;
 
   return (
     <Paneel>
       <Bovenschrift className="mb-3" rechts={formatEuro(totaal)}>
-        Per hoofdpost
+        Waar het heen ging
       </Bovenschrift>
       <div className="mb-3 flex h-2.5 overflow-hidden rounded-full">
-        {delen.map(([naam, cent], i) => (
+        {delen.map(([naam, { cent, kleur }]) => (
           <span
             key={naam}
-            style={{
-              width: `${(cent / totaal) * 100}%`,
-              background: REEKSKLEUREN[i] ?? "var(--neutraal)",
-            }}
+            title={`${naam}: ${formatEuro(cent)}`}
+            style={{ width: `${(cent / totaal) * 100}%`, background: kleur }}
           />
         ))}
       </div>
-      <div className="grid gap-x-3.5 gap-y-2 sm:grid-cols-2">
-        {delen.map(([naam, cent], i) => (
-          <div key={naam} className="flex items-center gap-2 text-[11.5px]">
+      <div className="flex flex-col gap-2">
+        {delen.map(([naam, { cent, kleur }]) => (
+          <div key={naam} className="flex items-center gap-2 text-[12px]">
             <span
-              className="h-[7px] w-[7px] shrink-0 rounded-sm"
-              style={{ background: REEKSKLEUREN[i] ?? "var(--neutraal)" }}
+              aria-hidden
+              className="h-2 w-2 shrink-0 rounded-sm"
+              style={{ background: kleur }}
             />
             <span className="min-w-0 flex-1 truncate">{naam}</span>
             <span className="cijfers shrink-0 text-gedempt">
-              {Math.round(cent / 100)}
+              {Math.round((cent / totaal) * 100)}%
+            </span>
+            <span className="cijfers w-[68px] shrink-0 text-right">
+              {formatEuro(cent)}
             </span>
           </div>
         ))}
       </div>
     </Paneel>
   );
+}
+
+/** "Buchner Nieuwenhuizen" wordt BN. Volledig uitgeschreven staat het 24 keer onder elkaar. */
+function afkorting(naam: string): string {
+  return naam
+    .split(/\s+/)
+    .map((woord) => woord[0]?.toUpperCase() ?? "")
+    .join("")
+    .slice(0, 2);
+}
+
+/** "2026-08-11" wordt "11 aug"; de volledige datum staat op de bondetailpagina. */
+function kortDatum(datum: string): string {
+  return `${Number(datum.slice(8))} ${MAANDEN[Number(datum.slice(5, 7)) - 1].slice(0, 3)}`;
 }
 
 function Lijst({
@@ -251,35 +286,97 @@ function Lijst({
 }) {
   return (
     <ul className="divide-y divide-rand overflow-hidden rounded-2xl border border-rand bg-paneel">
-      {rijen.map((rij) => (
-        <li key={rij.id}>
-          <Link
-            href={`/uitgaven/${rij.id}`}
-            className="flex items-center gap-3 px-3.5 py-3.5 transition hover:bg-verzonken"
-          >
-            {/* De streep zegt wie betaald heeft; de post staat eronder in tekst. */}
-            <span
-              aria-hidden
-              className="h-[34px] w-[3px] shrink-0 rounded-sm"
-              style={{
-                background: kleuren.get(rij.coupleNaam) ?? rij.postKleur,
-              }}
-            />
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold">
-                {rij.leverancier || "Zonder leverancier"}
-              </p>
-              <p className="truncate text-[11.5px] text-gedempt">
-                {formatDatum(rij.datum)} · {rij.post} · {rij.coupleNaam}
-                {rij.heeftBon && " · bon"}
-              </p>
-            </div>
-            <span className="cijfers shrink-0 text-sm">
-              {formatEuro(rij.totaalCent)}
-            </span>
-          </Link>
-        </li>
-      ))}
+      {rijen.map((rij) => {
+        // Drie cijfers voor de komma valt op omdat het dat verdient: in een lijst
+        // waar 6,80 en 1.369,00 elkaar afwisselen mogen die niet even zwaar wegen.
+        const fors = rij.totaalCent >= 100_00;
+        return (
+          <li key={rij.id}>
+            {/*
+              Op een telefoon twee regels, op een laptop een. Daar is ruimte voor
+              eigen kolommen voor de datum en de post, en dan vervalt de tweede
+              regel -- er passen zo bijna twee keer zoveel bonnen in beeld.
+            */}
+            <Link
+              href={`/uitgaven/${rij.id}`}
+              className="flex items-center gap-3 px-3.5 py-3 transition hover:bg-verzonken lg:grid lg:grid-cols-[64px_minmax(0,1.3fr)_minmax(0,1fr)_auto_112px] lg:gap-3 lg:py-2.5"
+            >
+              <span className="cijfers hidden shrink-0 text-xs text-gedempt lg:block">
+                {kortDatum(rij.datum)}
+              </span>
+
+              <div className="flex min-w-0 flex-1 items-center gap-2.5 lg:flex-none">
+                <span
+                  aria-hidden
+                  title={rij.post}
+                  className="h-2.5 w-2.5 shrink-0 rounded-sm"
+                  style={{ background: rij.postKleur }}
+                />
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold">
+                    {rij.leverancier || "Geen leverancier ingevuld"}
+                  </p>
+                  <p className="truncate text-[11.5px] text-gedempt lg:hidden">
+                    {formatDatum(rij.datum)} · {rij.post}
+                  </p>
+                </div>
+              </div>
+
+              <span className="hidden min-w-0 truncate text-[13px] text-gedempt lg:block">
+                {rij.post}
+              </span>
+
+              <div className="flex shrink-0 items-center gap-1.5">
+                <Huishoudmerk
+                  naam={rij.coupleNaam}
+                  kleur={kleuren.get(rij.coupleNaam) ?? "var(--neutraal)"}
+                />
+                {rij.heeftBon && <Bonklem />}
+              </div>
+
+              <span
+                className={`cijfers shrink-0 text-right text-sm lg:w-[112px] ${
+                  fors ? "font-semibold" : ""
+                }`}
+              >
+                {formatEuro(rij.totaalCent)}
+              </span>
+            </Link>
+          </li>
+        );
+      })}
     </ul>
+  );
+}
+
+/** Wie het voorschoot, in twee letters en de kleur van dat huishouden. */
+function Huishoudmerk({ naam, kleur }: { naam: string; kleur: string }) {
+  return (
+    <span
+      title={`Voorgeschoten door ${naam}`}
+      className="cijfers flex h-[19px] min-w-[19px] items-center justify-center rounded px-1 text-[10px] font-semibold text-linnen"
+      style={{ background: kleur }}
+    >
+      {afkorting(naam)}
+      <span className="sr-only"> — voorgeschoten door {naam}</span>
+    </span>
+  );
+}
+
+/** Er hangt een bon aan deze uitgave. Een tekentje leest sneller dan het woord "bon". */
+function Bonklem() {
+  return (
+    <span title="Er zit een bon bij" className="text-zacht">
+      <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden>
+        <path
+          d="M18 8.5 10.2 16.3a3 3 0 1 1-4.3-4.2l8-8a4.5 4.5 0 1 1 6.4 6.4l-8 8"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+      </svg>
+      <span className="sr-only">Bon bijgevoegd</span>
+    </span>
   );
 }

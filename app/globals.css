@@ -55,6 +55,13 @@
   --goed: var(--salie);
   --slecht: #9b2c1f;
 
+  /**
+   * De hoogte van de vaste kopbalk: logo van 46 plus `py-3` erboven en eronder.
+   * Staat hier omdat een plakkende maandkop eronder moet blijven hangen en niet
+   * erachter mag verdwijnen; op twee plekken hetzelfde getal typen gaat een keer mis.
+   */
+  --kopbalk: 70px;
+
   /* Vakantieweken in de seizoensplanning; bouwvak krijgt de sterkere tint. */
   --vakantie-zacht: var(--messing-tint);
   --vakantie-sterk: #ead6ab;

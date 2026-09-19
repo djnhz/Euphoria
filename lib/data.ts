@@ -294,7 +294,12 @@ export async function uitgavenLijst(filter: UitgaveFilter = {}) {
 async function metHoofdpost<T extends { id: number }>(rijen: T[]) {
   const ids = rijen.map((r) => r.id);
   if (ids.length === 0) {
-    return [] as (T & { post: string; postKleur: string; hoofdpost: string })[];
+    return [] as (T & {
+      post: string;
+      postKleur: string;
+      hoofdpost: string;
+      hoofdpostKleur: string;
+    })[];
   }
 
   const ouder = alias(posten, "ouder");
@@ -304,17 +309,24 @@ async function metHoofdpost<T extends { id: number }>(rijen: T[]) {
       naam: posten.naam,
       kleur: posten.kleur,
       hoofdpost: sql<string>`coalesce(${ouder.naam}, ${posten.naam})`,
+      hoofdpostKleur: sql<string>`coalesce(${ouder.kleur}, ${posten.kleur})`,
       cent: sql<number>`sum(${expenseLines.bedragCent})::int`,
     })
     .from(expenseLines)
     .innerJoin(posten, eq(expenseLines.postId, posten.id))
     .leftJoin(ouder, eq(posten.ouderId, ouder.id))
     .where(inArray(expenseLines.expenseId, ids))
-    .groupBy(expenseLines.expenseId, posten.id, ouder.naam);
+    .groupBy(expenseLines.expenseId, posten.id, ouder.naam, ouder.kleur);
 
   const grootste = new Map<
     number,
-    { naam: string; kleur: string; hoofdpost: string; cent: number }
+    {
+      naam: string;
+      kleur: string;
+      hoofdpost: string;
+      hoofdpostKleur: string;
+      cent: number;
+    }
   >();
   for (const rij of perPost) {
     const huidig = grootste.get(rij.expenseId);
@@ -326,6 +338,7 @@ async function metHoofdpost<T extends { id: number }>(rijen: T[]) {
     post: grootste.get(rij.id)?.naam ?? "Zonder post",
     postKleur: grootste.get(rij.id)?.kleur ?? "#64748b",
     hoofdpost: grootste.get(rij.id)?.hoofdpost ?? "Zonder post",
+    hoofdpostKleur: grootste.get(rij.id)?.hoofdpostKleur ?? "#64748b",
   }));
 }
 
