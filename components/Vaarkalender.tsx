@@ -56,8 +56,27 @@ export default function Vaarkalender({
     null,
   );
   const [titel, setTitel] = useState(eigenNaam);
-  const [van, setVan] = useState(vandaag);
-  const [totEnMet, setTotEnMet] = useState(vandaag);
+  /**
+   * De keuze zit in de kalender zelf: tik een dag voor het begin, tik een tweede
+   * voor het eind. Twee losse datumvelden naast een kalender die je niet kunt
+   * aanklikken is dubbel werk -- je kijkt in het raster en typt het daarnaast over.
+   *
+   * `eind` is null zolang je nog aan het kiezen bent; dan is het een dag van één.
+   */
+  const [begin, setBegin] = useState(vandaag);
+  const [eind, setEind] = useState<string | null>(vandaag);
+
+  const van = eind && eind < begin ? eind : begin;
+  const totEnMet = eind && eind < begin ? begin : (eind ?? begin);
+
+  /** Eerste tik zet het begin, tweede het eind, derde begint opnieuw. */
+  function kiesDag(datum: string) {
+    if (eind === null) setEind(datum);
+    else {
+      setBegin(datum);
+      setEind(null);
+    }
+  }
 
   const kleurVan = useMemo(() => {
     const perId = new Map<number, string>();
@@ -117,20 +136,36 @@ export default function Vaarkalender({
         <div className="grid grid-cols-7 gap-1">
           {dagen.map((dag) => {
             const geboekt = dag.datum ? (perDag.get(dag.datum) ?? []) : [];
+            const gekozen =
+              dag.datum !== null && dag.datum >= van && dag.datum <= totEnMet;
+            const rand = !dag.datum
+              ? "border-transparent"
+              : gekozen
+                ? "border-inkt bg-marine-tint"
+                : dag.datum === vandaag
+                  ? "border-accent"
+                  : "border-rand";
             return (
-              <div
+              <button
                 key={dag.sleutel}
-                className={`min-h-14 rounded-lg border p-1 text-xs ${
+                type="button"
+                disabled={!dag.datum}
+                onClick={() => dag.datum && kiesDag(dag.datum)}
+                aria-pressed={gekozen}
+                aria-label={
                   dag.datum
-                    ? dag.datum === vandaag
-                      ? "border-accent"
-                      : "border-rand"
-                    : "border-transparent"
+                    ? `${formatDatum(dag.datum)}${geboekt.length ? `, ${geboekt.length} reservering${geboekt.length === 1 ? "" : "en"}` : ", vrij"}`
+                    : undefined
+                }
+                className={`min-h-14 rounded-lg border p-1 text-left text-xs transition ${rand} ${
+                  dag.datum ? "hover:border-inkt" : ""
                 }`}
               >
                 {dag.datum && (
                   <>
-                    <span className="cijfers text-gedempt">
+                    <span
+                      className={`cijfers ${gekozen ? "font-semibold text-inkt" : "text-gedempt"}`}
+                    >
                       {Number(dag.datum.slice(8))}
                     </span>
                     {/* Op een telefoon is een cel te smal voor een naam: "R&I Zeilen"
@@ -156,7 +191,7 @@ export default function Vaarkalender({
                     </div>
                   </>
                 )}
-              </div>
+              </button>
             );
           })}
         </div>
@@ -176,7 +211,7 @@ export default function Vaarkalender({
 
       <form
         action={reserveer}
-        className="grid gap-3 rounded-xl border border-rand bg-paneel p-4 sm:grid-cols-[1.2fr_1fr_1fr_1.5fr_auto]"
+        className="grid gap-3 rounded-xl border border-rand bg-paneel p-4 sm:grid-cols-[1.2fr_1.3fr_1.5fr_auto]"
       >
         <input type="hidden" name="tochDoorgaan" value={tochDoorgaan} />
         <Veld label="Titel in de agenda">
@@ -189,26 +224,24 @@ export default function Vaarkalender({
             className={invoer}
           />
         </Veld>
-        <Veld label="Van">
-          <input
-            type="date"
-            name="van"
-            value={van}
-            onChange={(e) => setVan(e.target.value)}
-            required
-            className={invoer}
-          />
-        </Veld>
-        <Veld label="Tot en met">
-          <input
-            type="date"
-            name="totEnMet"
-            value={totEnMet}
-            min={van}
-            onChange={(e) => setTotEnMet(e.target.value)}
-            required
-            className={invoer}
-          />
+        {/* De datums komen uit de kalender hierboven en gaan verborgen mee. */}
+        <input type="hidden" name="van" value={van} />
+        <input type="hidden" name="totEnMet" value={totEnMet} />
+        <Veld label={eind === null ? "Kies de laatste dag" : "Wanneer"}>
+          <p
+            aria-live="polite"
+            className={`flex min-h-11 items-center rounded-xl border px-3.5 text-sm ${
+              eind === null
+                ? "border-dashed border-messing-inkt text-link"
+                : "border-rand-sterk bg-verzonken"
+            }`}
+          >
+            {eind === null
+              ? `Vanaf ${formatDatum(begin)} — tik de laatste dag aan`
+              : van === totEnMet
+                ? formatDatum(van)
+                : `${formatDatum(van)} t/m ${formatDatum(totEnMet)}`}
+          </p>
         </Veld>
         <Veld label="Opmerking">
           <input
@@ -232,7 +265,7 @@ export default function Vaarkalender({
 
         {state && (
           <p
-            className={`text-sm sm:col-span-5 ${
+            className={`text-sm sm:col-span-4 ${
               state.soort === "fout"
                 ? "text-slecht"
                 : state.soort === "overlap"

@@ -480,15 +480,25 @@ function Aftelling({
           )}
         </div>
 
-        {/* Eén knop, en alleen waar hij iets toevoegt. Naast de aftelling in plaats
-            van eronder: over de volle breedte vroeg hij meer aandacht dan hij waard
-            is, en het scheelt weer een regel. */}
-        <Link
-          href={beurt ? "/vaarplanning" : "/vaarplanning/seizoen"}
-          className="shrink-0 rounded-xl border border-linnen/30 px-3.5 py-2.5 text-center text-[13px] transition hover:bg-linnen/10 lg:px-7 lg:text-sm"
-        >
-          {beurt ? "Hele planning" : "Seizoen verdelen"}
-        </Link>
+        {/*
+          De tekst hiernaast noemt "reserveer een losse periode" en daar hoorde geen
+          knop bij -- dan is het geen aanbod maar een mededeling. Reserveren is nu de
+          eerste knop, in messing, want dat is hier de kleur van "doe dit".
+        */}
+        <div className="flex shrink-0 flex-wrap gap-2.5">
+          <Link
+            href="/vaarplanning"
+            className="min-h-11 shrink-0 rounded-xl bg-messing px-4 py-2.5 text-center text-[13px] font-semibold text-inkt transition hover:brightness-105 lg:px-6 lg:text-sm"
+          >
+            Periode reserveren
+          </Link>
+          <Link
+            href={beurt ? "/vaarplanning" : "/vaarplanning/seizoen"}
+            className="min-h-11 shrink-0 rounded-xl border border-linnen/30 px-3.5 py-2.5 text-center text-[13px] transition hover:bg-linnen/10 lg:px-5 lg:text-sm"
+          >
+            {beurt ? "Hele planning" : "Seizoen verdelen"}
+          </Link>
+        </div>
       </div>
     </section>
   );
