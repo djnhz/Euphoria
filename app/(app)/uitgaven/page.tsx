@@ -236,13 +236,17 @@ function PerHoofdpost({ rijen, totaal }: { rijen: Rij[]; totaal: number }) {
   if (gesorteerd.length < 2 || totaal === 0) return null;
 
   const top = gesorteerd.slice(0, 5);
-  const restCent = gesorteerd.slice(5).reduce((som, [, v]) => som + v.cent, 0);
-  const delen =
+  const overig = gesorteerd.slice(5);
+  const restCent = overig.reduce((som, [, v]) => som + v.cent, 0);
+  // "Rest" bundelt posten die hier te klein zijn voor een eigen rij, maar links
+  // staan ze gewoon elk onder hun eigen naam. Zonder uitleg welke dat zijn, moet je
+  // ze daar zelf gaan zoeken -- dus de namen staan in de tooltip.
+  const restUitleg = overig
+    .map(([naam, { cent }]) => `${naam} ${formatEuro(cent)}`)
+    .join(", ");
+  const delen: [string, { cent: number; kleur: string; titel?: string }][] =
     restCent > 0
-      ? [
-          ...top,
-          ["Rest", { cent: restCent, kleur: "var(--neutraal)" }] as const,
-        ]
+      ? [...top, ["Rest", { cent: restCent, kleur: "var(--neutraal)", titel: restUitleg }]]
       : top;
 
   return (
@@ -251,17 +255,21 @@ function PerHoofdpost({ rijen, totaal }: { rijen: Rij[]; totaal: number }) {
         Waar het heen ging
       </Bovenschrift>
       <div className="mb-3 flex h-2.5 overflow-hidden rounded-full">
-        {delen.map(([naam, { cent, kleur }]) => (
+        {delen.map(([naam, { cent, kleur, titel }]) => (
           <span
             key={naam}
-            title={`${naam}: ${formatEuro(cent)}`}
+            title={titel ? `${naam}: ${titel}` : `${naam}: ${formatEuro(cent)}`}
             style={{ width: `${(cent / totaal) * 100}%`, background: kleur }}
           />
         ))}
       </div>
       <div className="flex flex-col gap-2">
-        {delen.map(([naam, { cent, kleur }]) => (
-          <div key={naam} className="flex items-center gap-2 text-[12px]">
+        {delen.map(([naam, { cent, kleur, titel }]) => (
+          <div
+            key={naam}
+            title={titel}
+            className="flex items-center gap-2 text-[12px]"
+          >
             <span
               aria-hidden
               className="h-2 w-2 shrink-0 rounded-sm"
