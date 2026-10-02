@@ -17,7 +17,6 @@ import {
   Lijst,
 } from "@/components/Scherm";
 import {
-  SamenKaart,
   TaakRij,
   TaakToevoegen,
 } from "@/components/TaakOnderdelen";
@@ -59,10 +58,7 @@ export default async function TakenPagina({
 
   const open = gewoon.filter((t) => !t.klaar);
   const week = dezeWeek(gewoon);
-  const samen = open.filter((t) => t.samen);
-  const later = open.filter(
-    (t) => !t.samen && !week.some((w) => w.id === t.id),
-  );
+  const later = open.filter((t) => !week.some((w) => w.id === t.id));
   const stand = voortgang(gewoon);
   const winterStand = voortgang(winter);
   const winterOpen = winter.filter((t) => !t.klaar).length;
@@ -123,16 +119,6 @@ export default async function TakenPagina({
                     <TaakRij key={taak.id} taak={taak} {...gedeeld} />
                   ))}
                 </Lijst>
-              </Blok>
-            )}
-
-            {samen.length > 0 && (
-              <Blok titel="Samen oppakken">
-                <div className="flex flex-col gap-2.5">
-                  {samen.map((taak) => (
-                    <SamenKaart key={taak.id} taak={taak} {...gedeeld} />
-                  ))}
-                </div>
               </Blok>
             )}
 

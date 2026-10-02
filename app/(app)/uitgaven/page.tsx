@@ -315,7 +315,7 @@ function Lijst({
             */}
             <Link
               href={`/uitgaven/${rij.id}`}
-              className="flex items-center gap-3 px-3.5 py-3 transition hover:bg-verzonken lg:grid lg:grid-cols-[64px_minmax(0,1.3fr)_minmax(0,1fr)_auto_112px] lg:gap-3 lg:py-2.5"
+              className="flex items-center gap-3 px-3.5 py-3 transition hover:bg-verzonken lg:grid lg:grid-cols-[64px_minmax(0,1.3fr)_minmax(0,1fr)_52px_112px] lg:gap-3 lg:py-2.5"
             >
               <span className="cijfers hidden shrink-0 text-xs text-gedempt lg:block">
                 {kortDatum(rij.datum)}
@@ -342,16 +342,20 @@ function Lijst({
                 {rij.post}
               </span>
 
-              <div className="flex shrink-0 items-center gap-1.5">
+              {/* Vaste kolom: het huishouden links, de paperclip in een eigen vak
+                  rechts. Zonder bon blijft dat vak leeg, zodat het merk niet opschuift. */}
+              <div className="flex shrink-0 items-center justify-between gap-1 lg:w-[52px]">
                 <Huishoudmerk
                   naam={rij.coupleNaam}
                   kleur={kleuren.get(rij.coupleNaam) ?? "var(--neutraal)"}
                 />
-                {rij.heeftBon && <Bonklem />}
+                <span className="flex w-[13px] justify-center">
+                  {rij.heeftBon && <Bonklem />}
+                </span>
               </div>
 
               <span
-                className={`cijfers shrink-0 text-right text-sm lg:w-[112px] ${
+                className={`cijfers w-[88px] shrink-0 text-right text-sm lg:w-[112px] ${
                   fors ? "font-semibold" : ""
                 }`}
               >

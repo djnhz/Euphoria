@@ -38,7 +38,7 @@ export const MELDING_LABELS: Record<
   },
   taak: {
     titel: "Taken",
-    uitleg: "Een nieuwe klus, of iemand meldt zich aan om samen op te pakken.",
+    uitleg: "Een nieuwe klus, of een klus die aan jou is toegekend.",
   },
   vrijgave: {
     titel: "Vrijgegeven dagen",

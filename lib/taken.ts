@@ -136,7 +136,7 @@ export function voortgang(lijst: readonly Taak[]) {
 export function dezeWeek(lijst: readonly Taak[]) {
   const grens = plusDagen(vandaag(), 7);
   return lijst.filter(
-    (t) => !t.klaar && !t.samen && t.deadline !== null && t.deadline <= grens,
+    (t) => !t.klaar && t.deadline !== null && t.deadline <= grens,
   );
 }
 

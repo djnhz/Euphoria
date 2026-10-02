@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, eq, inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { db, taken, taakHelpers, users } from "@/db";
 import { vereisGebruiker } from "@/lib/auth";
 import { anderen, stuurMelding } from "@/lib/melding";
@@ -168,40 +168,6 @@ export async function zetKlaarAction(id: number, klaar: boolean) {
       klaarDoor: klaar ? gebruiker.id : null,
     })
     .where(eq(taken.id, id));
-
-  revalidatePath("/taken");
-  revalidatePath("/");
-}
-
-/** Aanmelden voor een klus die je samen doet, of je afmelding weer intrekken. */
-export async function helpMeeAction(id: number, meedoen: boolean) {
-  const gebruiker = await vereisGebruiker();
-  if (!Number.isInteger(id) || id <= 0) return;
-
-  if (meedoen) {
-    await db
-      .insert(taakHelpers)
-      .values({ taakId: id, userId: gebruiker.id })
-      .onConflictDoNothing();
-
-    const [taak] = await db
-      .select({ titel: taken.titel })
-      .from(taken)
-      .where(eq(taken.id, id));
-    if (taak) {
-      await stuurMelding(await anderen(gebruiker.id), "taak", {
-        titel: "Iemand helpt mee",
-        tekst: `${gebruiker.naam} pakt "${taak.titel}" mee op.`,
-        url: "/taken",
-      });
-    }
-  } else {
-    await db
-      .delete(taakHelpers)
-      .where(
-        and(eq(taakHelpers.taakId, id), eq(taakHelpers.userId, gebruiker.id)),
-      );
-  }
 
   revalidatePath("/taken");
   revalidatePath("/");

@@ -2,7 +2,6 @@
 
 import { useActionState, useEffect, useState, useTransition } from "react";
 import {
-  helpMeeAction,
   nieuweTaakAction,
   verwijderTaakAction,
   wijzigTaakAction,
@@ -69,6 +68,7 @@ export function TaakRij({
 }) {
   const [open, setOpen] = useState(false);
   const [bezig, start] = useTransition();
+  const wie = wieLijst(taak, mensen);
 
   return (
     <li className="flex items-center gap-3 px-3.5 py-3">
@@ -105,39 +105,37 @@ export function TaakRij({
         </span>
       </button>
 
-      {!taak.klaar && taak.deadline && (
-        <span className="cijfers shrink-0 rounded-md bg-messing-tint px-2 py-1 text-[10.5px] font-semibold text-messing-inkt">
-          {kort(taak.deadline)}
-        </span>
-      )}
-      {!taak.klaar &&
-        !taak.deadline &&
-        taak.helpers.length === 0 &&
-        taak.userNaam && (
-          <Bolletje naam={taak.userNaam} kleur="var(--marine)" />
-        )}
-      {/* Wie eraan hangt: een rijtje bolletjes, elk in de kleur van het huishouden.
-          Ook als de taak klaar is: dan staat er wie er aan hebben gewerkt. */}
-      {taak.helpers.length > 0 && (
-        <span className="flex shrink-0" aria-hidden>
-          {taak.helpers.map((h, i) => (
-            <span
-              key={h.userId}
-              style={{ marginLeft: i === 0 ? 0 : -7 }}
-              title={h.naam}
-            >
-              <Bolletje
-                naam={h.naam}
-                kleur={huishoudKleur(
-                  Math.max(
-                    0,
-                    huishoudens.findIndex((hh) => hh.id === h.coupleId),
-                  ),
-                )}
-                rand
-              />
+      {/* Rechts: eerst wie eraan hangt, dan de datum. Zo staan de datums van alle
+          rijen onder elkaar op dezelfde plek, ook als het aantal bolletjes wisselt. */}
+      {(wie.length > 0 || (!taak.klaar && taak.deadline)) && (
+        <span className="flex shrink-0 items-center gap-2.5">
+          {wie.length > 0 && (
+            <span className="flex" aria-hidden>
+              {wie.map((m, i) => (
+                <span
+                  key={m.id}
+                  style={{ marginLeft: i === 0 ? 0 : -7 }}
+                  title={m.naam}
+                >
+                  <Bolletje
+                    naam={m.naam}
+                    kleur={huishoudKleur(
+                      Math.max(
+                        0,
+                        huishoudens.findIndex((hh) => hh.id === m.coupleId),
+                      ),
+                    )}
+                    rand
+                  />
+                </span>
+              ))}
             </span>
-          ))}
+          )}
+          {!taak.klaar && taak.deadline && (
+            <span className="cijfers w-[52px] rounded-md bg-messing-tint py-1 text-center text-[10.5px] font-semibold whitespace-nowrap text-messing-inkt">
+              {kort(taak.deadline)}
+            </span>
+          )}
         </span>
       )}
 
@@ -151,91 +149,6 @@ export function TaakRij({
         />
       )}
     </li>
-  );
-}
-
-/** De kaart voor een klus die je samen doet, met wie zich al heeft aangemeld. */
-export function SamenKaart({
-  taak,
-  huishoudens,
-  mensen = [],
-  jij,
-}: {
-  taak: TaakInvoer;
-  huishoudens: Keuze[];
-  mensen?: Mens[];
-  jij: number;
-}) {
-  const [open, setOpen] = useState(false);
-  const [bezig, start] = useTransition();
-  const doeMee = taak.helpers.some((h) => h.userId === jij);
-
-  return (
-    <div className="rounded-2xl border border-rand bg-paneel p-4">
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="flex w-full items-baseline justify-between gap-3 text-left"
-      >
-        <span className="min-w-0 truncate text-sm font-semibold text-inkt">
-          {taak.titel}
-        </span>
-        {taak.deadline && (
-          <span className="cijfers shrink-0 text-[11px] text-gedempt">
-            {kort(taak.deadline)}
-          </span>
-        )}
-      </button>
-      {taak.toelichting && (
-        <p className="mt-1.5 text-[12.5px] leading-relaxed text-gedempt text-pretty">
-          {taak.toelichting}
-        </p>
-      )}
-      <div className="mt-3 flex items-center gap-2">
-        <div className="flex">
-          {taak.helpers.map((h, i) => (
-            <span
-              key={h.userId}
-              style={{ marginLeft: i === 0 ? 0 : -7 }}
-              title={h.naam}
-            >
-              <Bolletje
-                naam={h.naam}
-                kleur={i % 2 === 0 ? "var(--marine)" : "var(--messing)"}
-                rand
-              />
-            </span>
-          ))}
-        </div>
-        <span className="flex-1 text-xs text-gedempt">
-          {taak.helpers.length === 0
-            ? "nog niemand aangemeld"
-            : `${taak.helpers.length} aangemeld`}
-        </span>
-        <button
-          type="button"
-          disabled={bezig}
-          onClick={() => start(() => helpMeeAction(taak.id, !doeMee))}
-          className={`rounded-lg border px-3 py-2 text-[12.5px] font-semibold transition ${
-            doeMee
-              ? "border-transparent bg-marine-tint text-inkt"
-              : "border-rand-sterk bg-paneel text-inkt hover:border-inkt"
-          } ${bezig ? "opacity-50" : ""}`}
-        >
-          {doeMee ? "Ik doe mee" : "Ik help"}
-        </button>
-      </div>
-
-      {open && (
-        <TaakSheet
-          taak={taak}
-          huishoudens={huishoudens}
-          mensen={mensen}
-          jij={jij}
-          sluit={() => setOpen(false)}
-        />
-      )}
-    </div>
   );
 }
 
@@ -580,6 +493,10 @@ export function Bolletje({
   );
 }
 
+/**
+ * De regel onder de titel. Wie de taak oppakt staat als bolletjes rechts, dus hier
+ * alleen waar hij bij hoort -- anders staat dezelfde naam er twee keer.
+ */
 function onderregel(taak: TaakInvoer): string {
   if (taak.klaar) {
     const wie = taak.klaarDoorNaam
@@ -590,12 +507,25 @@ function onderregel(taak: TaakInvoer): string {
       : "";
     return wie + wanneer;
   }
-  const wie =
-    taak.helpers.length > 0
-      ? taak.helpers.map((h) => h.naam).join(", ")
-      : (taak.userNaam ?? taak.coupleNaam);
-  const delen = [taak.postNaam, wie].filter(Boolean);
-  return delen.join(" · ");
+  return taak.postNaam ?? taak.toelichting;
+}
+
+/**
+ * Wie er aan een taak hangt, voor de bolletjes. Aanmelders gaan voor, daarna een
+ * oude eigenaar, en pas als er niemand is staan de leden van het huishouden.
+ */
+function wieLijst(
+  taak: TaakInvoer,
+  mensen: readonly Mens[],
+): { id: number; naam: string; coupleId: number }[] {
+  return toegekenden(taak, mensen).flatMap((id) => {
+    const mens = mensen.find((m) => m.id === id);
+    if (mens) return [{ id, naam: mens.naam, coupleId: mens.coupleId }];
+    const helper = taak.helpers.find((h) => h.userId === id);
+    return helper
+      ? [{ id, naam: helper.naam, coupleId: helper.coupleId }]
+      : [];
+  });
 }
 
 /** "12 sep" -- de datum zoals hij op een label past. */
