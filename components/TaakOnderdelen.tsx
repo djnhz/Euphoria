@@ -260,6 +260,8 @@ function TaakSheet({
     null,
   );
   const [wissen, startWissen] = useTransition();
+  // Pas "Annuleren" als er iets is aangepast; anders is er niets om weg te gooien.
+  const [vuil, zetVuil] = useState(false);
 
   // Sluiten zodra het is opgeslagen; de lijst eronder is dan al bijgewerkt.
   useEffect(() => {
@@ -283,6 +285,7 @@ function TaakSheet({
     >
       <form
         action={actie}
+        onChange={() => zetVuil(true)}
         className="max-h-[88vh] w-full max-w-md overflow-auto rounded-t-3xl bg-linnen p-[18px] pb-8 sm:rounded-3xl"
       >
         {taak && <input type="hidden" name="id" value={taak.id} />}
@@ -293,7 +296,7 @@ function TaakSheet({
             onClick={sluit}
             className="shrink-0 text-[15px] whitespace-nowrap text-gedempt"
           >
-            Annuleren
+            {vuil ? "Annuleren" : "Sluiten"}
           </button>
           {/* Kort houden: op een telefoon moet dit tussen twee knoppen passen. */}
           <span className="titel min-w-0 truncate px-2 text-lg">

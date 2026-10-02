@@ -160,7 +160,7 @@ export default function ReserveringBewerken({
             }}
             className="text-sm text-gedempt underline"
           >
-            Annuleren
+            {gekozen.length > 0 ? "Annuleren" : "Sluiten"}
           </button>
         </div>
       </div>

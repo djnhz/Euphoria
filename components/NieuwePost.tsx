@@ -40,6 +40,11 @@ export default function NieuwePost({
   const [ouderId, zetOuderId] = useState<number | null>(beginOuderId);
   const [bedrag, zetBedrag] = useState("");
   const [bezig, zetBezig] = useState(false);
+  const vuil =
+    naam !== "" ||
+    bedrag !== "" ||
+    kleur !== POSTKLEUREN[1] ||
+    ouderId !== beginOuderId;
 
   async function opslaan() {
     if (naam.trim() === "" || bezig) return;
@@ -152,7 +157,7 @@ export default function NieuwePost({
             onClick={annuleer}
             className="min-h-11 rounded-xl border border-rand-sterk bg-paneel px-4 text-sm"
           >
-            Annuleren
+            {vuil ? "Annuleren" : "Sluiten"}
           </button>
         </div>
       </div>

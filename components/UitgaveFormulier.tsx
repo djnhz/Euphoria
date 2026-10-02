@@ -5,6 +5,7 @@ import { upload } from "@vercel/blob/client";
 import BestandTegel from "./BestandTegel";
 import { formatEuro, parseEuro } from "@/lib/geld";
 import { formatDatum, vandaag } from "@/lib/datum";
+import { useMeldWijzigingen } from "./Wijzigingen";
 import { bestandHash } from "@/lib/bestandhash";
 import { huishoudKleur } from "@/lib/kleuren";
 import {
@@ -285,6 +286,19 @@ export default function UitgaveFormulier({
       setBezigMetAnalyse(null);
     }
   }
+
+  // Wat er nu staat, naast wat er bij het openen stond: alleen een verschil telt als
+  // wijziging, zodat het scherm "Annuleren" pas toont als er iets weg te gooien valt.
+  const stand = JSON.stringify([
+    datum,
+    leverancier,
+    opmerking,
+    coupleId,
+    bonnen.map((b) => b.documentId),
+    regels.map((r) => [r.omschrijving, r.aantal, r.bedrag, r.postId]),
+  ]);
+  const [beginStand] = useState(stand);
+  useMeldWijzigingen(stand !== beginStand);
 
   const payload = JSON.stringify({
     datum,

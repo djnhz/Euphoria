@@ -5,7 +5,9 @@ import UitgaveFormulier from "@/components/UitgaveFormulier";
 import { bewaarUitgaveAction } from "../actions";
 import { heeftBlob } from "@/lib/opslag";
 import { sleutelStatus } from "@/lib/instellingen";
-import { Bladkop, Schermbody } from "@/components/Scherm";
+import { Schermbody } from "@/components/Scherm";
+import { Bladkop } from "@/components/Bladkop";
+import { WijzigingenProvider } from "@/components/Wijzigingen";
 
 export default async function NieuweUitgave() {
   const gebruiker = await vereisGebruiker();
@@ -25,7 +27,7 @@ export default async function NieuweUitgave() {
   ]);
 
   return (
-    <>
+    <WijzigingenProvider>
       <Bladkop terug="/uitgaven" titel="Nieuwe uitgave" />
       {/* Ruimte voor de vaste voet met het totaal en de opslaanknop. */}
       <Schermbody className="pb-[160px]">
@@ -40,6 +42,6 @@ export default async function NieuweUitgave() {
           heeftSleutel={sleutel.ingesteld}
         />
       </Schermbody>
-    </>
+    </WijzigingenProvider>
   );
 }

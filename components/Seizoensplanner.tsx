@@ -693,6 +693,12 @@ function VakantieFormulier({
     bewerkt?.coupleId ?? huishoudens[0]?.id ?? 0,
   );
   const [naam, setNaam] = useState(bewerkt?.naam ?? "");
+  const vuil =
+    bewerkt !== null &&
+    (vanMaandag !== bewerkt.vanMaandag ||
+      totMaandag !== bewerkt.totMaandag ||
+      coupleId !== bewerkt.coupleId ||
+      naam !== (bewerkt.naam ?? ""));
 
   function label(week: Week): string {
     const raakt = vakantiesRakend(vakanties, week.maandag, week.zondag).filter(
@@ -775,7 +781,7 @@ function VakantieFormulier({
             onClick={onAnnuleren}
             className="text-sm text-gedempt underline"
           >
-            Annuleren
+            {vuil ? "Annuleren" : "Sluiten"}
           </button>
         )}
       </div>

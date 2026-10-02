@@ -7,7 +7,9 @@ import UitgaveFormulier from "@/components/UitgaveFormulier";
 import { wijzigUitgaveAction } from "../../actions";
 import { heeftBlob } from "@/lib/opslag";
 import { sleutelStatus } from "@/lib/instellingen";
-import { Bladkop, Schermbody } from "@/components/Scherm";
+import { Schermbody } from "@/components/Scherm";
+import { Bladkop } from "@/components/Bladkop";
+import { WijzigingenProvider } from "@/components/Wijzigingen";
 
 export default async function UitgaveBewerken({
   params,
@@ -35,7 +37,7 @@ export default async function UitgaveBewerken({
   ]);
 
   return (
-    <>
+    <WijzigingenProvider>
       <Bladkop terug={`/uitgaven/${id}`} titel="Uitgave bewerken" />
       {/* Ruimte voor de vaste voet met het totaal en de opslaanknop. */}
       <Schermbody className="pb-[160px]">
@@ -73,6 +75,6 @@ export default async function UitgaveBewerken({
           heeftSleutel={sleutel.ingesteld}
         />
       </Schermbody>
-    </>
+    </WijzigingenProvider>
   );
 }

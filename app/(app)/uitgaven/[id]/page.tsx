@@ -9,7 +9,8 @@ import { formatEuro } from "@/lib/geld";
 import { formatDatum } from "@/lib/datum";
 import { verwijderUitgaveAction } from "../actions";
 import Gegevenstabel from "@/components/Gegevenstabel";
-import { Bladkop, Bovenschrift, Paneel, Schermbody } from "@/components/Scherm";
+import { Bovenschrift, Paneel, Schermbody } from "@/components/Scherm";
+import { Bladkop } from "@/components/Bladkop";
 
 export default async function UitgaveDetail({
   params,
@@ -39,7 +40,7 @@ export default async function UitgaveDetail({
 
   return (
     <>
-      <Bladkop terug="/uitgaven" titel="Uitgave" invullen={false} />
+      <Bladkop terug="/uitgaven" titel="Uitgave" />
 
       <Schermbody>
         <section className="rounded-2xl bg-inkt p-[18px] text-linnen">

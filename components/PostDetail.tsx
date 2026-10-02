@@ -611,7 +611,7 @@ function Subposten({
                 onClick={() => zetOpen(false)}
                 className="min-h-11 shrink-0 px-1 text-sm text-gedempt sm:min-h-0 sm:text-[13px]"
               >
-                Annuleren
+                {naam !== "" || bedrag !== "" ? "Annuleren" : "Sluiten"}
               </button>
             </div>
           </div>
