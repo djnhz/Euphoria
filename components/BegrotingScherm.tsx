@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import PostLijst, { type LijstRij } from "./PostLijst";
 import PostDetail, { type DetailHaken } from "./PostDetail";
 import NieuwePost from "./NieuwePost";
+import Schakelaar from "./Schakelaar";
 import { formatEuro, parseEuro } from "@/lib/geld";
 import {
   begrootVanOntwerp,
@@ -433,15 +434,9 @@ export default function BegrotingScherm({
 
           <div className="flex flex-wrap items-center justify-between gap-2 px-1">
             {heeftGebruikte ? (
-              <label className="flex min-h-11 items-center gap-2 text-xs text-gedempt lg:min-h-0">
-                <input
-                  type="checkbox"
-                  checked={toonAlles}
-                  onChange={(e) => zetToonAlles(e.target.checked)}
-                  className="h-[18px] w-[18px] accent-[var(--inkt)] lg:h-4 lg:w-4"
-                />
+              <Schakelaar checked={toonAlles} onChange={zetToonAlles}>
                 Alle posten tonen
-              </label>
+              </Schakelaar>
             ) : (
               <span />
             )}

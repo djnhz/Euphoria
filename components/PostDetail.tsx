@@ -12,6 +12,7 @@ import {
 import { POSTKLEUREN } from "@/lib/kleuren";
 import { standVan } from "./PostLijst";
 import Keuzelijst from "./Keuzelijst";
+import Schakelaar from "./Schakelaar";
 
 /** Wat het scherm van een post weet en kan; één set voor de post en zijn subposten. */
 export type DetailHaken = {
@@ -96,12 +97,14 @@ export default function PostDetail({
           gewoon naast de lijst en is er niets om uit te stappen. */}
       {terug && (
         <div className="flex items-center justify-between gap-3 border-b border-rand pr-2 pl-1 lg:hidden">
+          {/* Een subpost staat een niveau dieper: terug brengt je dan eerst naar de
+              hoofdpost, en pas daar naar de lijst. */}
           <button
             type="button"
-            onClick={terug}
-            className="min-h-11 px-3 text-[15px] text-link"
+            onClick={hoofdpost ? () => haken.kies(hoofdpost.id) : terug}
+            className="min-h-11 min-w-0 truncate px-3 text-left text-[15px] text-link"
           >
-            ‹ Begroting
+            ‹ {hoofdpost ? hoofdpost.naam : "Begroting"}
           </button>
           <Actief post={post} ontwerp={ontwerp} zet={wijzigEnBewaar} />
         </div>
@@ -139,9 +142,9 @@ export default function PostDetail({
                 <button
                   type="button"
                   onClick={() => haken.kies(hoofdpost.id)}
-                  className="min-w-0 truncate py-1 text-[12.5px] text-gedempt hover:text-inkt"
+                  className="min-w-0 truncate py-1 text-[13px] text-link hover:text-inkt"
                 >
-                  subpost onder {hoofdpost.naam}
+                  ‹ Terug naar {hoofdpost.naam}
                 </button>
               )}
             </div>
@@ -310,15 +313,13 @@ function Actief({
   zet: (postId: number, deel: Partial<PostOntwerp>) => void;
 }) {
   return (
-    <label className="flex min-h-11 shrink-0 items-center gap-2 px-2 text-xs whitespace-nowrap text-gedempt lg:min-h-0 lg:px-0 lg:pt-1.5">
-      <input
-        type="checkbox"
-        checked={ontwerp.actief}
-        onChange={(e) => zet(post.id, { actief: e.target.checked })}
-        className="h-4 w-4 accent-[var(--inkt)]"
-      />
+    <Schakelaar
+      checked={ontwerp.actief}
+      onChange={(aan) => zet(post.id, { actief: aan })}
+      className="shrink-0 whitespace-nowrap lg:pt-1.5"
+    >
       actief
-    </label>
+    </Schakelaar>
   );
 }
 

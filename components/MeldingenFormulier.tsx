@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import Schakelaar from "./Schakelaar";
 import {
   meldToestelAanAction,
   meldToestelAfAction,
@@ -179,30 +180,23 @@ export default function MeldingenFormulier({
           <p className="bovenschrift mb-2.5">Waarover</p>
           <ul className="flex flex-col gap-2.5">
             {keuzes.map((keuze) => (
-              <li key={keuze.soort} className="flex items-start gap-3">
-                <input
-                  id={`meld-${keuze.soort}`}
-                  type="checkbox"
+              <li key={keuze.soort}>
+                <Schakelaar
                   defaultChecked={keuze.aan}
-                  onChange={(e) => {
-                    const aan = e.target.checked;
+                  className="items-start"
+                  onChange={(aan) =>
                     start(async () =>
                       setMelding(await zetVoorkeurAction(keuze.soort, aan)),
-                    );
-                  }}
-                  className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--inkt)]"
-                />
-                <label
-                  htmlFor={`meld-${keuze.soort}`}
-                  className="min-w-0 cursor-pointer"
+                    )
+                  }
                 >
-                  <span className="block text-sm font-medium">
+                  <span className="block text-sm font-medium text-inkt">
                     {keuze.titel}
                   </span>
                   <span className="block text-xs text-gedempt text-pretty">
                     {keuze.uitleg}
                   </span>
-                </label>
+                </Schakelaar>
               </li>
             ))}
           </ul>
