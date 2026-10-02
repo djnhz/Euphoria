@@ -120,11 +120,17 @@ export default async function UitgaveDetail({
             <ul className="flex flex-wrap gap-3">
               {uitgave.bonnen.map((bon) => (
                 <li key={bon.id}>
-                  <a href={bon.url} target="_blank" rel="noreferrer">
+                  {/* De kale Blob-URL komt zo nooit in de pagina terecht: deze route
+                      geeft de inhoud door en vraagt zelf om een sessie. */}
+                  <a href={`/api/document/${bon.id}`} target="_blank" rel="noreferrer">
                     <BestandTegel
                       naam={bon.naam}
                       mime={bon.mime}
-                      voorbeeldUrl={bon.voorbeeldUrl}
+                      voorbeeldUrl={
+                        bon.voorbeeldUrl
+                          ? `/api/document/${bon.id}?voorbeeld=1`
+                          : null
+                      }
                       zijde={176}
                     />
                   </a>

@@ -2,7 +2,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { put, del } from "@vercel/blob";
+import { put, del, get } from "@vercel/blob";
 import type { Opslag } from "@/db/schema";
 
 /**
@@ -30,8 +30,11 @@ export async function bewaarBestand(
   inhoud: Buffer,
 ): Promise<BewaardBestand> {
   if (heeftBlob()) {
+    // Privé: dit zijn bonnen, geen publieke bestanden. "private" is een eigenschap
+    // van de opslag zelf (ingesteld bij het aanmaken ervan); de opslag die hieraan
+    // hangt (`euphoria-bonnen-prive`) is daarom bewust als privé aangemaakt.
     const blob = await put(naam, inhoud, {
-      access: "public",
+      access: "private",
       contentType: mime,
       addRandomSuffix: true,
     });
@@ -56,9 +59,11 @@ export async function leesBestand(url: string): Promise<Buffer | null> {
     const bestandsnaam = url.slice("/api/bestand/".length);
     return leesLokaal(bestandsnaam);
   }
-  const antwoord = await fetch(url);
-  if (!antwoord.ok) return null;
-  return Buffer.from(await antwoord.arrayBuffer());
+  // De opslag is privé: een gewone fetch krijgt geen toegang meer, dus met het
+  // schrijftoken ophalen in plaats van rechtstreeks de URL te benaderen.
+  const resultaat = await get(url, { access: "private" });
+  if (!resultaat) return null;
+  return Buffer.from(await new Response(resultaat.stream).arrayBuffer());
 }
 
 /**

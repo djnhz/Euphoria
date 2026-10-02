@@ -80,8 +80,10 @@ export default function DocumentLijst({ rijen }: { rijen: DocumentRij[] }) {
               key={rij.id}
               className="flex items-start gap-3 rounded-xl border border-rand bg-paneel p-3"
             >
+              {/* De kale Blob-URL komt zo nooit in de pagina terecht: deze route geeft
+                  de inhoud door en vraagt zelf om een sessie. */}
               <a
-                href={rij.url}
+                href={`/api/document/${rij.id}`}
                 target="_blank"
                 rel="noreferrer"
                 className="shrink-0"
@@ -89,7 +91,9 @@ export default function DocumentLijst({ rijen }: { rijen: DocumentRij[] }) {
                 <BestandTegel
                   naam={rij.naam}
                   mime={rij.mime}
-                  voorbeeldUrl={rij.voorbeeldUrl}
+                  voorbeeldUrl={
+                    rij.voorbeeldUrl ? `/api/document/${rij.id}?voorbeeld=1` : null
+                  }
                   zijde={56}
                 />
               </a>
@@ -97,7 +101,7 @@ export default function DocumentLijst({ rijen }: { rijen: DocumentRij[] }) {
                 {/* Bestandsnamen zijn lang en zeggen pas iets aan het eind; afkappen
                     laat je met "Factuur_12205989..." zitten. Liever twee regels. */}
                 <a
-                  href={rij.url}
+                  href={`/api/document/${rij.id}`}
                   target="_blank"
                   rel="noreferrer"
                   className="block leading-snug font-medium break-words"

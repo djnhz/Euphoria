@@ -191,8 +191,9 @@ export default function UitgaveFormulier({
       if (heeftBlob) {
         // Rechtstreeks naar Blob: dat omzeilt de limiet van 4,5 MB op wat een
         // server-actie mag ontvangen, zodat een telefoonfoto gewoon binnenkomt.
+        // Privé: zonder in te loggen is de URL onbruikbaar, ook als hij uitlekt.
         const blob = await upload(bestand.name, bestand, {
-          access: "public",
+          access: "private",
           handleUploadUrl: "/api/blob",
         });
         url = blob.url;
@@ -357,8 +358,10 @@ export default function UitgaveFormulier({
           <ul className="mt-3 flex flex-wrap gap-4">
             {bonnen.map((bon) => (
               <li key={bon.documentId} className="w-28">
+                {/* De kale Blob-URL komt zo nooit in de pagina terecht: deze route
+                    geeft de inhoud door en vraagt zelf om een sessie. */}
                 <a
-                  href={bon.url}
+                  href={`/api/document/${bon.documentId}`}
                   target="_blank"
                   rel="noreferrer"
                   title={`${bon.naam} — origineel openen`}
@@ -366,7 +369,11 @@ export default function UitgaveFormulier({
                   <BestandTegel
                     naam={bon.naam}
                     mime={bon.mime}
-                    voorbeeldUrl={bon.voorbeeldUrl}
+                    voorbeeldUrl={
+                      bon.voorbeeldUrl
+                        ? `/api/document/${bon.documentId}?voorbeeld=1`
+                        : null
+                    }
                     zijde={112}
                   />
                 </a>

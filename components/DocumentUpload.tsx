@@ -27,8 +27,9 @@ export default function DocumentUpload({ heeftBlob }: { heeftBlob: boolean }) {
 
         if (heeftBlob) {
           // Rechtstreeks naar Blob, want een server mag maar 4,5 MB ontvangen.
+          // Privé: zonder in te loggen is de URL onbruikbaar, ook als hij uitlekt.
           const blob = await upload(bestand.name, bestand, {
-            access: "public",
+            access: "private",
             handleUploadUrl: "/api/blob",
           });
           url = blob.url;
