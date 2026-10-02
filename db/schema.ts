@@ -163,6 +163,38 @@ export const expenseLines = pgTable(
 export type Opslag = "blob" | "lokaal" | "drive";
 
 /**
+ * Een map, eventueel binnen een andere map -- zelf aan te maken, net als een eigen
+ * map op een schijf. "Bonnen en facturen" is zo'n map zonder iets bijzonders in het
+ * schema; alleen `settings` (bonnen_root_id, bonnen_huidig_id) weet welke dat is en
+ * welke submap daarvan het lopende vaarseizoen is. Verwijderen van een map met
+ * inhoud wordt in de code tegengehouden, niet hier: dan krijg je een duidelijke
+ * melding in plaats van een database-foutmelding.
+ */
+export const mappen = pgTable(
+  "mappen",
+  {
+    id: serial("id").primaryKey(),
+    naam: text("naam").notNull(),
+    ouderId: integer("ouder_id").references((): AnyPgColumn => mappen.id, {
+      onDelete: "restrict",
+    }),
+    aangemaaktOp: timestamp("aangemaakt_op", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("mappen_ouder_idx").on(t.ouderId),
+    // Geen "Bonnen" en "bonnen" naast elkaar op hetzelfde niveau. `coalesce` omdat
+    // NULL (de hoofdmappen) in een unieke index geen waarde heeft om op te botsen --
+    // zonder deze truc zou je twee hoofdmappen met dezelfde naam kunnen maken.
+    uniqueIndex("mappen_naam_uniek").on(
+      sql`coalesce(${t.ouderId}, 0)`,
+      sql`lower(${t.naam})`,
+    ),
+  ],
+);
+
+/**
  * Een bon is gewoon een document met een gevulde `expenseId`. Daardoor is er een
  * uploadcomponent, een viewer en een opruimroutine voor de hele app.
  *
@@ -174,7 +206,14 @@ export const documents = pgTable(
   {
     id: serial("id").primaryKey(),
     naam: text("naam").notNull(),
-    map: text("map").notNull().default("overig"),
+    /**
+     * Staat de map waarin dit document hangt. Null is de map "Bonnen en facturen"
+     * uit een jaar voordat mappen bestonden, of een map die ondertussen is
+     * opgeruimd -- dan hoort het document gewoon weer bovenaan te staan.
+     */
+    mapId: integer("map_id").references((): AnyPgColumn => mappen.id, {
+      onDelete: "set null",
+    }),
     mime: text("mime").notNull(),
     grootteBytes: integer("grootte_bytes").notNull(),
     opslag: text("opslag").$type<Opslag>().notNull().default("blob"),

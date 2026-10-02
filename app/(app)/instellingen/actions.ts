@@ -18,6 +18,7 @@ import {
 } from "@/lib/instellingen";
 import { testOpenAi } from "@/lib/receipt";
 import { testAgenda } from "@/lib/agenda";
+import { nieuwSeizoenStarten } from "@/lib/mappen";
 
 export type MeldingState = { fout?: string; gelukt?: string } | null;
 
@@ -238,4 +239,26 @@ export async function wisselBeheerderAction(
   revalidatePath("/instellingen");
   revalidatePath("/vaarplanning");
   return { gelukt: aan ? "Beheerder toegevoegd." : "Beheerder verwijderd." };
+}
+
+/**
+ * Alles wat vanaf nu wordt ingediend gaat in een nieuwe map onder Documenten ›
+ * Bonnen en facturen. Oudere bonnen blijven gewoon in hun eigen seizoensmap staan.
+ */
+export async function nieuwSeizoenAction(
+  _vorige: MeldingState,
+  formData: FormData,
+): Promise<MeldingState> {
+  await vereisBeheerder();
+  const naam = String(formData.get("naam") ?? "").trim();
+  if (naam === "") return { fout: "Geef het nieuwe seizoen een naam." };
+
+  const resultaat = await nieuwSeizoenStarten(naam);
+  if ("fout" in resultaat) return { fout: resultaat.fout };
+
+  revalidatePath("/instellingen");
+  revalidatePath("/documenten");
+  return {
+    gelukt: `Seizoen "${resultaat.naam}" is gestart. Nieuwe bonnen en facturen gaan daar vanaf nu in.`,
+  };
 }

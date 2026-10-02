@@ -1,18 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import BestandTegel from "./BestandTegel";
 import { verwijderDocumentAction } from "@/app/(app)/documenten/actions";
-import Keuzelijst from "./Keuzelijst";
 
 export type DocumentRij = {
   id: number;
   naam: string;
-  map: string;
   mime: string;
   grootteBytes: number;
-  url: string;
   voorbeeldUrl: string | null;
   expenseId: number | null;
   leverancier: string | null;
@@ -26,19 +23,13 @@ function formatGrootte(bytes: number) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
+/** De documenten in deze ene map; welke map dat is, bepaalt het scherm eromheen. */
 export default function DocumentLijst({ rijen }: { rijen: DocumentRij[] }) {
   const [zoek, setZoek] = useState("");
-  const [map, setMap] = useState("");
-
-  const mappen = useMemo(
-    () => [...new Set(rijen.map((r) => r.map))].sort(),
-    [rijen],
-  );
 
   // Zoeken gebeurt in de browser: bij een paar honderd documenten is een
   // extra query naar de server pure overhead.
   const zichtbaar = rijen.filter((rij) => {
-    if (map && rij.map !== map) return false;
     if (!zoek) return true;
     const term = zoek.toLowerCase();
     return (
@@ -47,27 +38,16 @@ export default function DocumentLijst({ rijen }: { rijen: DocumentRij[] }) {
     );
   });
 
+  if (rijen.length === 0) return null;
+
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap gap-2">
-        <input
-          value={zoek}
-          onChange={(e) => setZoek(e.target.value)}
-          placeholder="Zoek op naam of leverancier"
-          className="min-w-0 flex-1 rounded-xl border border-rand-sterk bg-paneel px-3.5 py-2.5 text-sm"
-        />
-        <Keuzelijst
-          label="Map"
-          waarde={map}
-          breed={false}
-          className="min-w-[10rem]"
-          opties={[
-            { waarde: "", label: "Alle mappen" },
-            ...mappen.map((naam) => ({ waarde: naam, label: naam })),
-          ]}
-          onKies={setMap}
-        />
-      </div>
+      <input
+        value={zoek}
+        onChange={(e) => setZoek(e.target.value)}
+        placeholder="Zoek op naam of leverancier"
+        className="min-w-0 rounded-xl border border-rand-sterk bg-paneel px-3.5 py-2.5 text-sm"
+      />
 
       {zichtbaar.length === 0 ? (
         <p className="rounded-xl border border-rand bg-paneel p-6 text-center text-sm text-gedempt">
@@ -109,8 +89,7 @@ export default function DocumentLijst({ rijen }: { rijen: DocumentRij[] }) {
                   {rij.naam}
                 </a>
                 <p className="mt-0.5 text-sm text-gedempt">
-                  {rij.map} · {formatGrootte(rij.grootteBytes)} ·{" "}
-                  {rij.geuploadDoor}
+                  {formatGrootte(rij.grootteBytes)} · {rij.geuploadDoor}
                   {rij.expenseId && (
                     <>
                       {" · "}

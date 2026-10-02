@@ -5,9 +5,8 @@ import Link from "next/link";
 import { uitloggenAction } from "@/app/login/actions";
 
 /**
- * De knop rechts in de kopbalk. Documenten en Instellingen zaten in het
- * hoofdmenu, maar dat is nu een balk met vier vaste plekken; ze horen hier, bij
- * "jij", net als uitloggen.
+ * De knop rechts in de kopbalk. Instellingen hoort bij "jij", net als uitloggen;
+ * Documenten stond hier ook, maar heeft nu een eigen plek in de hoofdnavigatie.
  */
 export default function GebruikerMenu({
   naam,
@@ -61,19 +60,11 @@ export default function GebruikerMenu({
             <p className="truncate text-xs text-gedempt">{huishouden}</p>
           </div>
           <Link
-            href="/documenten"
+            href="/instellingen"
             role="menuitem"
             // Sluiten bij het klikken zelf; dat scheelt een effect dat op de route let.
             onClick={() => setOpen(false)}
             className="block px-4 py-3 text-sm transition hover:bg-accent-zacht"
-          >
-            Documenten
-          </Link>
-          <Link
-            href="/instellingen"
-            role="menuitem"
-            onClick={() => setOpen(false)}
-            className="block border-t border-rand px-4 py-3 text-sm transition hover:bg-accent-zacht"
           >
             {beheerder ? "Instellingen" : "Mijn pincode"}
           </Link>

@@ -5,12 +5,16 @@ import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
 import { registreerDocumentAction } from "@/app/(app)/documenten/actions";
 import { bestandHash } from "@/lib/bestandhash";
-import { MAPPEN, type DocumentMap } from "@/lib/mappen";
-import Keuzelijst from "./Keuzelijst";
 
-export default function DocumentUpload({ heeftBlob }: { heeftBlob: boolean }) {
+/** Upload in de map die je op dit moment open hebt staan; null is de bovenste laag. */
+export default function DocumentUpload({
+  heeftBlob,
+  mapId,
+}: {
+  heeftBlob: boolean;
+  mapId: number | null;
+}) {
   const router = useRouter();
-  const [map, setMap] = useState<DocumentMap>("overig");
   const [bezig, setBezig] = useState(false);
   const [fout, setFout] = useState<string | null>(null);
 
@@ -58,7 +62,7 @@ export default function DocumentUpload({ heeftBlob }: { heeftBlob: boolean }) {
           naam: bestand.name,
           mime: bestand.type || "application/octet-stream",
           grootteBytes: bestand.size,
-          map,
+          mapId,
           expenseId: null,
           hash,
         });
@@ -73,32 +77,19 @@ export default function DocumentUpload({ heeftBlob }: { heeftBlob: boolean }) {
 
   return (
     <section className="rounded-xl border border-rand bg-paneel p-4">
-      <div className="flex flex-wrap items-end gap-3">
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-gedempt">Map</span>
-          <Keuzelijst
-            label="Map"
-            waarde={map}
-            breed={false}
-            className="min-w-[10rem]"
-            opties={MAPPEN.map((naam) => ({ waarde: naam, label: naam }))}
-            onKies={setMap}
-          />
-        </label>
-        <label className="flex flex-1 flex-col gap-1 text-sm">
-          <span className="text-gedempt">Bestanden</span>
-          <input
-            type="file"
-            multiple
-            disabled={bezig}
-            onChange={(e) => {
-              if (e.target.files?.length) void verwerk(e.target.files);
-              e.target.value = "";
-            }}
-            className="text-sm file:mr-3 file:rounded-xl file:border-0 file:bg-inkt file:px-3.5 file:py-2.5 file:font-semibold file:text-linnen"
-          />
-        </label>
-      </div>
+      <label className="flex flex-col gap-1 text-sm">
+        <span className="text-gedempt">Bestanden</span>
+        <input
+          type="file"
+          multiple
+          disabled={bezig}
+          onChange={(e) => {
+            if (e.target.files?.length) void verwerk(e.target.files);
+            e.target.value = "";
+          }}
+          className="text-sm file:mr-3 file:rounded-xl file:border-0 file:bg-inkt file:px-3.5 file:py-2.5 file:font-semibold file:text-linnen"
+        />
+      </label>
       {bezig && <p className="mt-3 text-sm text-gedempt">Uploaden…</p>}
       {fout && <p className="mt-3 text-sm text-slecht">{fout}</p>}
     </section>

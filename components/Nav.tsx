@@ -6,9 +6,10 @@ import GebruikerMenu from "./GebruikerMenu";
 import Logo from "./Logo";
 
 /**
- * Vier bestemmingen onderin, geen hamburgermenu meer. Wat eerst losse items waren
- * -- Verrekening en Begroting -- zijn tabbladen binnen Kosten geworden, en
- * Documenten en Instellingen horen bij "jij" en staan onder de initialen.
+ * Vijf bestemmingen onderin, geen hamburgermenu meer. Wat eerst losse items waren
+ * -- Verrekening en Begroting -- zijn tabbladen binnen Kosten geworden. Instellingen
+ * hoort bij "jij" en staat onder de initialen; Documenten stond daar ook, maar is
+ * iets dat je zelf bijhoudt en verdiende een eigen plek.
  */
 const TABS = [
   { href: "/", label: "Overzicht", icoon: Kompas },
@@ -20,6 +21,7 @@ const TABS = [
     icoon: Bon,
     ook: ["/begroting", "/verrekening"],
   },
+  { href: "/documenten", label: "Documenten", icoon: MapIcoon },
 ] as const;
 
 export default function Nav({
@@ -198,6 +200,17 @@ function Bon() {
         {...lijn}
       />
       <path d="M9 8.5h6M9 12.5h6" {...lijn} />
+    </svg>
+  );
+}
+
+function MapIcoon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden>
+      <path
+        d="M3.5 6.5a1 1 0 0 1 1-1h5l2 2.2h8a1 1 0 0 1 1 1v9.3a1 1 0 0 1-1 1h-16a1 1 0 0 1-1-1z"
+        {...lijn}
+      />
     </svg>
   );
 }

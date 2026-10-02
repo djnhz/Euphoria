@@ -9,6 +9,7 @@ import { vereisGebruiker } from "@/lib/auth";
 import { anderen, stuurMelding } from "@/lib/melding";
 import { formatEuro } from "@/lib/geld";
 import { verwijderBestand } from "@/lib/opslag";
+import { haalMap, huidigeBonnenMapId } from "@/lib/mappen";
 import {
   analyseerBon,
   maakVoorbeeld,
@@ -227,7 +228,7 @@ export async function zoekBonAction(
     .select({
       documentId: documents.id,
       naam: documents.naam,
-      map: documents.map,
+      mapId: documents.mapId,
       mime: documents.mime,
       url: documents.url,
       voorbeeldUrl: documents.voorbeeldUrl,
@@ -244,11 +245,12 @@ export async function zoekBonAction(
     .orderBy(asc(documents.id))
     .limit(1);
   if (!rij) return null;
+  const map = rij.mapId === null ? null : await haalMap(rij.mapId);
 
   return {
     documentId: rij.documentId,
     naam: rij.naam,
-    map: rij.map,
+    map: map?.naam ?? "Documenten",
     mime: rij.mime,
     url: rij.url,
     voorbeeldUrl: rij.voorbeeldUrl,
@@ -283,7 +285,7 @@ export async function bewaarBonAction(
     .insert(documents)
     .values({
       naam: invoer.naam,
-      map: "bon",
+      mapId: await huidigeBonnenMapId(),
       mime: invoer.mime,
       grootteBytes: invoer.grootteBytes,
       opslag: invoer.opslag,

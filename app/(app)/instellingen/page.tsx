@@ -5,7 +5,9 @@ import NamenFormulier from "@/components/NamenFormulier";
 import PinFormulier from "@/components/PinFormulier";
 import PincodeBeheer from "@/components/PincodeBeheer";
 import BonanalyseFormulier from "@/components/BonanalyseFormulier";
+import NieuwSeizoenFormulier from "@/components/NieuwSeizoenFormulier";
 import { agendaStatus, sleutelStatus } from "@/lib/instellingen";
+import { huidigSeizoenNaam } from "@/lib/mappen";
 import { verbruikOverzicht, type VerbruikOverzicht } from "@/lib/aiverbruik";
 import { formatEuro } from "@/lib/geld";
 import AgendaFormulier from "@/components/AgendaFormulier";
@@ -137,6 +139,16 @@ export default async function InstellingenPagina() {
             status={await sleutelStatus()}
             prijzen={verbruik.prijzen}
           />
+        </section>
+
+        <section className="rounded-2xl border border-rand bg-paneel p-4">
+          <h2 className="mb-1 text-sm font-medium">Bonnen en facturen</h2>
+          <p className="mb-4 text-xs text-gedempt text-pretty">
+            Een nieuw vaarseizoen starten zet bonnen en facturen die je vanaf nu
+            indient in een nieuwe map onder Documenten. Wat er al stond blijft
+            gewoon staan in zijn eigen seizoensmap.
+          </p>
+          <NieuwSeizoenFormulier huidig={await huidigSeizoenNaam()} />
         </section>
 
         <section className="rounded-2xl border border-rand bg-paneel p-4">

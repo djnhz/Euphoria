@@ -7,7 +7,7 @@ import { z } from "zod";
 import { db, documents } from "@/db";
 import { vereisGebruiker } from "@/lib/auth";
 import { maakVoorbeeld } from "@/lib/receipt";
-import { MAPPEN } from "@/lib/mappen";
+import { maakMap, hernoemMap, verwijderMap } from "@/lib/mappen";
 
 const DocumentInvoer = z.object({
   url: z.string().min(1).max(2000),
@@ -15,7 +15,7 @@ const DocumentInvoer = z.object({
   naam: z.string().trim().min(1).max(300),
   mime: z.string().max(200),
   grootteBytes: z.number().int().min(0),
-  map: z.enum(MAPPEN),
+  mapId: z.number().int().positive().nullable(),
   expenseId: z.number().int().positive().nullable(),
   /**
    * SHA-256 uit de browser, zodat de bonnencontrole ook een bestand herkent dat hier
@@ -40,7 +40,7 @@ export async function registreerDocumentAction(
 
   await db.insert(documents).values({
     naam: invoer.naam,
-    map: invoer.map,
+    mapId: invoer.mapId,
     mime: invoer.mime,
     grootteBytes: invoer.grootteBytes,
     opslag: invoer.opslag,
@@ -71,4 +71,36 @@ export async function verwijderDocumentAction(formData: FormData) {
   await Promise.allSettled(teVerwijderen.map((url) => verwijderBestand(url)));
 
   revalidatePath("/documenten");
+}
+
+export type MapState = { fout: string } | null;
+
+export async function maakMapAction(
+  naam: string,
+  ouderId: number | null,
+): Promise<MapState> {
+  await vereisGebruiker();
+  const resultaat = await maakMap(naam, ouderId);
+  if ("fout" in resultaat) return { fout: resultaat.fout };
+  revalidatePath("/documenten");
+  return null;
+}
+
+export async function hernoemMapAction(
+  id: number,
+  naam: string,
+): Promise<MapState> {
+  await vereisGebruiker();
+  const resultaat = await hernoemMap(id, naam);
+  if ("fout" in resultaat) return { fout: resultaat.fout };
+  revalidatePath("/documenten");
+  return null;
+}
+
+export async function verwijderMapAction(id: number): Promise<MapState> {
+  await vereisGebruiker();
+  const resultaat = await verwijderMap(id);
+  if ("fout" in resultaat) return { fout: resultaat.fout };
+  revalidatePath("/documenten");
+  return null;
 }
