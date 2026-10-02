@@ -33,8 +33,11 @@ export default async function NieuweUitgave() {
         titel="Nieuwe uitgave"
         onthoud="uitgavenLijst"
       />
-      {/* Ruimte voor de vaste voet met het totaal en de opslaanknop. */}
-      <Schermbody className="pb-[160px]">
+      {/* Ruimte voor de vaste voet met het totaal en de opslaanknop. Met "!" want
+          Schermbody's eigen lg:py-7 wint anders vanaf 1024px, en dan schuift de
+          laatste regel achter de voet -- precies op een laptop, waar je het als
+          eerste verwacht te kunnen zien. */}
+      <Schermbody className="pb-[160px]!">
         <UitgaveFormulier
           posten={postenLijst}
           huishoudens={huishoudens}
