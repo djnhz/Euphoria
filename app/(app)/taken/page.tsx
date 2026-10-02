@@ -56,8 +56,12 @@ export default async function TakenPagina({
     (t) => !t.samen && !week.some((w) => w.id === t.id),
   );
   const stand = voortgang(taken);
+  const winter = taken.filter((t) => t.soort === "winterklaar");
+  const winterStand = voortgang(winter);
 
   const gedeeld = { posten, huishoudens, jij: gebruiker.id };
+  /** Een nieuwe taak hoort bij het tabblad waar je hem aanmaakt. */
+  const beginSoort = lijst === "winterklaar" ? "winterklaar" : "gewoon";
 
   return (
     <>
@@ -68,7 +72,7 @@ export default async function TakenPagina({
             ? "nog geen taken"
             : `${open.length} open · ${week.length} deze week`
         }
-        rechts={<TaakToevoegen {...gedeeld} inKop />}
+        rechts={<TaakToevoegen {...gedeeld} beginSoort={beginSoort} inKop />}
         tabs={
           <Segment
             items={TABS}
@@ -127,11 +131,27 @@ export default async function TakenPagina({
         )}
 
         {lijst === "winterklaar" && (
-          <Tabblad
-            taken={taken.filter((t) => t.soort === "winterklaar")}
-            leeg="Nog niets op de winterlijst. Vink bij een taak “hoort bij winterklaar maken” aan."
-            {...gedeeld}
-          />
+          <>
+            {winter.length > 0 && (
+              <Voortgang
+                stand={winterStand}
+                kop={
+                  winterStand.procent === 100
+                    ? "Klaar voor de winter"
+                    : winterStand.procent >= 50
+                      ? "Winterklaar maken gaat goed"
+                      : "Nog veel te doen voor de winter"
+                }
+                eenheid={["winterklaar-taak", "winterklaar-taken"]}
+              />
+            )}
+            <Tabblad
+              taken={winter}
+              leeg="De winterlijst is nog leeg. Alles wat je hier toevoegt komt vanzelf op de lijst voor het winterklaar maken."
+              verbergSoort
+              {...gedeeld}
+            />
+          </>
         )}
 
         {lijst === "klaar" && (
@@ -143,7 +163,7 @@ export default async function TakenPagina({
         )}
       </Schermbody>
 
-      <TaakToevoegen {...gedeeld} />
+      <TaakToevoegen {...gedeeld} beginSoort={beginSoort} />
     </>
   );
 }
@@ -151,10 +171,13 @@ export default async function TakenPagina({
 function Tabblad({
   taken,
   leeg,
+  verbergSoort = false,
   ...gedeeld
 }: {
   taken: Taak[];
   leeg: string;
+  /** Op het winterklaar-tabblad is het label overbodig. */
+  verbergSoort?: boolean;
   posten: { id: number; naam: string; kleur: string }[];
   huishoudens: { id: number; naam: string }[];
   jij: number;
@@ -167,7 +190,12 @@ function Tabblad({
       {open.length > 0 && (
         <Lijst>
           {open.map((taak) => (
-            <TaakRij key={taak.id} taak={taak} {...gedeeld} />
+            <TaakRij
+              key={taak.id}
+              taak={taak}
+              verbergSoort={verbergSoort}
+              {...gedeeld}
+            />
           ))}
         </Lijst>
       )}
@@ -175,7 +203,12 @@ function Tabblad({
         <Blok titel={open.length > 0 ? "Al gedaan" : "Gedaan"}>
           <Lijst>
             {af.map((taak) => (
-              <TaakRij key={taak.id} taak={taak} {...gedeeld} />
+              <TaakRij
+                key={taak.id}
+                taak={taak}
+                verbergSoort={verbergSoort}
+                {...gedeeld}
+              />
             ))}
           </Lijst>
         </Blok>
@@ -190,8 +223,14 @@ function Tabblad({
  */
 function Voortgang({
   stand,
+  kop,
+  eenheid = ["taak", "taken"],
 }: {
   stand: { klaar: number; totaal: number; procent: number };
+  /** Eigen kop boven het getal; zonder valt hij terug op de algemene tekst. */
+  kop?: string;
+  /** Enkelvoud en meervoud, want "1 taken" leest als een fout. */
+  eenheid?: readonly [string, string];
 }) {
   return (
     <div className="flex items-center gap-3.5 rounded-2xl bg-inkt p-4 text-linnen xl:col-span-2 xl:p-6">
@@ -209,14 +248,16 @@ function Voortgang({
       </div>
       <div className="min-w-0">
         <p className="titel text-[19px]">
-          {stand.procent >= 80
-            ? "Bijna alles af"
-            : stand.procent >= 40
-              ? "Onderhoud op schema"
-              : "Er ligt nog werk"}
+          {kop ??
+            (stand.procent >= 80
+              ? "Bijna alles af"
+              : stand.procent >= 40
+                ? "Onderhoud op schema"
+                : "Er ligt nog werk")}
         </p>
         <p className="mt-0.5 text-[12.5px] text-linnen/70">
-          {stand.klaar} van {stand.totaal} taken afgevinkt
+          {stand.klaar} van {stand.totaal}{" "}
+          {stand.totaal === 1 ? eenheid[0] : eenheid[1]} afgevinkt
         </p>
       </div>
     </div>

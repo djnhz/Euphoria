@@ -44,11 +44,14 @@ export function TaakRij({
   posten,
   huishoudens,
   jij,
+  verbergSoort = false,
 }: {
   taak: TaakInvoer;
   posten: Keuze[];
   huishoudens: Keuze[];
   jij: number;
+  /** Op het winterklaar-tabblad zelf zegt het label niets dat de pagina niet al zegt. */
+  verbergSoort?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [bezig, start] = useTransition();
@@ -82,8 +85,11 @@ export function TaakRij({
         >
           {taak.titel}
         </span>
-        <span className="truncate text-[11.5px] text-gedempt">
-          {onderregel(taak)}
+        <span className="flex min-w-0 items-center gap-1.5 text-[11.5px] text-gedempt">
+          {taak.soort === "winterklaar" && !taak.klaar && !verbergSoort && (
+            <WinterLabel />
+          )}
+          <span className="truncate">{onderregel(taak)}</span>
         </span>
       </button>
 
@@ -132,7 +138,12 @@ export function SamenKaart({
         onClick={() => setOpen(true)}
         className="flex w-full items-baseline justify-between gap-3 text-left"
       >
-        <span className="text-sm font-semibold text-inkt">{taak.titel}</span>
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="truncate text-sm font-semibold text-inkt">
+            {taak.titel}
+          </span>
+          {taak.soort === "winterklaar" && !taak.klaar && <WinterLabel />}
+        </span>
         {taak.deadline && (
           <span className="cijfers shrink-0 text-[11px] text-gedempt">
             {kort(taak.deadline)}
@@ -198,12 +209,19 @@ export function TaakToevoegen({
   huishoudens,
   jij,
   inKop = false,
+  beginSoort = "gewoon",
 }: {
   posten: Keuze[];
   huishoudens: Keuze[];
   jij: number;
   /** In de kop staat hij als gewone knop; onderaan zweeft hij boven de lijst. */
   inKop?: boolean;
+  /**
+   * Wat een nieuwe taak vooraf is. Sta je op het winterklaar-tabblad, dan is een
+   * nieuwe taak een winterklaar-taak: het scherm weet waar je bent, dus vraag het
+   * niet nog eens.
+   */
+  beginSoort?: TaakInvoer["soort"];
 }) {
   const [open, setOpen] = useState(false);
 
@@ -220,6 +238,7 @@ export function TaakToevoegen({
         {open && (
           <TaakSheet
             taak={null}
+            beginSoort={beginSoort}
             posten={posten}
             huishoudens={huishoudens}
             jij={jij}
@@ -246,6 +265,7 @@ export function TaakToevoegen({
       {open && (
         <TaakSheet
           taak={null}
+          beginSoort={beginSoort}
           posten={posten}
           huishoudens={huishoudens}
           jij={jij}
@@ -263,17 +283,23 @@ export function TaakToevoegen({
  */
 function TaakSheet({
   taak,
+  beginSoort = "gewoon",
   posten,
   huishoudens,
   jij,
   sluit,
 }: {
   taak: TaakInvoer | null;
+  /** Alleen voor een nieuwe taak; een bestaande houdt zijn eigen soort. */
+  beginSoort?: TaakInvoer["soort"];
   posten: Keuze[];
   huishoudens: Keuze[];
   jij: number;
   sluit: () => void;
 }) {
+  const [soort, zetSoort] = useState<TaakInvoer["soort"]>(
+    taak?.soort ?? beginSoort,
+  );
   const [state, actie, bezig] = useActionState<TaakState, FormData>(
     taak ? wijzigTaakAction : nieuweTaakAction,
     null,
@@ -314,7 +340,11 @@ function TaakSheet({
             Annuleren
           </button>
           <span className="titel text-lg">
-            {taak ? "Taak wijzigen" : "Nieuwe taak"}
+            {taak
+              ? "Taak wijzigen"
+              : soort === "winterklaar"
+                ? "Nieuwe winterklaar-taak"
+                : "Nieuwe taak"}
           </span>
           <button
             type="submit"
@@ -326,6 +356,8 @@ function TaakSheet({
         </div>
 
         <div className="flex flex-col gap-3.5">
+          <SoortKeuze soort={soort} zet={zetSoort} />
+
           <Veld label="Wat moet er gebeuren">
             <input
               name="titel"
@@ -403,22 +435,6 @@ function TaakSheet({
             </span>
           </label>
 
-          <label className="flex items-center gap-3 rounded-xl border border-rand bg-paneel px-3.5 py-3 text-sm">
-            <input
-              type="checkbox"
-              name="soort"
-              value="winterklaar"
-              defaultChecked={taak?.soort === "winterklaar"}
-              className="h-4 w-4 accent-[var(--inkt)]"
-            />
-            <span className="flex-1">
-              Hoort bij winterklaar maken
-              <span className="block text-[11.5px] text-gedempt">
-                komt op de winterlijst te staan
-              </span>
-            </span>
-          </label>
-
           {!taak && (
             <label className="flex items-center gap-3 rounded-xl border border-rand bg-paneel px-3.5 py-3 text-sm">
               <input
@@ -460,6 +476,75 @@ function TaakSheet({
 
 const invoer =
   "w-full rounded-xl border border-rand-sterk bg-paneel px-3.5 py-3 text-[15px] text-inkt focus:border-inkt";
+
+const SOORTEN = [
+  { waarde: "gewoon", label: "Gewone taak", uitleg: "klus voor dit seizoen" },
+  {
+    waarde: "winterklaar",
+    label: "Winterklaar",
+    uitleg: "opruimen aan het eind",
+  },
+] as const;
+
+/**
+ * Gewoon of winterklaar: een tweedeling, geen vinkje. Een vinkje met de tekst "hoort
+ * bij winterklaar maken" liet het klinken als een extra, terwijl het de vraag is
+ * waar de taak thuishoort -- en op het winterklaar-tabblad is het antwoord al bekend.
+ * Het zijn radioknoppen met dezelfde naam als het oude veld, dus de server leest het
+ * nog precies zoals eerst.
+ */
+function SoortKeuze({
+  soort,
+  zet,
+}: {
+  soort: TaakInvoer["soort"];
+  zet: (soort: TaakInvoer["soort"]) => void;
+}) {
+  return (
+    <fieldset>
+      <legend className="bovenschrift mb-1.5">Soort</legend>
+      <div className="grid grid-cols-2 gap-1.5 rounded-xl bg-linnen-diep p-1">
+        {SOORTEN.map((optie) => {
+          const aan = soort === optie.waarde;
+          return (
+            <label
+              key={optie.waarde}
+              className={`flex min-h-11 cursor-pointer flex-col justify-center rounded-lg px-3 py-1.5 transition has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-marine ${
+                aan ? "bg-paneel shadow-sm" : "text-gedempt hover:text-inkt"
+              }`}
+            >
+              <input
+                type="radio"
+                name="soort"
+                value={optie.waarde}
+                checked={aan}
+                onChange={() => zet(optie.waarde)}
+                className="sr-only"
+              />
+              <span
+                className={`text-[13px] ${aan ? "font-semibold text-inkt" : ""}`}
+              >
+                {optie.label}
+              </span>
+              <span className="truncate text-[11px] text-gedempt">
+                {optie.uitleg}
+              </span>
+            </label>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
+}
+
+/** Het kleine label dat een winterklaar-taak herkenbaar maakt tussen de gewone. */
+function WinterLabel() {
+  return (
+    <span className="shrink-0 rounded bg-marine-tint px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-inkt uppercase">
+      Winterklaar
+    </span>
+  );
+}
 
 function Veld({
   label,
