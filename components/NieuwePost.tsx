@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { BegrotingsPost } from "@/lib/begroting";
 import { POSTKLEUREN } from "@/lib/kleuren";
+import Keuzelijst from "./Keuzelijst";
 
 /**
  * Een post erbij. Staat op de plek van het detailblad, zodat je hem meteen ziet
@@ -107,20 +108,21 @@ export default function NieuwePost({
 
         <label className="flex flex-col gap-1.5 text-[12.5px] text-gedempt">
           Plek
-          <select
-            value={ouderId ?? 0}
-            onChange={(e) => zetOuderId(Number(e.target.value) || null)}
-            className="min-h-11 rounded-xl border border-rand-sterk bg-paneel px-3.5 py-3 text-[15px] text-tekst"
-          >
-            <option value={0}>Eigen hoofdpost</option>
-            {hoofdposten
-              .filter((post) => post.ouderId === null)
-              .map((post) => (
-                <option key={post.id} value={post.id}>
-                  Subpost onder {post.naam}
-                </option>
-              ))}
-          </select>
+          <Keuzelijst
+            label="Plek"
+            waarde={ouderId ?? 0}
+            opties={[
+              { waarde: 0, label: "Eigen hoofdpost" },
+              ...hoofdposten
+                .filter((post) => post.ouderId === null)
+                .map((post) => ({
+                  waarde: post.id,
+                  label: `Subpost onder ${post.naam}`,
+                  kleur: post.kleur,
+                })),
+            ]}
+            onKies={(id) => zetOuderId(id || null)}
+          />
         </label>
 
         <label className="flex flex-col gap-1.5 text-[12.5px] text-gedempt">

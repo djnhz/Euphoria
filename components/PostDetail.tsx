@@ -11,6 +11,7 @@ import {
 } from "@/lib/begroting";
 import { POSTKLEUREN } from "@/lib/kleuren";
 import { standVan } from "./PostLijst";
+import Keuzelijst from "./Keuzelijst";
 
 /** Wat het scherm van een post weet en kan; één set voor de post en zijn subposten. */
 export type DetailHaken = {
@@ -652,20 +653,21 @@ function Plek({
   return (
     <label className="flex flex-wrap items-center gap-2">
       <span className="bovenschrift">Plek</span>
-      <select
-        value={ontwerp.ouderId ?? 0}
-        onChange={(e) =>
-          zet(post.id, { ouderId: Number(e.target.value) || null })
-        }
-        className="min-h-11 min-w-0 flex-1 rounded-[10px] border border-rand-sterk bg-paneel px-3 text-[13px] sm:min-h-0 sm:flex-none sm:py-2"
-      >
-        <option value={0}>Eigen hoofdpost</option>
-        {mogelijk.map((kandidaat) => (
-          <option key={kandidaat.id} value={kandidaat.id}>
-            Subpost onder {kandidaat.naam}
-          </option>
-        ))}
-      </select>
+      <Keuzelijst
+        label="Plek"
+        waarde={ontwerp.ouderId ?? 0}
+        breed={false}
+        className="min-w-0 flex-1 sm:flex-none"
+        opties={[
+          { waarde: 0, label: "Eigen hoofdpost" },
+          ...mogelijk.map((kandidaat) => ({
+            waarde: kandidaat.id,
+            label: `Subpost onder ${kandidaat.naam}`,
+            kleur: kandidaat.kleur,
+          })),
+        ]}
+        onKies={(id) => zet(post.id, { ouderId: id || null })}
+      />
     </label>
   );
 }

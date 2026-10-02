@@ -38,6 +38,7 @@ import {
   type PubliceerState,
   type StandState,
 } from "@/app/(app)/vaarplanning/seizoen/actions";
+import Keuzelijst from "./Keuzelijst";
 
 const KLEUREN = HUISHOUDKLEUREN;
 
@@ -232,33 +233,24 @@ export default function Seizoensplanner({
       <section className="grid gap-3 rounded-2xl border border-rand bg-paneel p-4 sm:grid-cols-2">
         <label className="flex flex-col gap-1 text-sm">
           <span className="text-gedempt">Seizoen</span>
-          <select
-            value={jaar}
-            onChange={(e) =>
-              router.push(`/vaarplanning/seizoen?jaar=${e.target.value}`)
-            }
-            className={invoerKlasse}
-          >
-            {[jaar - 1, jaar, jaar + 1, jaar + 2].map((j) => (
-              <option key={j} value={j}>
-                {j}
-              </option>
-            ))}
-          </select>
+          <Keuzelijst
+            label="Seizoen"
+            waarde={jaar}
+            opties={[jaar - 1, jaar, jaar + 1, jaar + 2].map((j) => ({
+              waarde: j,
+              label: String(j),
+            }))}
+            onKies={(j) => router.push(`/vaarplanning/seizoen?jaar=${j}`)}
+          />
         </label>
         <label className="flex flex-col gap-1 text-sm">
           <span className="text-gedempt">Oneven weken voor</span>
-          <select
-            value={onevenCoupleId}
-            onChange={(e) => setOneven(Number(e.target.value))}
-            className={invoerKlasse}
-          >
-            {huishoudens.map((h) => (
-              <option key={h.id} value={h.id}>
-                {h.naam}
-              </option>
-            ))}
-          </select>
+          <Keuzelijst
+            label="Oneven weken voor"
+            waarde={onevenCoupleId}
+            opties={huishoudens.map((h) => ({ waarde: h.id, label: h.naam }))}
+            onKies={setOneven}
+          />
           <span className="text-xs text-gedempt">
             De even weken gaan dan naar {naamVan.get(evenCoupleId)}.
           </span>
@@ -303,26 +295,26 @@ export default function Seizoensplanner({
                     .join(" · ")}
                 </p>
               </div>
-              <select
-                value={toewijzing[feestdag.code] ?? ""}
-                onChange={(e) =>
+              <Keuzelijst
+                label={`Toewijzing ${feestdag.naam}`}
+                waarde={String(toewijzing[feestdag.code] ?? "")}
+                className="sm:w-56"
+                opties={[
+                  { waarde: "", label: "Volgens even-onevenregel" },
+                  ...huishoudens.map((h) => ({
+                    waarde: String(h.id),
+                    label: h.naam,
+                  })),
+                ]}
+                onKies={(keuze) =>
                   setToewijzing((huidig) => {
                     const nieuw = { ...huidig };
-                    if (e.target.value === "") delete nieuw[feestdag.code];
-                    else nieuw[feestdag.code] = Number(e.target.value);
+                    if (keuze === "") delete nieuw[feestdag.code];
+                    else nieuw[feestdag.code] = Number(keuze);
                     return nieuw;
                   })
                 }
-                aria-label={`Toewijzing ${feestdag.naam}`}
-                className={`${invoerKlasse} sm:w-56`}
-              >
-                <option value="">volgens even-onevenregel</option>
-                {huishoudens.map((h) => (
-                  <option key={h.id} value={h.id}>
-                    {h.naam}
-                  </option>
-                ))}
-              </select>
+              />
             </li>
           ))}
         </ul>
@@ -718,51 +710,39 @@ function VakantieFormulier({
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <label className="flex min-w-0 flex-col gap-1 text-sm">
         <span className="text-gedempt">Van week</span>
-        <select
-          value={vanMaandag}
-          onChange={(e) => {
-            setVan(e.target.value);
+        <Keuzelijst
+          label="Van week"
+          waarde={vanMaandag}
+          opties={weken.map((week) => ({
+            waarde: week.maandag,
+            label: label(week),
+          }))}
+          onKies={(maandag) => {
+            setVan(maandag);
             // Einde meeschuiven zodat je nooit een omgekeerde periode kunt kiezen.
-            if (e.target.value > totMaandag) setTot(e.target.value);
+            if (maandag > totMaandag) setTot(maandag);
           }}
-          className={invoerKlasse}
-        >
-          {weken.map((week) => (
-            <option key={week.maandag} value={week.maandag}>
-              {label(week)}
-            </option>
-          ))}
-        </select>
+        />
       </label>
       <label className="flex min-w-0 flex-col gap-1 text-sm">
         <span className="text-gedempt">Tot en met week</span>
-        <select
-          value={totMaandag}
-          onChange={(e) => setTot(e.target.value)}
-          className={invoerKlasse}
-        >
-          {weken
+        <Keuzelijst
+          label="Tot en met week"
+          waarde={totMaandag}
+          opties={weken
             .filter((week) => week.maandag >= vanMaandag)
-            .map((week) => (
-              <option key={week.maandag} value={week.maandag}>
-                {label(week)}
-              </option>
-            ))}
-        </select>
+            .map((week) => ({ waarde: week.maandag, label: label(week) }))}
+          onKies={setTot}
+        />
       </label>
       <label className="flex min-w-0 flex-col gap-1 text-sm">
         <span className="text-gedempt">Voor</span>
-        <select
-          value={coupleId}
-          onChange={(e) => setCouple(Number(e.target.value))}
-          className={invoerKlasse}
-        >
-          {huishoudens.map((h) => (
-            <option key={h.id} value={h.id}>
-              {h.naam}
-            </option>
-          ))}
-        </select>
+        <Keuzelijst
+          label="Voor"
+          waarde={coupleId}
+          opties={huishoudens.map((h) => ({ waarde: h.id, label: h.naam }))}
+          onKies={setCouple}
+        />
       </label>
       <label className="flex min-w-0 flex-col gap-1 text-sm">
         <span className="text-gedempt">Naam (optioneel)</span>

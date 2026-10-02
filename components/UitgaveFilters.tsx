@@ -2,11 +2,16 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { SORTERINGEN } from "@/lib/sorteren";
+import Keuzelijst, { type Optie } from "./Keuzelijst";
 
 /**
- * De filters staan als pillen op één rij die opzij schuift. Een keuze die afwijkt
- * van de standaard kleurt donker, zodat je in één blik ziet dat je naar een selectie
- * kijkt en niet naar alles.
+ * De filterbalk, in twee groepen met een streepje ertussen. Links wat je *selecteert*
+ * -- welk jaar, welke post, wie betaalde -- en rechts hoe je het *bekijkt*: groeperen
+ * en sorteren. Die twee stonden eerst door elkaar, en een pil als "Per hoofdpost"
+ * zei niet of hij de lijst filterde of opdeelde.
+ *
+ * Een keuze die afwijkt van de standaard kleurt donker, zodat je in één blik ziet dat
+ * je naar een selectie kijkt en niet naar alles.
  */
 export default function UitgaveFilters({
   jaren,
@@ -15,10 +20,14 @@ export default function UitgaveFilters({
   groepen,
 }: {
   jaren: number[];
-  posten: { id: number; naam: string; ouderId: number | null }[];
+  posten: {
+    id: number;
+    naam: string;
+    ouderId: number | null;
+    kleur: string;
+  }[];
   huishoudens: { id: number; naam: string }[];
-  /** Paren van sleutel en label, zoals de pagina ze definieert. */
-  groepen: [string, string][];
+  groepen: { waarde: string; label: string; uitleg?: string }[];
 }) {
   const router = useRouter();
   const pad = usePathname();
@@ -31,42 +40,64 @@ export default function UitgaveFilters({
     router.push(nieuw.size ? `${pad}?${nieuw}` : pad);
   }
 
+  /** Alleen de filters wissen; hoe je de lijst bekijkt blijft zoals je het had. */
+  function wisFilters() {
+    const nieuw = new URLSearchParams(params);
+    for (const sleutel of ["jaar", "post", "huishouden"]) nieuw.delete(sleutel);
+    router.push(nieuw.size ? `${pad}?${nieuw}` : pad);
+  }
+
+  const jaar = params.get("jaar") ?? "";
+  const post = params.get("post") ?? "";
+  const huishouden = params.get("huishouden") ?? "";
+  const sortering = params.get("sortering") ?? "datum-nieuw";
+  const groep = params.get("groep") ?? "maand";
+  const ietsGefilterd = jaar !== "" || post !== "" || huishouden !== "";
+
   // Hoofdposten met hun subposten eronder; kiezen van een hoofdpost pakt de subposten mee.
-  const keuzes = posten
-    .filter((p) => p.ouderId === null)
-    .flatMap((hoofd) => [
-      { id: hoofd.id, label: hoofd.naam },
-      ...posten
-        .filter((p) => p.ouderId === hoofd.id)
-        .map((sub) => ({ id: sub.id, label: `— ${sub.naam}` })),
-    ]);
+  const postOpties: Optie<string>[] = [
+    { waarde: "", label: "Alle posten" },
+    ...posten
+      .filter((p) => p.ouderId === null)
+      .flatMap((hoofd) => [
+        { waarde: String(hoofd.id), label: hoofd.naam, kleur: hoofd.kleur },
+        ...posten
+          .filter((p) => p.ouderId === hoofd.id)
+          .map((sub) => ({
+            waarde: String(sub.id),
+            label: sub.naam,
+            kleur: sub.kleur,
+            inspringen: true,
+          })),
+      ]),
+  ];
 
   return (
-    <div className="-mx-[18px] flex gap-1.5 overflow-x-auto px-[18px] pb-0.5">
-      <Pil
+    <div className="-mx-[18px] flex items-center gap-1.5 overflow-x-auto px-[18px] pb-0.5">
+      <Keuzelijst
+        variant="pil"
         label="Jaar"
-        waarde={params.get("jaar") ?? ""}
-        standaard=""
+        waarde={jaar}
+        gekozen={jaar !== ""}
         opties={[
           { waarde: "", label: "Alle jaren" },
           ...jaren.map((j) => ({ waarde: String(j), label: String(j) })),
         ]}
-        kies={(v) => zet("jaar", v)}
+        onKies={(v) => zet("jaar", v)}
       />
-      <Pil
+      <Keuzelijst
+        variant="pil"
         label="Post"
-        waarde={params.get("post") ?? ""}
-        standaard=""
-        opties={[
-          { waarde: "", label: "Alle posten" },
-          ...keuzes.map((k) => ({ waarde: String(k.id), label: k.label })),
-        ]}
-        kies={(v) => zet("post", v)}
+        waarde={post}
+        gekozen={post !== ""}
+        opties={postOpties}
+        onKies={(v) => zet("post", v)}
       />
-      <Pil
+      <Keuzelijst
+        variant="pil"
         label="Betaald door"
-        waarde={params.get("huishouden") ?? ""}
-        standaard=""
+        waarde={huishouden}
+        gekozen={huishouden !== ""}
         opties={[
           { waarde: "", label: "Beide huishoudens" },
           ...huishoudens.map((h) => ({
@@ -74,71 +105,46 @@ export default function UitgaveFilters({
             label: h.naam,
           })),
         ]}
-        kies={(v) => zet("huishouden", v)}
+        onKies={(v) => zet("huishouden", v)}
       />
-      <Pil
+
+      {ietsGefilterd && (
+        <button
+          type="button"
+          onClick={wisFilters}
+          className="min-h-10 shrink-0 px-2 text-xs whitespace-nowrap text-gedempt underline transition hover:text-inkt"
+        >
+          Filters wissen
+        </button>
+      )}
+
+      <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-rand-sterk" />
+
+      <Keuzelijst
+        variant="pil"
+        label="Groeperen"
+        voorvoegsel="Groeperen:"
+        waarde={groep}
+        gekozen={groep !== "maand"}
+        opties={groepen.map((g) => ({
+          waarde: g.waarde,
+          label: g.label,
+          uitleg: g.uitleg,
+        }))}
+        onKies={(v) => zet("groep", v === "maand" ? "" : v)}
+      />
+      <Keuzelijst
+        variant="pil"
         label="Sorteren"
-        waarde={params.get("sortering") ?? "datum-nieuw"}
-        standaard="datum-nieuw"
+        voorvoegsel="Sorteren:"
+        waarde={sortering}
+        gekozen={sortering !== "datum-nieuw"}
         opties={Object.entries(SORTERINGEN).map(([waarde, label]) => ({
           waarde,
           label,
         }))}
-        kies={(v) => zet("sortering", v === "datum-nieuw" ? "" : v)}
-      />
-      <Pil
-        label="Groeperen"
-        waarde={params.get("groep") ?? "maand"}
-        standaard="maand"
-        opties={groepen.map(([waarde, label]) => ({ waarde, label }))}
-        kies={(v) => zet("groep", v === "maand" ? "" : v)}
+        onKies={(v) => zet("sortering", v === "datum-nieuw" ? "" : v)}
       />
     </div>
-  );
-}
-
-/**
- * Een select die eruitziet als een pil. Het blijft een echte select, want de
- * keuzelijst van de telefoon zelf werkt met één duim beter dan wat we zelf bouwen.
- */
-function Pil({
-  label,
-  waarde,
-  standaard,
-  opties,
-  kies,
-}: {
-  label: string;
-  waarde: string;
-  standaard: string;
-  opties: { waarde: string; label: string }[];
-  kies: (waarde: string) => void;
-}) {
-  const aan = waarde !== standaard;
-  const tekst =
-    opties.find((o) => o.waarde === waarde)?.label ?? opties[0]?.label ?? "";
-
-  return (
-    <span
-      className={`relative shrink-0 rounded-full px-3.5 py-2 text-xs whitespace-nowrap ${
-        aan
-          ? "bg-inkt font-semibold text-linnen"
-          : "border border-rand-sterk bg-paneel text-inkt"
-      }`}
-    >
-      {tekst} ⌄
-      <select
-        aria-label={label}
-        value={waarde}
-        onChange={(e) => kies(e.target.value)}
-        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-      >
-        {opties.map((optie) => (
-          <option key={optie.waarde} value={optie.waarde}>
-            {optie.label}
-          </option>
-        ))}
-      </select>
-    </span>
   );
 }

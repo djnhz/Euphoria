@@ -15,12 +15,15 @@ import {
   type BewaardeBon,
   type BewaarState,
 } from "@/app/(app)/uitgaven/actions";
+import Keuzelijst from "./Keuzelijst";
 
 /** Een post uit de begroting; `ouderId` is gevuld bij een subpost. */
 export type PostKeuze = {
   id: number;
   naam: string;
   ouderId: number | null;
+  /** De kleur van de post, voor het blokje in de keuzelijst. */
+  kleur?: string;
 };
 
 export type Huishouden = { id: number; naam: string; volgorde: number };
@@ -65,10 +68,15 @@ export function legeRegel(postId: number): FormulierRegel {
 function keuzelijst(posten: PostKeuze[]) {
   const hoofd = posten.filter((p) => p.ouderId === null);
   return hoofd.flatMap((post) => [
-    { id: post.id, label: post.naam },
+    { id: post.id, label: post.naam, kleur: post.kleur, sub: false },
     ...posten
       .filter((p) => p.ouderId === post.id)
-      .map((sub) => ({ id: sub.id, label: `— ${sub.naam}` })),
+      .map((sub) => ({
+        id: sub.id,
+        label: sub.naam,
+        kleur: sub.kleur,
+        sub: true,
+      })),
   ]);
 }
 
@@ -92,6 +100,16 @@ export default function UitgaveFormulier({
   heeftSleutel: boolean;
 }) {
   const keuzes = useMemo(() => keuzelijst(posten), [posten]);
+  const postOpties = useMemo(
+    () =>
+      keuzes.map((keuze) => ({
+        waarde: keuze.id,
+        label: keuze.label,
+        kleur: keuze.kleur,
+        inspringen: keuze.sub,
+      })),
+    [keuzes],
+  );
   const standaardPost = keuzes[0]?.id ?? 0;
 
   const [datum, setDatum] = useState(begin?.datum ?? vandaag());
@@ -427,18 +445,15 @@ export default function UitgaveFormulier({
         {/* De post van de hele bon. Kiezen zet alle regels om; daarna kun je er per
             regel van afwijken, en dan staat hier "gemengd". */}
         <Veld label="Hoofdpost">
-          <select
-            value={bonPost}
-            onChange={(e) => zetBonPost(Number(e.target.value))}
-            className={invoerKlasse}
-          >
-            {bonPost === -1 && <option value={-1}>gemengd</option>}
-            {keuzes.map((keuze) => (
-              <option key={keuze.id} value={keuze.id}>
-                {keuze.label}
-              </option>
-            ))}
-          </select>
+          <Keuzelijst
+            label="Hoofdpost"
+            waarde={bonPost}
+            opties={[
+              ...(bonPost === -1 ? [{ waarde: -1, label: "Gemengd" }] : []),
+              ...postOpties,
+            ]}
+            onKies={zetBonPost}
+          />
         </Veld>
         <Veld label="Opmerking">
           <input
@@ -519,22 +534,12 @@ export default function UitgaveFormulier({
 
               <div className="col-span-2 grid gap-2 sm:col-span-4 sm:grid-cols-[1fr_auto] sm:items-center">
                 {/* Afwijken van de post die boven voor de hele bon staat. */}
-                <select
-                  value={regel.postId}
-                  onChange={(e) =>
-                    pasRegelAan(regel.sleutel, {
-                      postId: Number(e.target.value),
-                    })
-                  }
-                  aria-label="Post"
-                  className={invoerKlasse}
-                >
-                  {keuzes.map((keuze) => (
-                    <option key={keuze.id} value={keuze.id}>
-                      {keuze.label}
-                    </option>
-                  ))}
-                </select>
+                <Keuzelijst
+                  label="Post"
+                  waarde={regel.postId}
+                  opties={postOpties}
+                  onKies={(postId) => pasRegelAan(regel.sleutel, { postId })}
+                />
                 {regel.bron === "ai" && (
                   <span className="justify-self-start rounded-md bg-messing-tint px-2 py-1 text-[10.5px] font-semibold text-messing-inkt">
                     uit bon

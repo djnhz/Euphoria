@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import BestandTegel from "./BestandTegel";
 import { verwijderDocumentAction } from "@/app/(app)/documenten/actions";
+import Keuzelijst from "./Keuzelijst";
 
 export type DocumentRij = {
   id: number;
@@ -55,19 +56,17 @@ export default function DocumentLijst({ rijen }: { rijen: DocumentRij[] }) {
           placeholder="Zoek op naam of leverancier"
           className="min-w-0 flex-1 rounded-xl border border-rand-sterk bg-paneel px-3.5 py-2.5 text-sm"
         />
-        <select
-          aria-label="Map"
-          value={map}
-          onChange={(e) => setMap(e.target.value)}
-          className="rounded-xl border border-rand-sterk bg-paneel px-3.5 py-2.5 text-sm"
-        >
-          <option value="">Alle mappen</option>
-          {mappen.map((naam) => (
-            <option key={naam} value={naam}>
-              {naam}
-            </option>
-          ))}
-        </select>
+        <Keuzelijst
+          label="Map"
+          waarde={map}
+          breed={false}
+          className="min-w-[10rem]"
+          opties={[
+            { waarde: "", label: "Alle mappen" },
+            ...mappen.map((naam) => ({ waarde: naam, label: naam })),
+          ]}
+          onKies={setMap}
+        />
       </div>
 
       {zichtbaar.length === 0 ? (

@@ -6,6 +6,7 @@ import { upload } from "@vercel/blob/client";
 import { registreerDocumentAction } from "@/app/(app)/documenten/actions";
 import { bestandHash } from "@/lib/bestandhash";
 import { MAPPEN, type DocumentMap } from "@/lib/mappen";
+import Keuzelijst from "./Keuzelijst";
 
 export default function DocumentUpload({ heeftBlob }: { heeftBlob: boolean }) {
   const router = useRouter();
@@ -74,17 +75,14 @@ export default function DocumentUpload({ heeftBlob }: { heeftBlob: boolean }) {
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1 text-sm">
           <span className="text-gedempt">Map</span>
-          <select
-            value={map}
-            onChange={(e) => setMap(e.target.value as DocumentMap)}
-            className="rounded-xl border border-rand-sterk bg-paneel px-3.5 py-2.5 text-sm"
-          >
-            {MAPPEN.map((naam) => (
-              <option key={naam} value={naam}>
-                {naam}
-              </option>
-            ))}
-          </select>
+          <Keuzelijst
+            label="Map"
+            waarde={map}
+            breed={false}
+            className="min-w-[10rem]"
+            opties={MAPPEN.map((naam) => ({ waarde: naam, label: naam }))}
+            onKies={setMap}
+          />
         </label>
         <label className="flex flex-1 flex-col gap-1 text-sm">
           <span className="text-gedempt">Bestanden</span>

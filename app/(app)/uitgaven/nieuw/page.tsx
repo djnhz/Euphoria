@@ -11,7 +11,12 @@ export default async function NieuweUitgave() {
   const gebruiker = await vereisGebruiker();
   const [postenLijst, huishoudens, sleutel] = await Promise.all([
     db
-      .select({ id: posten.id, naam: posten.naam, ouderId: posten.ouderId })
+      .select({
+        id: posten.id,
+        naam: posten.naam,
+        ouderId: posten.ouderId,
+        kleur: posten.kleur,
+      })
       .from(posten)
       .where(eq(posten.actief, true))
       .orderBy(asc(posten.naam)),

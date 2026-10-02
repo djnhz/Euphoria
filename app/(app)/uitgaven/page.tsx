@@ -26,13 +26,21 @@ import { KOSTEN_TABS } from "@/components/kostenTabs";
 
 type Rij = Awaited<ReturnType<typeof uitgavenLijst>>[number];
 
-/** Waarop je de lijst kunt opdelen; de sleutel staat in de URL. */
+/**
+ * Waarop je de lijst kunt opdelen; de sleutel staat in de URL. De volgorde is die van
+ * het uitklapmenu: eerst de standaard, dan van grof naar fijn, "niet groeperen" als
+ * laatste. De uitleg is er omdat "per post" en "per hoofdpost" anders op hetzelfde
+ * lijken terwijl ze iets anders doen.
+ */
 const GROEPEN = {
-  maand: "Per maand",
-  geen: "Alles onder elkaar",
-  post: "Per post",
-  hoofdpost: "Per hoofdpost",
-  huishouden: "Per huishouden",
+  maand: { label: "Per maand" },
+  hoofdpost: {
+    label: "Per hoofdpost",
+    uitleg: "subposten tellen mee bij hun hoofdpost",
+  },
+  post: { label: "Per post", uitleg: "ook de subposten apart" },
+  huishouden: { label: "Per huishouden", uitleg: "wie het voorschoot" },
+  geen: { label: "Niet groeperen" },
 } as const;
 
 type Groep = keyof typeof GROEPEN;
@@ -71,7 +79,12 @@ export default async function UitgavenPagina({
   const [jaren, postenLijst, huishoudens] = await Promise.all([
     beschikbareJaren(),
     db
-      .select({ id: posten.id, naam: posten.naam, ouderId: posten.ouderId })
+      .select({
+        id: posten.id,
+        naam: posten.naam,
+        ouderId: posten.ouderId,
+        kleur: posten.kleur,
+      })
       .from(posten)
       .orderBy(asc(posten.naam)),
     db.select().from(couples).orderBy(asc(couples.volgorde)),
@@ -125,7 +138,10 @@ export default async function UitgavenPagina({
             jaren={jaren}
             posten={postenLijst}
             huishoudens={huishoudens}
-            groepen={Object.entries(GROEPEN)}
+            groepen={Object.entries(GROEPEN).map(([waarde, g]) => ({
+              waarde,
+              ...g,
+            }))}
           />
         </div>
       </Schermkop>

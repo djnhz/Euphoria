@@ -21,7 +21,12 @@ export default async function UitgaveBewerken({
 
   const [postenLijst, huishoudens, sleutel] = await Promise.all([
     db
-      .select({ id: posten.id, naam: posten.naam, ouderId: posten.ouderId })
+      .select({
+        id: posten.id,
+        naam: posten.naam,
+        ouderId: posten.ouderId,
+        kleur: posten.kleur,
+      })
       .from(posten)
       .where(eq(posten.actief, true))
       .orderBy(asc(posten.naam)),

@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import Keuzelijst from "./Keuzelijst";
 
 export default function JaarKiezer({
   jaren,
@@ -17,21 +18,20 @@ export default function JaarKiezer({
   const params = useSearchParams();
 
   return (
-    <select
-      value={huidig}
-      aria-label="Jaar"
-      onChange={(e) => {
+    <Keuzelijst
+      label="Jaar"
+      waarde={huidig}
+      breed={false}
+      className="cijfers min-w-[7rem]"
+      opties={jaren.map((jaar) => ({
+        waarde: jaar,
+        label: jaar === 0 ? (allesLabel ?? "Alles") : String(jaar),
+      }))}
+      onKies={(jaar) => {
         const nieuw = new URLSearchParams(params);
-        nieuw.set("jaar", e.target.value);
+        nieuw.set("jaar", String(jaar));
         router.push(`${pad}?${nieuw}`);
       }}
-      className="cijfers rounded-xl border border-rand-sterk bg-paneel px-3.5 py-2.5 text-sm"
-    >
-      {jaren.map((jaar) => (
-        <option key={jaar} value={jaar}>
-          {jaar === 0 ? (allesLabel ?? "Alles") : jaar}
-        </option>
-      ))}
-    </select>
+    />
   );
 }
