@@ -237,17 +237,27 @@ function PerHoofdpost({ rijen, totaal }: { rijen: Rij[]; totaal: number }) {
 
   const top = gesorteerd.slice(0, 5);
   const overig = gesorteerd.slice(5);
-  const restCent = overig.reduce((som, [, v]) => som + v.cent, 0);
-  // "Rest" bundelt posten die hier te klein zijn voor een eigen rij, maar links
-  // staan ze gewoon elk onder hun eigen naam. Zonder uitleg welke dat zijn, moet je
-  // ze daar zelf gaan zoeken -- dus de namen staan in de tooltip.
-  const restUitleg = overig
-    .map(([naam, { cent }]) => `${naam} ${formatEuro(cent)}`)
-    .join(", ");
-  const delen: [string, { cent: number; kleur: string; titel?: string }][] =
-    restCent > 0
-      ? [...top, ["Rest", { cent: restCent, kleur: "var(--neutraal)", titel: restUitleg }]]
-      : top;
+
+  // "Rest" is alleen eerlijk als hij ook echt iets verzamelt. Blijft er na de top 5
+  // maar één post over, dan is er niets te bundelen -- die krijgt gewoon zijn eigen
+  // naam en kleur, net als de rest van de rij.
+  let delen: [string, { cent: number; kleur: string; titel?: string }][];
+  if (overig.length === 0) {
+    delen = top;
+  } else if (overig.length === 1) {
+    delen = [...top, overig[0]];
+  } else {
+    const restCent = overig.reduce((som, [, v]) => som + v.cent, 0);
+    // Links staat elke post gewoon onder zijn eigen naam; zonder uitleg welke dat
+    // zijn, moet je ze daar zelf gaan zoeken -- dus de namen staan in de tooltip.
+    const restUitleg = overig
+      .map(([naam, { cent }]) => `${naam} ${formatEuro(cent)}`)
+      .join(", ");
+    delen = [
+      ...top,
+      ["Rest", { cent: restCent, kleur: "var(--neutraal)", titel: restUitleg }],
+    ];
+  }
 
   return (
     <Paneel>
