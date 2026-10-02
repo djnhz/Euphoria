@@ -12,7 +12,16 @@ import {
 } from "@/db";
 import { plusDagen, vandaag } from "./datum";
 
-export type Helper = { userId: number; naam: string };
+/** Wie aan een taak hangt; het huishouden erbij geeft het bolletje zijn kleur. */
+export type Helper = { userId: number; naam: string; coupleId: number };
+
+/** Iemand aan wie je een taak kunt toekennen. */
+export type Mens = {
+  id: number;
+  naam: string;
+  coupleId: number;
+  coupleNaam: string;
+};
 
 export type Taak = {
   id: number;
@@ -76,6 +85,7 @@ export async function alleTaken(): Promise<Taak[]> {
         taakId: taakHelpers.taakId,
         userId: users.id,
         naam: users.naam,
+        coupleId: users.coupleId,
       })
       .from(taakHelpers)
       .innerJoin(users, eq(taakHelpers.userId, users.id))
@@ -85,7 +95,11 @@ export async function alleTaken(): Promise<Taak[]> {
   const perTaak = new Map<number, Helper[]>();
   for (const rij of aanmeldingen) {
     const lijst = perTaak.get(rij.taakId) ?? [];
-    lijst.push({ userId: rij.userId, naam: rij.naam });
+    lijst.push({
+      userId: rij.userId,
+      naam: rij.naam,
+      coupleId: rij.coupleId,
+    });
     perTaak.set(rij.taakId, lijst);
   }
 
@@ -124,4 +138,21 @@ export function dezeWeek(lijst: readonly Taak[]) {
   return lijst.filter(
     (t) => !t.klaar && !t.samen && t.deadline !== null && t.deadline <= grens,
   );
+}
+
+/**
+ * Iedereen die een taak kan oppakken, per huishouden bij elkaar. Een taak toekennen
+ * aan "een of meer personen" begint hiermee: het formulier toont ze als keuzes.
+ */
+export async function taakMensen(): Promise<Mens[]> {
+  return db
+    .select({
+      id: users.id,
+      naam: users.naam,
+      coupleId: users.coupleId,
+      coupleNaam: couples.naam,
+    })
+    .from(users)
+    .innerJoin(couples, eq(users.coupleId, couples.id))
+    .orderBy(asc(couples.volgorde), asc(users.naam));
 }

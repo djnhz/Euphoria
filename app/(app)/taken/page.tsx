@@ -1,7 +1,13 @@
 import { asc } from "drizzle-orm";
 import { db, couples } from "@/db";
 import { vereisGebruiker } from "@/lib/auth";
-import { alleTaken, dezeWeek, voortgang, type Taak } from "@/lib/taken";
+import {
+  alleTaken,
+  dezeWeek,
+  taakMensen,
+  voortgang,
+  type Taak,
+} from "@/lib/taken";
 import { komendeBeurten } from "@/lib/aanboord";
 import {
   Schermkop,
@@ -32,8 +38,9 @@ export default async function TakenPagina({
       ? params.lijst
       : "open";
 
-  const [taken, huishoudens, planning] = await Promise.all([
+  const [taken, mensen, huishoudens, planning] = await Promise.all([
     alleTaken(),
+    taakMensen(),
     db.select().from(couples).orderBy(asc(couples.volgorde)),
     komendeBeurten(1),
   ]);
@@ -60,7 +67,7 @@ export default async function TakenPagina({
   const winterStand = voortgang(winter);
   const winterOpen = winter.filter((t) => !t.klaar).length;
 
-  const gedeeld = { huishoudens, jij: gebruiker.id };
+  const gedeeld = { huishoudens, mensen, jij: gebruiker.id };
 
   return (
     <>

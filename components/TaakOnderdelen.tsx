@@ -11,6 +11,7 @@ import {
 } from "@/app/(app)/taken/actions";
 import { initialen } from "./GebruikerMenu";
 import { formatDatum } from "@/lib/datum";
+import { huishoudKleur } from "@/lib/kleuren";
 
 export type TaakInvoer = {
   id: number;
@@ -29,10 +30,18 @@ export type TaakInvoer = {
   klaar: boolean;
   klaarDoorNaam: string | null;
   klaarOp: Date | string | null;
-  helpers: { userId: number; naam: string }[];
+  helpers: { userId: number; naam: string; coupleId: number }[];
 };
 
 export type Keuze = { id: number; naam: string; kleur?: string };
+
+/** Iemand aan wie een taak toe te kennen is. */
+export type Mens = {
+  id: number;
+  naam: string;
+  coupleId: number;
+  coupleNaam: string;
+};
 
 /**
  * Een taak in een lijst: het rondje om af te vinken, de titel met waar hij bij
@@ -42,11 +51,14 @@ export type Keuze = { id: number; naam: string; kleur?: string };
 export function TaakRij({
   taak,
   huishoudens,
+  mensen = [],
   jij,
   toonSoort = false,
 }: {
   taak: TaakInvoer;
   huishoudens: Keuze[];
+  /** Voor het toekennen in het wijzigblad van een winterklaar-taak. */
+  mensen?: Mens[];
   jij: number;
   /**
    * Open en Winterklaar zijn gescheiden lijsten, dus daar zegt een label niets dat
@@ -100,11 +112,37 @@ export function TaakRij({
       {!taak.klaar && !taak.deadline && taak.userNaam && (
         <Bolletje naam={taak.userNaam} kleur="var(--marine)" />
       )}
+      {/* Een winterklaar-taak heeft geen datum maar wel mensen: een rijtje bolletjes,
+          elk in de kleur van het huishouden. Ook als hij klaar is: dan staat er wie
+          er aan hebben gewerkt. */}
+      {taak.soort === "winterklaar" && taak.helpers.length > 0 && (
+        <span className="flex shrink-0" aria-hidden>
+          {taak.helpers.map((h, i) => (
+            <span
+              key={h.userId}
+              style={{ marginLeft: i === 0 ? 0 : -7 }}
+              title={h.naam}
+            >
+              <Bolletje
+                naam={h.naam}
+                kleur={huishoudKleur(
+                  Math.max(
+                    0,
+                    huishoudens.findIndex((hh) => hh.id === h.coupleId),
+                  ),
+                )}
+                rand
+              />
+            </span>
+          ))}
+        </span>
+      )}
 
       {open && (
         <TaakSheet
           taak={taak}
           huishoudens={huishoudens}
+          mensen={mensen}
           jij={jij}
           sluit={() => setOpen(false)}
         />
@@ -198,11 +236,13 @@ export function SamenKaart({
 /** De zwevende knop onderaan het takenscherm. */
 export function TaakToevoegen({
   huishoudens,
+  mensen = [],
   jij,
   inKop = false,
   soort = "gewoon",
 }: {
   huishoudens: Keuze[];
+  mensen?: Mens[];
   jij: number;
   /** In de kop staat hij als gewone knop; onderaan zweeft hij boven de lijst. */
   inKop?: boolean;
@@ -231,6 +271,7 @@ export function TaakToevoegen({
             taak={null}
             soort={soort}
             huishoudens={huishoudens}
+            mensen={mensen}
             jij={jij}
             sluit={() => setOpen(false)}
           />
@@ -257,6 +298,7 @@ export function TaakToevoegen({
           taak={null}
           soort={soort}
           huishoudens={huishoudens}
+          mensen={mensen}
           jij={jij}
           sluit={() => setOpen(false)}
         />
@@ -274,6 +316,7 @@ function TaakSheet({
   taak,
   soort: nieuweSoort = "gewoon",
   huishoudens,
+  mensen = [],
   jij,
   sluit,
 }: {
@@ -281,14 +324,15 @@ function TaakSheet({
   /** Voor een nieuwe taak: de lijst waar je op staat. Een bestaande houdt zijn eigen soort. */
   soort?: TaakInvoer["soort"];
   huishoudens: Keuze[];
+  mensen?: Mens[];
   jij: number;
   sluit: () => void;
 }) {
   const soort = taak?.soort ?? nieuweSoort;
   /**
-   * Een winterklaar-taak heeft geen moment en geen eigenaar: het is wat er aan het
-   * eind van het seizoen moet gebeuren, door wie er dan aan boord is. Datum en
-   * "voor wie" zijn er dus niet; ze sturen ook niets mee, en de server laat wat er
+   * Een winterklaar-taak heeft geen moment en geen aanmeldlijst, maar wel mensen: je
+   * kent hem toe aan een of meer personen. Het formulier is daarom een titel, een
+   * toelichting en die keuze. De rest stuurt het niet mee, en de server laat wat er
    * al stond dan met rust.
    */
   const winter = soort === "winterklaar";
@@ -328,21 +372,22 @@ function TaakSheet({
           <button
             type="button"
             onClick={sluit}
-            className="text-[15px] text-gedempt"
+            className="shrink-0 text-[15px] whitespace-nowrap text-gedempt"
           >
             Annuleren
           </button>
-          <span className="titel text-lg">
+          {/* Kort houden: op een telefoon moet dit tussen twee knoppen passen. */}
+          <span className="titel min-w-0 truncate px-2 text-lg">
             {taak
               ? "Taak wijzigen"
               : soort === "winterklaar"
-                ? "Nieuwe winterklaar-taak"
+                ? "Winterklaar-taak"
                 : "Nieuwe taak"}
           </span>
           <button
             type="submit"
             disabled={bezig}
-            className="text-[15px] font-semibold text-inkt disabled:text-zacht"
+            className="shrink-0 text-[15px] font-semibold whitespace-nowrap text-inkt disabled:text-zacht"
           >
             {bezig ? "Bezig…" : "Taak opslaan"}
           </button>
@@ -370,6 +415,14 @@ function TaakSheet({
             />
           </Veld>
 
+          {winter && (
+            <WieKeuze
+              mensen={mensen}
+              gekozen={taak?.helpers.map((h) => h.userId) ?? []}
+              huishoudens={huishoudens}
+            />
+          )}
+
           {!winter && (
             <>
               <Veld label="Uiterlijk">
@@ -395,35 +448,35 @@ function TaakSheet({
                   ))}
                 </select>
               </Veld>
+
+              <label className="flex items-center gap-3 rounded-xl border border-rand bg-paneel px-3.5 py-3 text-sm">
+                <input
+                  type="checkbox"
+                  name="samen"
+                  value="aan"
+                  defaultChecked={taak?.samen ?? false}
+                  className="h-4 w-4 accent-[var(--inkt)]"
+                />
+                <span className="flex-1">
+                  Samen oppakken
+                  <span className="block text-[11.5px] text-gedempt">
+                    anderen kunnen zich aanmelden
+                  </span>
+                </span>
+              </label>
+
+              {!taak && (
+                <label className="flex items-center gap-3 rounded-xl border border-rand bg-paneel px-3.5 py-3 text-sm">
+                  <input
+                    type="checkbox"
+                    name="voorMij"
+                    value="aan"
+                    className="h-4 w-4 accent-[var(--inkt)]"
+                  />
+                  <span className="flex-1">Ik pak hem zelf op</span>
+                </label>
+              )}
             </>
-          )}
-
-          <label className="flex items-center gap-3 rounded-xl border border-rand bg-paneel px-3.5 py-3 text-sm">
-            <input
-              type="checkbox"
-              name="samen"
-              value="aan"
-              defaultChecked={taak?.samen ?? false}
-              className="h-4 w-4 accent-[var(--inkt)]"
-            />
-            <span className="flex-1">
-              Samen oppakken
-              <span className="block text-[11.5px] text-gedempt">
-                anderen kunnen zich aanmelden
-              </span>
-            </span>
-          </label>
-
-          {!taak && (
-            <label className="flex items-center gap-3 rounded-xl border border-rand bg-paneel px-3.5 py-3 text-sm">
-              <input
-                type="checkbox"
-                name="voorMij"
-                value="aan"
-                className="h-4 w-4 accent-[var(--inkt)]"
-              />
-              <span className="flex-1">Ik pak hem zelf op</span>
-            </label>
           )}
         </div>
 
@@ -455,6 +508,70 @@ function TaakSheet({
 
 const invoer =
   "w-full rounded-xl border border-rand-sterk bg-paneel px-3.5 py-3 text-[15px] text-inkt focus:border-inkt";
+
+/**
+ * Een taak toekennen aan een of meer personen. Vakjes en geen keuzelijst: bij vier
+ * mensen is alles in beeld, en meer dan een kiezen is dan een tik per persoon in
+ * plaats van een lijst waar je steeds opnieuw in moet. Niemand kiezen mag ook --
+ * dan pakt op het moment zelf op wie er aan boord is.
+ *
+ * Een vakje dat uit staat stuurt niets mee, dus het formulier meldt apart dat dit
+ * veld erbij hoort; zonder dat zou de server een lege keuze niet kunnen
+ * onderscheiden van een formulier dat de keuze helemaal niet kent.
+ */
+function WieKeuze({
+  mensen,
+  gekozen,
+  huishoudens,
+}: {
+  mensen: Mens[];
+  gekozen: number[];
+  huishoudens: Keuze[];
+}) {
+  if (mensen.length === 0) return null;
+  return (
+    <fieldset>
+      <legend className="bovenschrift mb-1.5">Wie pakt dit op</legend>
+      <input type="hidden" name="wieIngevuld" value="ja" />
+      <div className="grid grid-cols-2 gap-2">
+        {mensen.map((mens) => {
+          const kleur = huishoudKleur(
+            Math.max(
+              0,
+              huishoudens.findIndex((h) => h.id === mens.coupleId),
+            ),
+          );
+          return (
+            <label
+              key={mens.id}
+              className="flex min-h-11 min-w-0 cursor-pointer items-center gap-2.5 rounded-xl border border-rand-sterk bg-paneel px-3 py-2 transition hover:border-inkt has-checked:border-inkt has-checked:bg-marine-tint has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-marine"
+            >
+              <input
+                type="checkbox"
+                name="wie"
+                value={mens.id}
+                defaultChecked={gekozen.includes(mens.id)}
+                className="sr-only"
+              />
+              <Bolletje naam={mens.naam} kleur={kleur} />
+              <span className="min-w-0">
+                <span className="block truncate text-[13.5px] font-medium">
+                  {mens.naam}
+                </span>
+                <span className="block truncate text-[11px] text-gedempt">
+                  {mens.coupleNaam}
+                </span>
+              </span>
+            </label>
+          );
+        })}
+      </div>
+      <p className="mt-1.5 text-[11.5px] text-gedempt">
+        Een of meer personen. Niemand kiezen mag ook.
+      </p>
+    </fieldset>
+  );
+}
 
 /** Het kleine label dat een winterklaar-taak herkenbaar maakt tussen de gewone. */
 function WinterLabel() {
@@ -514,9 +631,11 @@ function onderregel(taak: TaakInvoer): string {
       : "";
     return wie + wanneer;
   }
-  const delen = [taak.postNaam, taak.userNaam ?? taak.coupleNaam].filter(
-    Boolean,
-  );
+  const wie =
+    taak.soort === "winterklaar" && taak.helpers.length > 0
+      ? taak.helpers.map((h) => h.naam).join(", ")
+      : (taak.userNaam ?? taak.coupleNaam);
+  const delen = [taak.postNaam, wie].filter(Boolean);
   return delen.join(" · ");
 }
 

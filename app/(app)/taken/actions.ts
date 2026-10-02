@@ -1,8 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, eq } from "drizzle-orm";
-import { db, taken, taakHelpers, couples } from "@/db";
+import { and, eq, inArray } from "drizzle-orm";
+import { db, taken, taakHelpers, couples, users } from "@/db";
 import { vereisGebruiker } from "@/lib/auth";
 import { anderen, stuurMelding } from "@/lib/melding";
 import type { TaakSoort } from "@/db";
@@ -56,7 +56,11 @@ async function leesVelden(formData: FormData) {
 
   const soort: TaakSoort =
     formData.get("soort") === "winterklaar" ? "winterklaar" : "gewoon";
-  const samen = formData.get("samen") === "aan";
+  // Alleen een gewone taak kent "samen oppakken". Bij winterklaar is het vakje er
+  // niet, en afwezig is daar geen "nee": een oudere winterklaar-taak die het wel
+  // had, houdt het.
+  const samen =
+    soort === "gewoon" ? formData.get("samen") === "aan" : undefined;
 
   return {
     titel,
@@ -69,6 +73,48 @@ async function leesVelden(formData: FormData) {
   } as const;
 }
 
+/**
+ * Aan wie een winterklaar-taak is toegekend, als het formulier die keuze kent.
+ * `undefined` betekent "dit formulier gaat er niet over, blijf eraf" en een lege
+ * lijst betekent "niemand". Een vakje dat uit staat stuurt niets mee, dus de twee
+ * zijn alleen uit elkaar te houden doordat het formulier zelf meldt dat de keuze
+ * erbij hoort (`wieIngevuld`).
+ *
+ * Alleen bestaande gebruikers komen door: een id uit een oud tabblad of een
+ * verzonnen formulier maakt geen rij aan voor iemand die er niet is.
+ */
+async function leesWie(formData: FormData): Promise<number[] | undefined> {
+  if (!formData.has("wieIngevuld")) return undefined;
+  const ids = [
+    ...new Set(
+      formData
+        .getAll("wie")
+        .map(Number)
+        .filter((n) => Number.isInteger(n) && n > 0),
+    ),
+  ];
+  if (ids.length === 0) return [];
+  const bestaand = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(inArray(users.id, ids));
+  return bestaand.map((r) => r.id);
+}
+
+/**
+ * De toegekende personen vervangen door deze set. Neon kent hier geen transactie,
+ * dus eerst weg en dan erin: gaat er halverwege iets mis, dan staat er hooguit
+ * niemand op de taak en nooit iemand die je niet gekozen had.
+ */
+async function zetWie(taakId: number, wie: number[]) {
+  await db.delete(taakHelpers).where(eq(taakHelpers.taakId, taakId));
+  if (wie.length > 0) {
+    await db
+      .insert(taakHelpers)
+      .values(wie.map((userId) => ({ taakId, userId })));
+  }
+}
+
 export async function nieuweTaakAction(
   _vorige: TaakState,
   formData: FormData,
@@ -77,14 +123,19 @@ export async function nieuweTaakAction(
   const velden = await leesVelden(formData);
   if ("fout" in velden) return velden;
 
-  // "Voor mij" is de enige toewijzing die je bij het aanmaken kunt doen; iemand
-  // anders een klus geven doe je niet via een lijstje maar door het te vragen.
+  // Bij een gewone taak is "Ik pak hem zelf op" de enige toewijzing; een winterklaar-
+  // taak kent hij toe via `wie`, aan een of meer personen.
   const voorMij = formData.get("voorMij") === "aan";
+  const wie = await leesWie(formData);
 
-  await db.insert(taken).values({
-    ...velden,
-    userId: voorMij ? gebruiker.id : null,
-  });
+  const [nieuw] = await db
+    .insert(taken)
+    .values({
+      ...velden,
+      userId: voorMij ? gebruiker.id : null,
+    })
+    .returning({ id: taken.id });
+  if (wie !== undefined) await zetWie(nieuw.id, wie);
 
   await stuurMelding(await anderen(gebruiker.id), "taak", {
     titel: velden.samen ? "Klus om samen te doen" : "Nieuwe taak",
@@ -107,8 +158,10 @@ export async function wijzigTaakAction(
 
   const velden = await leesVelden(formData);
   if ("fout" in velden) return velden;
+  const wie = await leesWie(formData);
 
   await db.update(taken).set(velden).where(eq(taken.id, id));
+  if (wie !== undefined) await zetWie(id, wie);
 
   revalidatePath("/taken");
   revalidatePath("/");
