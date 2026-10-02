@@ -246,7 +246,7 @@ export default async function Overzicht() {
                 className="mb-3"
                 rechts={`${stand.klaar} van ${stand.totaal} klaar`}
               >
-                {mijn ? "Voor jullie week" : "Op de lijst"}
+                Eerstvolgende taken
               </Bovenschrift>
               <ul className="-mx-4 divide-y divide-rand border-y border-rand">
                 {open.slice(0, 3).map((taak) => (
