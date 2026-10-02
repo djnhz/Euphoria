@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { and, eq } from "drizzle-orm";
-import { db, taken, taakHelpers, posten, couples } from "@/db";
+import { db, taken, taakHelpers, couples } from "@/db";
 import { vereisGebruiker } from "@/lib/auth";
 import { anderen, stuurMelding } from "@/lib/melding";
 import type { TaakSoort } from "@/db";
@@ -23,32 +23,35 @@ async function leesVelden(formData: FormData) {
     return { fout: "De toelichting is te lang." } as const;
   }
 
-  const deadlineRuw = String(formData.get("deadline") ?? "").trim();
-  if (deadlineRuw !== "" && !DATUM.test(deadlineRuw)) {
-    return { fout: "Ongeldige datum." } as const;
+  /**
+   * Datum en huishouden horen alleen bij een gewone taak, en bij een winterklaar-taak
+   * stuurt het formulier ze niet mee. Een veld dat ontbreekt is dus iets anders dan
+   * een veld dat leeg is: leeg betekent "wis het", ontbreken betekent "blijf eraf".
+   * Zonder dat onderscheid zou het opslaan van een winterklaar-taak stilletjes
+   * wissen wat er eerder aan stond. Dat geldt ook voor de post, die niet meer in het
+   * formulier zit maar bij oudere taken nog wel is ingevuld.
+   */
+  let deadline: string | null | undefined;
+  if (formData.has("deadline")) {
+    const ruw = String(formData.get("deadline") ?? "").trim();
+    if (ruw !== "" && !DATUM.test(ruw)) {
+      return { fout: "Ongeldige datum." } as const;
+    }
+    deadline = ruw === "" ? null : ruw;
   }
-  const deadline = deadlineRuw === "" ? null : deadlineRuw;
 
-  const postRuw = Number(formData.get("post"));
-  let postId: number | null = null;
-  if (Number.isInteger(postRuw) && postRuw > 0) {
-    const [gevonden] = await db
-      .select({ id: posten.id })
-      .from(posten)
-      .where(eq(posten.id, postRuw));
-    if (!gevonden) return { fout: "Onbekende post." } as const;
-    postId = gevonden.id;
-  }
-
-  const coupleRuw = Number(formData.get("huishouden"));
-  let coupleId: number | null = null;
-  if (Number.isInteger(coupleRuw) && coupleRuw > 0) {
-    const [gevonden] = await db
-      .select({ id: couples.id })
-      .from(couples)
-      .where(eq(couples.id, coupleRuw));
-    if (!gevonden) return { fout: "Onbekend huishouden." } as const;
-    coupleId = gevonden.id;
+  let coupleId: number | null | undefined;
+  if (formData.has("huishouden")) {
+    const ruw = Number(formData.get("huishouden"));
+    coupleId = null;
+    if (Number.isInteger(ruw) && ruw > 0) {
+      const [gevonden] = await db
+        .select({ id: couples.id })
+        .from(couples)
+        .where(eq(couples.id, ruw));
+      if (!gevonden) return { fout: "Onbekend huishouden." } as const;
+      coupleId = gevonden.id;
+    }
   }
 
   const soort: TaakSoort =
@@ -58,11 +61,11 @@ async function leesVelden(formData: FormData) {
   return {
     titel,
     toelichting,
-    deadline,
-    postId,
-    coupleId,
     soort,
     samen,
+    // `undefined` laat drizzle de kolom met rust; `null` zou hem leegmaken.
+    deadline,
+    coupleId,
   } as const;
 }
 

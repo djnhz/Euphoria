@@ -1,13 +1,7 @@
 import { asc } from "drizzle-orm";
 import { db, couples } from "@/db";
 import { vereisGebruiker } from "@/lib/auth";
-import {
-  alleTaken,
-  dezeWeek,
-  taakPosten,
-  voortgang,
-  type Taak,
-} from "@/lib/taken";
+import { alleTaken, dezeWeek, voortgang, type Taak } from "@/lib/taken";
 import { komendeBeurten } from "@/lib/aanboord";
 import {
   Schermkop,
@@ -38,9 +32,8 @@ export default async function TakenPagina({
       ? params.lijst
       : "open";
 
-  const [taken, posten, huishoudens, planning] = await Promise.all([
+  const [taken, huishoudens, planning] = await Promise.all([
     alleTaken(),
-    taakPosten(),
     db.select().from(couples).orderBy(asc(couples.volgorde)),
     komendeBeurten(1),
   ]);
@@ -49,30 +42,50 @@ export default async function TakenPagina({
   // duidelijk is waarom juist deze taken vooraan staan.
   const aanBoord = planning.beurten[0] ?? null;
 
-  const open = taken.filter((t) => !t.klaar);
-  const week = dezeWeek(taken);
+  /**
+   * Twee gescheiden lijsten. Open gaat over dit seizoen, Winterklaar over het
+   * opruimen aan het eind; die door elkaar tonen vroeg om een label om ze uit elkaar
+   * te houden, terwijl een eigen tabblad dat vanzelf doet.
+   */
+  const gewoon = taken.filter((t) => t.soort === "gewoon");
+  const winter = taken.filter((t) => t.soort === "winterklaar");
+
+  const open = gewoon.filter((t) => !t.klaar);
+  const week = dezeWeek(gewoon);
   const samen = open.filter((t) => t.samen);
   const later = open.filter(
     (t) => !t.samen && !week.some((w) => w.id === t.id),
   );
-  const stand = voortgang(taken);
-  const winter = taken.filter((t) => t.soort === "winterklaar");
+  const stand = voortgang(gewoon);
   const winterStand = voortgang(winter);
+  const winterOpen = winter.filter((t) => !t.klaar).length;
 
-  const gedeeld = { posten, huishoudens, jij: gebruiker.id };
-  /** Een nieuwe taak hoort bij het tabblad waar je hem aanmaakt. */
-  const beginSoort = lijst === "winterklaar" ? "winterklaar" : "gewoon";
+  const gedeeld = { huishoudens, jij: gebruiker.id };
 
   return (
     <>
       <Schermkop
         titel="Taken"
         onderschrift={
-          taken.length === 0
-            ? "nog geen taken"
-            : `${open.length} open · ${week.length} deze week`
+          lijst === "winterklaar"
+            ? winter.length === 0
+              ? "nog niets op de winterlijst"
+              : `${winterOpen} nog te doen voor de winter`
+            : lijst === "klaar"
+              ? `${taken.filter((t) => t.klaar).length} afgevinkt`
+              : gewoon.length === 0
+                ? "nog geen taken"
+                : `${open.length} open · ${week.length} deze week`
         }
-        rechts={<TaakToevoegen {...gedeeld} beginSoort={beginSoort} inKop />}
+        rechts={
+          lijst === "klaar" ? undefined : (
+            <TaakToevoegen
+              {...gedeeld}
+              soort={lijst === "winterklaar" ? "winterklaar" : "gewoon"}
+              inKop
+            />
+          )
+        }
         tabs={
           <Segment
             items={TABS}
@@ -84,9 +97,9 @@ export default async function TakenPagina({
       <Schermbody className="gap-[18px] xl:grid xl:grid-cols-2 xl:items-start xl:gap-x-6">
         {lijst === "open" && (
           <>
-            {taken.length > 0 && <Voortgang stand={stand} />}
+            {gewoon.length > 0 && <Voortgang stand={stand} />}
 
-            {taken.length === 0 && (
+            {gewoon.length === 0 && (
               <Leeg tekst="Nog geen taken. Zet hieronder het eerste klusje op de lijst." />
             )}
 
@@ -147,8 +160,7 @@ export default async function TakenPagina({
             )}
             <Tabblad
               taken={winter}
-              leeg="De winterlijst is nog leeg. Alles wat je hier toevoegt komt vanzelf op de lijst voor het winterklaar maken."
-              verbergSoort
+              leeg="De winterlijst is nog leeg. Wat je hier toevoegt, staat op de lijst voor het winterklaar maken."
               {...gedeeld}
             />
           </>
@@ -158,12 +170,18 @@ export default async function TakenPagina({
           <Tabblad
             taken={taken.filter((t) => t.klaar)}
             leeg="Nog niets afgevinkt."
+            toonSoort
             {...gedeeld}
           />
         )}
       </Schermbody>
 
-      <TaakToevoegen {...gedeeld} beginSoort={beginSoort} />
+      {lijst !== "klaar" && (
+        <TaakToevoegen
+          {...gedeeld}
+          soort={lijst === "winterklaar" ? "winterklaar" : "gewoon"}
+        />
+      )}
     </>
   );
 }
@@ -171,14 +189,13 @@ export default async function TakenPagina({
 function Tabblad({
   taken,
   leeg,
-  verbergSoort = false,
+  toonSoort = false,
   ...gedeeld
 }: {
   taken: Taak[];
   leeg: string;
-  /** Op het winterklaar-tabblad is het label overbodig. */
-  verbergSoort?: boolean;
-  posten: { id: number; naam: string; kleur: string }[];
+  /** Alleen op Klaar, waar gewone en winterklaar-taken door elkaar staan. */
+  toonSoort?: boolean;
   huishoudens: { id: number; naam: string }[];
   jij: number;
 }) {
@@ -193,7 +210,7 @@ function Tabblad({
             <TaakRij
               key={taak.id}
               taak={taak}
-              verbergSoort={verbergSoort}
+              toonSoort={toonSoort}
               {...gedeeld}
             />
           ))}
@@ -206,7 +223,7 @@ function Tabblad({
               <TaakRij
                 key={taak.id}
                 taak={taak}
-                verbergSoort={verbergSoort}
+                toonSoort={toonSoort}
                 {...gedeeld}
               />
             ))}

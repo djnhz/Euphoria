@@ -41,17 +41,18 @@ export type Keuze = { id: number; naam: string; kleur?: string };
  */
 export function TaakRij({
   taak,
-  posten,
   huishoudens,
   jij,
-  verbergSoort = false,
+  toonSoort = false,
 }: {
   taak: TaakInvoer;
-  posten: Keuze[];
   huishoudens: Keuze[];
   jij: number;
-  /** Op het winterklaar-tabblad zelf zegt het label niets dat de pagina niet al zegt. */
-  verbergSoort?: boolean;
+  /**
+   * Open en Winterklaar zijn gescheiden lijsten, dus daar zegt een label niets dat
+   * het tabblad niet al zegt. Alleen op Klaar staan ze door elkaar.
+   */
+  toonSoort?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [bezig, start] = useTransition();
@@ -86,9 +87,7 @@ export function TaakRij({
           {taak.titel}
         </span>
         <span className="flex min-w-0 items-center gap-1.5 text-[11.5px] text-gedempt">
-          {taak.soort === "winterklaar" && !taak.klaar && !verbergSoort && (
-            <WinterLabel />
-          )}
+          {toonSoort && taak.soort === "winterklaar" && <WinterLabel />}
           <span className="truncate">{onderregel(taak)}</span>
         </span>
       </button>
@@ -105,7 +104,6 @@ export function TaakRij({
       {open && (
         <TaakSheet
           taak={taak}
-          posten={posten}
           huishoudens={huishoudens}
           jij={jij}
           sluit={() => setOpen(false)}
@@ -118,12 +116,10 @@ export function TaakRij({
 /** De kaart voor een klus die je samen doet, met wie zich al heeft aangemeld. */
 export function SamenKaart({
   taak,
-  posten,
   huishoudens,
   jij,
 }: {
   taak: TaakInvoer;
-  posten: Keuze[];
   huishoudens: Keuze[];
   jij: number;
 }) {
@@ -138,11 +134,8 @@ export function SamenKaart({
         onClick={() => setOpen(true)}
         className="flex w-full items-baseline justify-between gap-3 text-left"
       >
-        <span className="flex min-w-0 items-center gap-2">
-          <span className="truncate text-sm font-semibold text-inkt">
-            {taak.titel}
-          </span>
-          {taak.soort === "winterklaar" && !taak.klaar && <WinterLabel />}
+        <span className="min-w-0 truncate text-sm font-semibold text-inkt">
+          {taak.titel}
         </span>
         {taak.deadline && (
           <span className="cijfers shrink-0 text-[11px] text-gedempt">
@@ -193,7 +186,6 @@ export function SamenKaart({
       {open && (
         <TaakSheet
           taak={taak}
-          posten={posten}
           huishoudens={huishoudens}
           jij={jij}
           sluit={() => setOpen(false)}
@@ -205,25 +197,24 @@ export function SamenKaart({
 
 /** De zwevende knop onderaan het takenscherm. */
 export function TaakToevoegen({
-  posten,
   huishoudens,
   jij,
   inKop = false,
-  beginSoort = "gewoon",
+  soort = "gewoon",
 }: {
-  posten: Keuze[];
   huishoudens: Keuze[];
   jij: number;
   /** In de kop staat hij als gewone knop; onderaan zweeft hij boven de lijst. */
   inKop?: boolean;
   /**
-   * Wat een nieuwe taak vooraf is. Sta je op het winterklaar-tabblad, dan is een
-   * nieuwe taak een winterklaar-taak: het scherm weet waar je bent, dus vraag het
-   * niet nog eens.
+   * Welke lijst je aanvult. Elk tabblad voegt zijn eigen soort taak toe: het scherm
+   * weet waar je bent, dus er valt niets te kiezen.
    */
-  beginSoort?: TaakInvoer["soort"];
+  soort?: TaakInvoer["soort"];
 }) {
   const [open, setOpen] = useState(false);
+  const knoptekst =
+    soort === "winterklaar" ? "Winterklaar-taak toevoegen" : "Taak toevoegen";
 
   if (inKop) {
     return (
@@ -233,13 +224,12 @@ export function TaakToevoegen({
           onClick={() => setOpen(true)}
           className="hidden rounded-xl bg-inkt px-4 py-2.5 text-sm font-semibold text-linnen transition hover:bg-inkt-hover lg:block"
         >
-          Taak toevoegen
+          {knoptekst}
         </button>
         {open && (
           <TaakSheet
             taak={null}
-            beginSoort={beginSoort}
-            posten={posten}
+            soort={soort}
             huishoudens={huishoudens}
             jij={jij}
             sluit={() => setOpen(false)}
@@ -258,15 +248,14 @@ export function TaakToevoegen({
             onClick={() => setOpen(true)}
             className="w-full rounded-2xl bg-inkt px-4 py-3.5 text-[15px] font-semibold text-linnen shadow-[0_12px_24px_-10px_rgba(22,40,63,0.6)] transition hover:bg-inkt-hover"
           >
-            Taak toevoegen
+            {knoptekst}
           </button>
         </div>
       </div>
       {open && (
         <TaakSheet
           taak={null}
-          beginSoort={beginSoort}
-          posten={posten}
+          soort={soort}
           huishoudens={huishoudens}
           jij={jij}
           sluit={() => setOpen(false)}
@@ -283,23 +272,26 @@ export function TaakToevoegen({
  */
 function TaakSheet({
   taak,
-  beginSoort = "gewoon",
-  posten,
+  soort: nieuweSoort = "gewoon",
   huishoudens,
   jij,
   sluit,
 }: {
   taak: TaakInvoer | null;
-  /** Alleen voor een nieuwe taak; een bestaande houdt zijn eigen soort. */
-  beginSoort?: TaakInvoer["soort"];
-  posten: Keuze[];
+  /** Voor een nieuwe taak: de lijst waar je op staat. Een bestaande houdt zijn eigen soort. */
+  soort?: TaakInvoer["soort"];
   huishoudens: Keuze[];
   jij: number;
   sluit: () => void;
 }) {
-  const [soort, zetSoort] = useState<TaakInvoer["soort"]>(
-    taak?.soort ?? beginSoort,
-  );
+  const soort = taak?.soort ?? nieuweSoort;
+  /**
+   * Een winterklaar-taak heeft geen moment en geen eigenaar: het is wat er aan het
+   * eind van het seizoen moet gebeuren, door wie er dan aan boord is. Datum en
+   * "voor wie" zijn er dus niet; ze sturen ook niets mee, en de server laat wat er
+   * al stond dan met rust.
+   */
+  const winter = soort === "winterklaar";
   const [state, actie, bezig] = useActionState<TaakState, FormData>(
     taak ? wijzigTaakAction : nieuweTaakAction,
     null,
@@ -331,6 +323,7 @@ function TaakSheet({
         className="max-h-[88vh] w-full max-w-md overflow-auto rounded-t-3xl bg-linnen p-[18px] pb-8 sm:rounded-3xl"
       >
         {taak && <input type="hidden" name="id" value={taak.id} />}
+        <input type="hidden" name="soort" value={soort} />
         <div className="mb-4 flex items-center justify-between">
           <button
             type="button"
@@ -356,8 +349,6 @@ function TaakSheet({
         </div>
 
         <div className="flex flex-col gap-3.5">
-          <SoortKeuze soort={soort} zet={zetSoort} />
-
           <Veld label="Wat moet er gebeuren">
             <input
               name="titel"
@@ -379,45 +370,33 @@ function TaakSheet({
             />
           </Veld>
 
-          <div className="flex gap-2.5">
-            <Veld label="Uiterlijk" className="min-w-0 flex-1">
-              <input
-                type="date"
-                name="deadline"
-                defaultValue={taak?.deadline ?? ""}
-                className={`${invoer} cijfers`}
-              />
-            </Veld>
-            <Veld label="Hoort bij" className="min-w-0 flex-1">
-              <select
-                name="post"
-                defaultValue={taak?.postId ?? 0}
-                className={invoer}
-              >
-                <option value={0}>—</option>
-                {posten.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.naam}
-                  </option>
-                ))}
-              </select>
-            </Veld>
-          </div>
+          {!winter && (
+            <>
+              <Veld label="Uiterlijk">
+                <input
+                  type="date"
+                  name="deadline"
+                  defaultValue={taak?.deadline ?? ""}
+                  className={`${invoer} cijfers`}
+                />
+              </Veld>
 
-          <Veld label="Voor wie">
-            <select
-              name="huishouden"
-              defaultValue={taak?.coupleId ?? 0}
-              className={invoer}
-            >
-              <option value={0}>Wie het eerst kan</option>
-              {huishoudens.map((h) => (
-                <option key={h.id} value={h.id}>
-                  {h.naam}
-                </option>
-              ))}
-            </select>
-          </Veld>
+              <Veld label="Voor wie">
+                <select
+                  name="huishouden"
+                  defaultValue={taak?.coupleId ?? 0}
+                  className={invoer}
+                >
+                  <option value={0}>Wie het eerst kan</option>
+                  {huishoudens.map((h) => (
+                    <option key={h.id} value={h.id}>
+                      {h.naam}
+                    </option>
+                  ))}
+                </select>
+              </Veld>
+            </>
+          )}
 
           <label className="flex items-center gap-3 rounded-xl border border-rand bg-paneel px-3.5 py-3 text-sm">
             <input
@@ -476,66 +455,6 @@ function TaakSheet({
 
 const invoer =
   "w-full rounded-xl border border-rand-sterk bg-paneel px-3.5 py-3 text-[15px] text-inkt focus:border-inkt";
-
-const SOORTEN = [
-  { waarde: "gewoon", label: "Gewone taak", uitleg: "klus voor dit seizoen" },
-  {
-    waarde: "winterklaar",
-    label: "Winterklaar",
-    uitleg: "opruimen aan het eind",
-  },
-] as const;
-
-/**
- * Gewoon of winterklaar: een tweedeling, geen vinkje. Een vinkje met de tekst "hoort
- * bij winterklaar maken" liet het klinken als een extra, terwijl het de vraag is
- * waar de taak thuishoort -- en op het winterklaar-tabblad is het antwoord al bekend.
- * Het zijn radioknoppen met dezelfde naam als het oude veld, dus de server leest het
- * nog precies zoals eerst.
- */
-function SoortKeuze({
-  soort,
-  zet,
-}: {
-  soort: TaakInvoer["soort"];
-  zet: (soort: TaakInvoer["soort"]) => void;
-}) {
-  return (
-    <fieldset>
-      <legend className="bovenschrift mb-1.5">Soort</legend>
-      <div className="grid grid-cols-2 gap-1.5 rounded-xl bg-linnen-diep p-1">
-        {SOORTEN.map((optie) => {
-          const aan = soort === optie.waarde;
-          return (
-            <label
-              key={optie.waarde}
-              className={`flex min-h-11 cursor-pointer flex-col justify-center rounded-lg px-3 py-1.5 transition has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-marine ${
-                aan ? "bg-paneel shadow-sm" : "text-gedempt hover:text-inkt"
-              }`}
-            >
-              <input
-                type="radio"
-                name="soort"
-                value={optie.waarde}
-                checked={aan}
-                onChange={() => zet(optie.waarde)}
-                className="sr-only"
-              />
-              <span
-                className={`text-[13px] ${aan ? "font-semibold text-inkt" : ""}`}
-              >
-                {optie.label}
-              </span>
-              <span className="truncate text-[11px] text-gedempt">
-                {optie.uitleg}
-              </span>
-            </label>
-          );
-        })}
-      </div>
-    </fieldset>
-  );
-}
 
 /** Het kleine label dat een winterklaar-taak herkenbaar maakt tussen de gewone. */
 function WinterLabel() {

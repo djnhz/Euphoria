@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, eq, desc, isNull, sql } from "drizzle-orm";
+import { asc, eq, desc, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import {
   db,
@@ -70,12 +70,13 @@ export async function alleTaken(): Promise<Taak[]> {
       .leftJoin(afronder, eq(taken.klaarDoor, afronder.id))
       .leftJoin(couples, eq(taken.coupleId, couples.id))
       // Zonder deadline achteraan: die hebben geen moment om je op te richten.
-      .orderBy(
-        sql`${taken.deadline} asc nulls last`,
-        desc(taken.aangemaaktOp),
-      ),
+      .orderBy(sql`${taken.deadline} asc nulls last`, desc(taken.aangemaaktOp)),
     db
-      .select({ taakId: taakHelpers.taakId, userId: users.id, naam: users.naam })
+      .select({
+        taakId: taakHelpers.taakId,
+        userId: users.id,
+        naam: users.naam,
+      })
       .from(taakHelpers)
       .innerJoin(users, eq(taakHelpers.userId, users.id))
       .orderBy(asc(users.naam)),
@@ -123,13 +124,4 @@ export function dezeWeek(lijst: readonly Taak[]) {
   return lijst.filter(
     (t) => !t.klaar && !t.samen && t.deadline !== null && t.deadline <= grens,
   );
-}
-
-/** De posten waaruit je bij een taak kunt kiezen: alleen de hoofdposten. */
-export async function taakPosten() {
-  return db
-    .select({ id: posten.id, naam: posten.naam, kleur: posten.kleur })
-    .from(posten)
-    .where(and(isNull(posten.ouderId), eq(posten.actief, true)))
-    .orderBy(asc(posten.naam));
 }

@@ -14,23 +14,24 @@ import { Bovenschrift, Paneel } from "@/components/Scherm";
 import { TaakRij } from "@/components/TaakOnderdelen";
 import ReserveringBewerken from "@/components/ReserveringBewerken";
 import { magBewerken } from "@/lib/reservering";
-import { taakPosten } from "@/lib/taken";
 
 export default async function Overzicht() {
   const gebruiker = await vereisGebruiker();
   const nu = vandaag();
   const jaar = Number(nu.slice(0, 4));
 
-  const [huishoudens, regels, budget, planning, taken, posten, agenda] =
+  const [huishoudens, regels, budget, planning, alle, agenda] =
     await Promise.all([
       db.select().from(couples).orderBy(asc(couples.volgorde)),
       haalRegels(jaar),
       budgetOverzicht(jaar),
       komendeBeurten(4),
       alleTaken(),
-      taakPosten(),
       agendaStatus(),
     ]);
+  // Dezelfde lijst als het tabblad Open: winterklaar is een eigen lijst en hoort
+  // hier niet tussen de klussen voor deze week.
+  const taken = alle.filter((t) => t.soort === "gewoon");
 
   // Een half jaar vooruit kijken en er drie tonen; zonder koppeling met de agenda
   // valt er niets op te halen.
@@ -251,7 +252,6 @@ export default async function Overzicht() {
                   <TaakRij
                     key={taak.id}
                     taak={taak}
-                    posten={posten}
                     huishoudens={huishoudens}
                     jij={gebruiker.id}
                   />
