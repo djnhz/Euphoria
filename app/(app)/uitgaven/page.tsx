@@ -14,6 +14,7 @@ import { formatEuro } from "@/lib/geld";
 import { MAANDEN, formatDatum } from "@/lib/datum";
 import { HUISHOUDKLEUREN } from "@/lib/kleuren";
 import UitgaveFilters from "@/components/UitgaveFilters";
+import LijstOnthouden from "@/components/LijstOnthouden";
 import Kostengrafieken from "@/components/Kostengrafieken";
 import {
   Bovenschrift,
@@ -121,6 +122,7 @@ export default async function UitgavenPagina({
 
   return (
     <>
+      <LijstOnthouden sleutel="uitgavenLijst" />
       <Schermkop
         titel="Kosten"
         onderschrift={

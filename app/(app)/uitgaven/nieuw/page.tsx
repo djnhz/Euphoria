@@ -28,7 +28,11 @@ export default async function NieuweUitgave() {
 
   return (
     <WijzigingenProvider>
-      <Bladkop terug="/uitgaven" titel="Nieuwe uitgave" />
+      <Bladkop
+        terug="/uitgaven"
+        titel="Nieuwe uitgave"
+        onthoud="uitgavenLijst"
+      />
       {/* Ruimte voor de vaste voet met het totaal en de opslaanknop. */}
       <Schermbody className="pb-[160px]">
         <UitgaveFormulier

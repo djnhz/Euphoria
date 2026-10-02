@@ -40,7 +40,7 @@ export default async function UitgaveDetail({
 
   return (
     <>
-      <Bladkop terug="/uitgaven" titel="Uitgave" />
+      <Bladkop terug="/uitgaven" titel="Uitgave" onthoud="uitgavenLijst" />
 
       <Schermbody>
         <section className="rounded-2xl bg-inkt p-[18px] text-linnen">
