@@ -12,6 +12,7 @@ import {
 import { initialen } from "./GebruikerMenu";
 import { formatDatum } from "@/lib/datum";
 import { huishoudKleur } from "@/lib/kleuren";
+import { toegekenden } from "@/lib/toekennen";
 
 export type TaakInvoer = {
   id: number;
@@ -109,13 +110,15 @@ export function TaakRij({
           {kort(taak.deadline)}
         </span>
       )}
-      {!taak.klaar && !taak.deadline && taak.userNaam && (
-        <Bolletje naam={taak.userNaam} kleur="var(--marine)" />
-      )}
-      {/* Een winterklaar-taak heeft geen datum maar wel mensen: een rijtje bolletjes,
-          elk in de kleur van het huishouden. Ook als hij klaar is: dan staat er wie
-          er aan hebben gewerkt. */}
-      {taak.soort === "winterklaar" && taak.helpers.length > 0 && (
+      {!taak.klaar &&
+        !taak.deadline &&
+        taak.helpers.length === 0 &&
+        taak.userNaam && (
+          <Bolletje naam={taak.userNaam} kleur="var(--marine)" />
+        )}
+      {/* Wie eraan hangt: een rijtje bolletjes, elk in de kleur van het huishouden.
+          Ook als de taak klaar is: dan staat er wie er aan hebben gewerkt. */}
+      {taak.helpers.length > 0 && (
         <span className="flex shrink-0" aria-hidden>
           {taak.helpers.map((h, i) => (
             <span
@@ -155,10 +158,12 @@ export function TaakRij({
 export function SamenKaart({
   taak,
   huishoudens,
+  mensen = [],
   jij,
 }: {
   taak: TaakInvoer;
   huishoudens: Keuze[];
+  mensen?: Mens[];
   jij: number;
 }) {
   const [open, setOpen] = useState(false);
@@ -225,6 +230,7 @@ export function SamenKaart({
         <TaakSheet
           taak={taak}
           huishoudens={huishoudens}
+          mensen={mensen}
           jij={jij}
           sluit={() => setOpen(false)}
         />
@@ -330,10 +336,10 @@ function TaakSheet({
 }) {
   const soort = taak?.soort ?? nieuweSoort;
   /**
-   * Een winterklaar-taak heeft geen moment en geen aanmeldlijst, maar wel mensen: je
-   * kent hem toe aan een of meer personen. Het formulier is daarom een titel, een
-   * toelichting en die keuze. De rest stuurt het niet mee, en de server laat wat er
-   * al stond dan met rust.
+   * Elke taak kent je toe aan een of meer personen. Een gewone taak heeft daarbij
+   * een moment ("uiterlijk"), een winterklaar-taak niet: het is wat er aan het eind
+   * van het seizoen moet gebeuren. Wat het formulier niet meestuurt, laat de server
+   * met rust.
    */
   const winter = soort === "winterklaar";
   const [state, actie, bezig] = useActionState<TaakState, FormData>(
@@ -415,69 +421,22 @@ function TaakSheet({
             />
           </Veld>
 
-          {winter && (
-            <WieKeuze
-              mensen={mensen}
-              gekozen={taak?.helpers.map((h) => h.userId) ?? []}
-              huishoudens={huishoudens}
-            />
-          )}
-
           {!winter && (
-            <>
-              <Veld label="Uiterlijk">
-                <input
-                  type="date"
-                  name="deadline"
-                  defaultValue={taak?.deadline ?? ""}
-                  className={`${invoer} cijfers`}
-                />
-              </Veld>
-
-              <Veld label="Voor wie">
-                <select
-                  name="huishouden"
-                  defaultValue={taak?.coupleId ?? 0}
-                  className={invoer}
-                >
-                  <option value={0}>Wie het eerst kan</option>
-                  {huishoudens.map((h) => (
-                    <option key={h.id} value={h.id}>
-                      {h.naam}
-                    </option>
-                  ))}
-                </select>
-              </Veld>
-
-              <label className="flex items-center gap-3 rounded-xl border border-rand bg-paneel px-3.5 py-3 text-sm">
-                <input
-                  type="checkbox"
-                  name="samen"
-                  value="aan"
-                  defaultChecked={taak?.samen ?? false}
-                  className="h-4 w-4 accent-[var(--inkt)]"
-                />
-                <span className="flex-1">
-                  Samen oppakken
-                  <span className="block text-[11.5px] text-gedempt">
-                    anderen kunnen zich aanmelden
-                  </span>
-                </span>
-              </label>
-
-              {!taak && (
-                <label className="flex items-center gap-3 rounded-xl border border-rand bg-paneel px-3.5 py-3 text-sm">
-                  <input
-                    type="checkbox"
-                    name="voorMij"
-                    value="aan"
-                    className="h-4 w-4 accent-[var(--inkt)]"
-                  />
-                  <span className="flex-1">Ik pak hem zelf op</span>
-                </label>
-              )}
-            </>
+            <Veld label="Uiterlijk">
+              <input
+                type="date"
+                name="deadline"
+                defaultValue={taak?.deadline ?? ""}
+                className={`${invoer} cijfers`}
+              />
+            </Veld>
           )}
+
+          <WieKeuze
+            mensen={mensen}
+            gekozen={taak ? toegekenden(taak, mensen) : []}
+            huishoudens={huishoudens}
+          />
         </div>
 
         {state?.fout && (
@@ -567,7 +526,7 @@ function WieKeuze({
         })}
       </div>
       <p className="mt-1.5 text-[11.5px] text-gedempt">
-        Een of meer personen. Niemand kiezen mag ook.
+        Een of meer personen. Laat leeg als het niet uitmaakt wie.
       </p>
     </fieldset>
   );
@@ -632,7 +591,7 @@ function onderregel(taak: TaakInvoer): string {
     return wie + wanneer;
   }
   const wie =
-    taak.soort === "winterklaar" && taak.helpers.length > 0
+    taak.helpers.length > 0
       ? taak.helpers.map((h) => h.naam).join(", ")
       : (taak.userNaam ?? taak.coupleNaam);
   const delen = [taak.postNaam, wie].filter(Boolean);

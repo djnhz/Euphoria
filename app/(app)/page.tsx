@@ -5,7 +5,7 @@ import { vereisGebruiker } from "@/lib/auth";
 import { budgetOverzicht, haalRegels } from "@/lib/data";
 import { formatEuro, saldoCent } from "@/lib/geld";
 import { komendeBeurten, jouwBeurt, type Beurt } from "@/lib/aanboord";
-import { alleTaken, voortgang } from "@/lib/taken";
+import { alleTaken, taakMensen, voortgang } from "@/lib/taken";
 import { huishoudKleur } from "@/lib/kleuren";
 import { MAANDEN, isoWeek, plusDagen, vandaag } from "@/lib/datum";
 import { haalReserveringen } from "@/lib/agenda";
@@ -20,13 +20,14 @@ export default async function Overzicht() {
   const nu = vandaag();
   const jaar = Number(nu.slice(0, 4));
 
-  const [huishoudens, regels, budget, planning, alle, agenda] =
+  const [huishoudens, regels, budget, planning, alle, mensen, agenda] =
     await Promise.all([
       db.select().from(couples).orderBy(asc(couples.volgorde)),
       haalRegels(jaar),
       budgetOverzicht(jaar),
       komendeBeurten(4),
       alleTaken(),
+      taakMensen(),
       agendaStatus(),
     ]);
   // Dezelfde lijst als het tabblad Open: winterklaar is een eigen lijst en hoort
@@ -253,6 +254,7 @@ export default async function Overzicht() {
                     key={taak.id}
                     taak={taak}
                     huishoudens={huishoudens}
+                    mensen={mensen}
                     jij={gebruiker.id}
                   />
                 ))}

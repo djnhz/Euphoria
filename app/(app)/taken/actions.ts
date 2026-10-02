@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { and, eq, inArray } from "drizzle-orm";
-import { db, taken, taakHelpers, couples, users } from "@/db";
+import { db, taken, taakHelpers, users } from "@/db";
 import { vereisGebruiker } from "@/lib/auth";
 import { anderen, stuurMelding } from "@/lib/melding";
 import type { TaakSoort } from "@/db";
@@ -24,12 +24,12 @@ async function leesVelden(formData: FormData) {
   }
 
   /**
-   * Datum en huishouden horen alleen bij een gewone taak, en bij een winterklaar-taak
-   * stuurt het formulier ze niet mee. Een veld dat ontbreekt is dus iets anders dan
-   * een veld dat leeg is: leeg betekent "wis het", ontbreken betekent "blijf eraf".
-   * Zonder dat onderscheid zou het opslaan van een winterklaar-taak stilletjes
-   * wissen wat er eerder aan stond. Dat geldt ook voor de post, die niet meer in het
-   * formulier zit maar bij oudere taken nog wel is ingevuld.
+   * De datum hoort alleen bij een gewone taak, en bij een winterklaar-taak stuurt het
+   * formulier hem niet mee. Een veld dat ontbreekt is dus iets anders dan een veld
+   * dat leeg is: leeg betekent "wis het", ontbreken betekent "blijf eraf". Zonder dat
+   * onderscheid zou het opslaan van een winterklaar-taak stilletjes wissen wat er
+   * eerder aan stond. Dat geldt ook voor de post, die niet meer in het formulier zit
+   * maar bij oudere taken nog wel is ingevuld.
    */
   let deadline: string | null | undefined;
   if (formData.has("deadline")) {
@@ -40,41 +40,20 @@ async function leesVelden(formData: FormData) {
     deadline = ruw === "" ? null : ruw;
   }
 
-  let coupleId: number | null | undefined;
-  if (formData.has("huishouden")) {
-    const ruw = Number(formData.get("huishouden"));
-    coupleId = null;
-    if (Number.isInteger(ruw) && ruw > 0) {
-      const [gevonden] = await db
-        .select({ id: couples.id })
-        .from(couples)
-        .where(eq(couples.id, ruw));
-      if (!gevonden) return { fout: "Onbekend huishouden." } as const;
-      coupleId = gevonden.id;
-    }
-  }
-
   const soort: TaakSoort =
     formData.get("soort") === "winterklaar" ? "winterklaar" : "gewoon";
-  // Alleen een gewone taak kent "samen oppakken". Bij winterklaar is het vakje er
-  // niet, en afwezig is daar geen "nee": een oudere winterklaar-taak die het wel
-  // had, houdt het.
-  const samen =
-    soort === "gewoon" ? formData.get("samen") === "aan" : undefined;
 
   return {
     titel,
     toelichting,
     soort,
-    samen,
     // `undefined` laat drizzle de kolom met rust; `null` zou hem leegmaken.
     deadline,
-    coupleId,
   } as const;
 }
 
 /**
- * Aan wie een winterklaar-taak is toegekend, als het formulier die keuze kent.
+ * Aan wie een taak is toegekend, als het formulier die keuze kent.
  * `undefined` betekent "dit formulier gaat er niet over, blijf eraf" en een lege
  * lijst betekent "niemand". Een vakje dat uit staat stuurt niets mee, dus de twee
  * zijn alleen uit elkaar te houden doordat het formulier zelf meldt dat de keuze
@@ -123,22 +102,18 @@ export async function nieuweTaakAction(
   const velden = await leesVelden(formData);
   if ("fout" in velden) return velden;
 
-  // Bij een gewone taak is "Ik pak hem zelf op" de enige toewijzing; een winterklaar-
-  // taak kent hij toe via `wie`, aan een of meer personen.
-  const voorMij = formData.get("voorMij") === "aan";
+  // Toekennen gaat voor elke taak op dezelfde manier: aan een of meer personen, via
+  // `wie`. De kolommen `userId`, `coupleId` en `samen` blijven voor wat er al stond.
   const wie = await leesWie(formData);
 
   const [nieuw] = await db
     .insert(taken)
-    .values({
-      ...velden,
-      userId: voorMij ? gebruiker.id : null,
-    })
+    .values(velden)
     .returning({ id: taken.id });
   if (wie !== undefined) await zetWie(nieuw.id, wie);
 
   await stuurMelding(await anderen(gebruiker.id), "taak", {
-    titel: velden.samen ? "Klus om samen te doen" : "Nieuwe taak",
+    titel: "Nieuwe taak",
     tekst: `${gebruiker.naam} zette "${velden.titel}" op de lijst.`,
     url: "/taken",
   });
@@ -160,7 +135,16 @@ export async function wijzigTaakAction(
   if ("fout" in velden) return velden;
   const wie = await leesWie(formData);
 
-  await db.update(taken).set(velden).where(eq(taken.id, id));
+  // Wordt er toegekend, dan staat de hele toewijzing in die lijst. Een eigenaar of
+  // huishouden uit de tijd van de losse keuzes gaat daarin op: het blad toonde ze al
+  // aangevinkt, dus ze blijven bestaan als je ze laat staan, en vallen weg als je
+  // ze uitzet. Anders bleef er een toewijzing hangen die je nergens kunt zien.
+  await db
+    .update(taken)
+    .set(
+      wie === undefined ? velden : { ...velden, userId: null, coupleId: null },
+    )
+    .where(eq(taken.id, id));
   if (wie !== undefined) await zetWie(id, wie);
 
   revalidatePath("/taken");
