@@ -16,7 +16,9 @@ export async function GET(
   { params }: RouteContext<"/api/document/[id]">,
 ): Promise<NextResponse> {
   if (!(await huidigeGebruiker())) {
-    return NextResponse.json({ fout: "Niet ingelogd" }, { status: 401 });
+    // Je klikt hierop vanuit de app, niet vanuit een los script: een redirect naar
+    // het inlogscherm is dan bruikbaarder dan een kale foutmelding in de browser.
+    return NextResponse.redirect(new URL("/login", request.url));
   }
 
   const id = Number((await params).id);
