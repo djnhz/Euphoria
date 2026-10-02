@@ -148,19 +148,33 @@ export function Lijst({
 }
 
 /**
- * De kop van een invoerblad: links de uitweg, in het midden waar je mee bezig bent.
+ * De kop van een blad: links de uitweg, in het midden waar je mee bezig bent.
  * De opslaanknop staat niet hier maar in de voet, bij het totaal.
+ *
+ * "Annuleren" is er alleen voor een blad waar je iets invult: dan gooi je een
+ * wijziging weg. Bij een blad dat je alleen bekijkt is er niets om te annuleren en
+ * staat er "Terug".
  */
-export function Bladkop({ terug, titel }: { terug: string; titel: string }) {
+export function Bladkop({
+  terug,
+  titel,
+  invullen = true,
+}: {
+  terug: string;
+  titel: string;
+  /** Vul je hier iets in (annuleren), of bekijk je alleen (terug)? */
+  invullen?: boolean;
+}) {
+  const uitweg = invullen ? "Annuleren" : "‹ Terug";
   return (
     <div className="flex items-center justify-between gap-3 border-b border-rand px-[18px] py-3.5 lg:px-8">
       <Link href={terug} className="text-[15px] text-gedempt">
-        Annuleren
+        {uitweg}
       </Link>
       <span className="titel text-lg">{titel}</span>
-      {/* Even breed als "Annuleren", zodat de titel echt in het midden staat. */}
+      {/* Even breed als de uitweg, zodat de titel echt in het midden staat. */}
       <span aria-hidden className="invisible text-[15px]">
-        Annuleren
+        {uitweg}
       </span>
     </div>
   );
