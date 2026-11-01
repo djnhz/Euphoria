@@ -6,7 +6,7 @@ import { z } from "zod";
 import { db, couples, seizoenen } from "@/db";
 import { vereisGebruiker } from "@/lib/auth";
 import { publiceerSeizoen, seizoenStand } from "@/lib/agenda";
-import { dagenInSeizoen } from "@/lib/datum";
+import { dagenInSeizoen, seizoenFout, standaardSeizoen } from "@/lib/datum";
 import { maakSeizoensplanning } from "@/lib/seizoen";
 import { SeizoenPlan } from "@/lib/seizoenplan";
 
@@ -35,6 +35,12 @@ const PubliceerInvoer = z.object({
       naam: z.string().trim().max(80).optional(),
     }),
   ),
+  grenzen: z
+    .object({
+      start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      eind: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    })
+    .optional(),
 });
 
 export type PubliceerState =
@@ -55,6 +61,9 @@ export async function publiceerAction(
     return { soort: "fout", melding: "Ongeldige invoer voor de planning." };
   }
   const invoer = gelezen.data;
+  const grenzen = invoer.grenzen ?? standaardSeizoen(invoer.jaar);
+  const grensFout = seizoenFout(invoer.jaar, grenzen);
+  if (grensFout) return { soort: "fout", melding: grensFout };
 
   const huishoudens = await db
     .select()
@@ -65,8 +74,8 @@ export async function publiceerAction(
     return { soort: "fout", melding: "Onbekend huishouden in de planning." };
   }
 
-  const planning = maakSeizoensplanning(invoer);
-  const dagen = dagenInSeizoen(invoer.jaar);
+  const planning = maakSeizoensplanning({ ...invoer, grenzen });
+  const dagen = dagenInSeizoen(invoer.jaar, grenzen);
 
   const resultaat = await publiceerSeizoen(
     invoer.jaar,
@@ -110,8 +119,14 @@ export async function standAction(
   await vereisGebruiker();
   const jaar = Number(formData.get("jaar"));
   if (!Number.isInteger(jaar)) return { melding: "Ongeldig jaartal." };
+  const grenzen = {
+    start: String(formData.get("start") ?? standaardSeizoen(jaar).start),
+    eind: String(formData.get("eind") ?? standaardSeizoen(jaar).eind),
+  };
+  const grensFout = seizoenFout(jaar, grenzen);
+  if (grensFout) return { melding: grensFout };
 
-  const dagen = dagenInSeizoen(jaar);
+  const dagen = dagenInSeizoen(jaar, grenzen);
   const stand = await seizoenStand(jaar, dagen[0], dagen.at(-1)!);
   if ("fout" in stand) return { melding: stand.fout };
 
@@ -141,6 +156,13 @@ export async function bewaarPlanAction(
   }
   const gelezen = SeizoenPlan.safeParse(ruwPlan);
   if (!gelezen.success) return { fout: "Ongeldige planning." };
+  if (gelezen.data.start && gelezen.data.eind) {
+    const grensFout = seizoenFout(jaar, {
+      start: gelezen.data.start,
+      eind: gelezen.data.eind,
+    });
+    if (grensFout) return { fout: grensFout };
+  }
 
   const plan = JSON.stringify(gelezen.data);
   await db

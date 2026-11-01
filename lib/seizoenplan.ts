@@ -19,6 +19,12 @@ export const SeizoenPlan = z.object({
       }),
     )
     .max(60),
+  /**
+   * Eigen begin en einde van het seizoen. Optioneel, zodat plannen van voor deze
+   * instelling gewoon blijven werken: die vallen terug op maart tot en met oktober.
+   */
+  start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  eind: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
 
 export type SeizoenPlan = z.infer<typeof SeizoenPlan>;

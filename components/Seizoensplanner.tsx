@@ -18,6 +18,8 @@ import {
 } from "@/lib/schoolvakanties";
 import {
   dagenInSeizoen,
+  seizoenFout,
+  standaardSeizoen,
   formatDatum,
   formatDatumMetDag,
   dagnaam,
@@ -75,6 +77,18 @@ export default function Seizoensplanner({
     Partial<Record<FeestdagCode, number>>
   >((plan?.feestdagen ?? {}) as Partial<Record<FeestdagCode, number>>);
   const [periodes, setPeriodes] = useState<Periode[]>(plan?.periodes ?? []);
+  // Begin en einde van het seizoen. Zolang ze niet kloppen (einde voor begin, of geen
+  // hele week ertussen) rekent het scherm verder met het laatste goede seizoen en
+  // wordt er niets bewaard of gepubliceerd.
+  const standaard = standaardSeizoen(jaar);
+  const [start, setStart] = useState(plan?.start ?? standaard.start);
+  const [eind, setEind] = useState(plan?.eind ?? standaard.eind);
+  const grensFout = seizoenFout(jaar, { start, eind });
+  const [laatstGoed, setLaatstGoed] = useState({ start, eind });
+  if (!grensFout && (laatstGoed.start !== start || laatstGoed.eind !== eind)) {
+    setLaatstGoed({ start, eind });
+  }
+  const grenzen = grensFout ? laatstGoed : { start, eind };
   /** De periode die je op dit moment aan het aanpassen bent, of null. */
   const [bewerkt, setBewerkt] = useState<Periode | null>(null);
 
@@ -99,6 +113,8 @@ export default function Seizoensplanner({
     onevenCoupleId,
     feestdagen: toewijzing,
     periodes,
+    start: grenzen.start,
+    eind: grenzen.eind,
   });
   const [laatstBewaard, setLaatstBewaard] = useState(teBewaren);
 
@@ -129,7 +145,7 @@ export default function Seizoensplanner({
   // De weken van het seizoen, als bouwstenen voor de vakantiekiezer.
   const weken = useMemo(() => {
     const lijst: { maandag: string; week: number; zondag: string }[] = [];
-    for (const dag of dagenInSeizoen(jaar)) {
+    for (const dag of dagenInSeizoen(jaar, grenzen)) {
       const maandag = maandagVanWeek(dag);
       if (lijst.at(-1)?.maandag === maandag) continue;
       lijst.push({
@@ -139,7 +155,8 @@ export default function Seizoensplanner({
       });
     }
     return lijst;
-  }, [jaar]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jaar, grenzen.start, grenzen.eind]);
 
   // Een periode is een reeks weken; de planner wil ze per maandag.
   const overrides = useMemo(() => {
@@ -166,11 +183,12 @@ export default function Seizoensplanner({
     evenCoupleId,
     feestdagToewijzing: toewijzing,
     overrides,
+    grenzen,
   };
   const planning = useMemo(
     () => maakSeizoensplanning(invoer),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [jaar, onevenCoupleId, evenCoupleId, toewijzing, overrides],
+    [jaar, onevenCoupleId, evenCoupleId, toewijzing, overrides, grenzen.start, grenzen.eind],
   );
   const cijfers = telling(
     planning,
@@ -255,6 +273,56 @@ export default function Seizoensplanner({
             De even weken gaan dan naar {naamVan.get(evenCoupleId)}.
           </span>
         </label>
+        <div className="flex flex-col gap-2 sm:col-span-2">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-gedempt">Seizoen begint</span>
+              <input
+                type="date"
+                value={start}
+                min={`${jaar}-01-01`}
+                max={`${jaar}-12-31`}
+                onChange={(e) => setStart(e.target.value)}
+                className={invoerKlasse}
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-gedempt">Seizoen eindigt</span>
+              <input
+                type="date"
+                value={eind}
+                min={`${jaar}-01-01`}
+                max={`${jaar}-12-31`}
+                onChange={(e) => setEind(e.target.value)}
+                className={invoerKlasse}
+              />
+            </label>
+          </div>
+          {grensFout ? (
+            <p className="text-xs text-slecht">{grensFout}</p>
+          ) : (
+            <p className="text-xs text-gedempt text-pretty">
+              In hele weken: van {formatDatumMetDag(weken[0]?.maandag ?? start)}{" "}
+              tot en met {formatDatumMetDag(weken.at(-1)?.zondag ?? eind)} ·{" "}
+              {weken.length} weken
+              {(start !== standaard.start || eind !== standaard.eind) && (
+                <>
+                  {" · "}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStart(standaard.start);
+                      setEind(standaard.eind);
+                    }}
+                    className="text-link underline"
+                  >
+                    terug naar maart t/m oktober
+                  </button>
+                </>
+              )}
+            </p>
+          )}
+        </div>
         {/* Wat je instelt blijft staan; dit zegt alleen wanneer dat gebeurd is. */}
         <p className="text-xs text-gedempt sm:col-span-2" aria-live="polite">
           {bewaarStand === "bezig"
@@ -588,8 +656,10 @@ export default function Seizoensplanner({
         <div className="flex flex-wrap items-center gap-3">
           <form action={kijkStand}>
             <input type="hidden" name="jaar" value={jaar} />
+            <input type="hidden" name="start" value={grenzen.start} />
+            <input type="hidden" name="eind" value={grenzen.eind} />
             <button
-              disabled={kijkt || !kanPubliceren}
+              disabled={kijkt || !kanPubliceren || grensFout !== null}
               className="rounded-xl border border-rand-sterk px-3 py-2.5 text-sm disabled:opacity-50"
             >
               {kijkt ? "Kijken…" : "Wat staat er nu?"}
@@ -602,7 +672,7 @@ export default function Seizoensplanner({
               value={JSON.stringify(invoer)}
             />
             <button
-              disabled={bezig || !kanPubliceren}
+              disabled={bezig || !kanPubliceren || grensFout !== null}
               className="rounded-xl bg-inkt px-4 py-2.5 text-sm font-semibold text-linnen disabled:opacity-50"
             >
               {bezig

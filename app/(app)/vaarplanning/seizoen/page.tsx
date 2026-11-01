@@ -4,7 +4,7 @@ import { db, couples, seizoenen } from "@/db";
 import { vereisGebruiker } from "@/lib/auth";
 import { agendaStatus } from "@/lib/instellingen";
 import { feestdagenIn } from "@/lib/feestdagen";
-import { vandaag } from "@/lib/datum";
+import { MAANDEN, standaardSeizoen, vandaag } from "@/lib/datum";
 import { haalVakanties } from "@/lib/vakantiebron";
 import { leesPlan } from "@/lib/seizoenplan";
 import Seizoensplanner from "@/components/Seizoensplanner";
@@ -32,12 +32,16 @@ export default async function SeizoenPagina({
     db.select().from(seizoenen).where(eq(seizoenen.jaar, jaar)),
   ]);
   const plan = leesPlan(bewaard[0]?.plan);
+  const standaard = standaardSeizoen(jaar);
+  const kort = (iso: string) =>
+    `${Number(iso.slice(8))} ${MAANDEN[Number(iso.slice(5, 7)) - 1]}`;
+  const periode = `${kort(plan?.start ?? standaard.start)} t/m ${kort(plan?.eind ?? standaard.eind)}`;
 
   return (
     <>
       <Schermkop
         titel={`Seizoen ${jaar}`}
-        onderschrift={plan ? "vastgelegd · maart t/m oktober" : "concept · maart t/m oktober"}
+        onderschrift={`${plan ? "vastgelegd" : "concept"} · ${periode}`}
         tabs={<Segment items={PLANNING_TABS} actief="/vaarplanning/seizoen" />}
       />
 
@@ -52,7 +56,10 @@ export default async function SeizoenPagina({
           </p>
         )}
 
+        {/* Een eigen key per jaar: anders houdt React bij het wisselen van jaar de
+            instellingen van het vorige jaar vast, en worden die bij het nieuwe bewaard. */}
         <Seizoensplanner
+          key={jaar}
           jaar={jaar}
           huishoudens={huishoudens.map((h) => ({ id: h.id, naam: h.naam }))}
           feestdagen={feestdagenIn(jaar)}

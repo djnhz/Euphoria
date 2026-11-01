@@ -6,6 +6,7 @@ import {
   isoWeek,
   maandagVanWeek,
   plusDagen,
+  seizoenFout,
 } from "../lib/datum.ts";
 import {
   dagenVanFeestdag,
@@ -396,4 +397,44 @@ test("een week toont de feestdag die erin valt, ook een halve", () => {
 
   // Een week ver van elke feestdag levert niets op.
   assert.deepEqual(feestdagenRakend(feestdagen, "2027-08-02", "2027-08-08"), []);
+});
+
+// --- Eigen begin en einde van het seizoen ------------------------------------------
+
+test("zonder grenzen blijft het seizoen maart tot en met oktober", () => {
+  assert.deepEqual(
+    dagenInSeizoen(2027),
+    dagenInSeizoen(2027, { start: "2027-03-01", eind: "2027-10-31" }),
+  );
+});
+
+test("een eigen seizoen loopt in hele weken binnen de gekozen datums", () => {
+  // 1 april 2027 is een donderdag, 30 september een donderdag.
+  const dagen = dagenInSeizoen(2027, { start: "2027-04-01", eind: "2027-09-30" });
+  assert.equal(dagen[0], "2027-04-05"); // eerste maandag op of na het begin
+  assert.equal(dagen.at(-1), "2027-09-26"); // laatste zondag op of voor het einde
+  assert.equal(dagen.length % 7, 0);
+});
+
+test("een planning met eigen grenzen verdeelt precies die dagen", () => {
+  const grenzen = { start: "2027-05-01", eind: "2027-08-31" };
+  const planning = maakSeizoensplanning({
+    jaar: 2027,
+    onevenCoupleId: 1,
+    evenCoupleId: 2,
+    feestdagToewijzing: {},
+    grenzen,
+  });
+  const totaal = planning.blokken.reduce((som, b) => som + b.aantalDagen, 0);
+  assert.equal(totaal, dagenInSeizoen(2027, grenzen).length);
+  assert.ok(planning.blokken.every((b) => b.van >= "2027-05-01" && b.tot <= "2027-08-31"));
+});
+
+test("seizoenFout keurt een onbruikbaar seizoen af en een goed seizoen goed", () => {
+  assert.equal(seizoenFout(2027, { start: "2027-04-01", eind: "2027-10-15" }), null);
+  assert.match(seizoenFout(2027, { start: "2027-10-01", eind: "2027-04-01" }) ?? "", /na het begin/);
+  assert.match(seizoenFout(2027, { start: "2026-04-01", eind: "2027-10-01" }) ?? "", /2027/);
+  // Woensdag tot en met zondag: geen hele week.
+  assert.match(seizoenFout(2027, { start: "2027-06-02", eind: "2027-06-06" }) ?? "", /hele week/);
+  assert.match(seizoenFout(2027, { start: "", eind: "2027-06-06" }) ?? "", /Vul/);
 });

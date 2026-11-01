@@ -24,9 +24,15 @@ export function formatDatum(iso: string): string {
   return `${Number(dag)} ${MAANDEN[Number(maand) - 1]} ${jaar}`;
 }
 
-/** Het seizoen waarin gevaren wordt. Weken lopen maandag tot en met zondag. */
-export const SEIZOEN_START_MAAND = 3; // maart
-export const SEIZOEN_EIND_MAAND = 10; // oktober
+/**
+ * Het seizoen waarin gevaren wordt, als je niets anders instelt: maart tot en met
+ * oktober. Op het seizoensscherm kun je per jaar een eigen begin en einde kiezen.
+ */
+export type SeizoenGrenzen = { start: string; eind: string };
+
+export function standaardSeizoen(jaar: number): SeizoenGrenzen {
+  return { start: `${jaar}-03-01`, eind: `${jaar}-10-31` };
+}
 
 function alsDatum(iso: string): Date {
   return new Date(`${iso}T00:00:00Z`);
@@ -65,20 +71,20 @@ export function maandagVanWeek(iso: string): string {
 }
 
 /**
- * Alle dagen van het seizoen: van de eerste maandag op of na 1 maart tot en met de
- * laatste zondag op of voor 31 oktober. Zo bestaat het seizoen altijd uit hele weken —
- * wat de even-onevenverdeling eenduidig maakt — en loopt het niet buiten de afgesproken
- * maanden. Het aantal weken verschilt daardoor per jaar, meestal 34 of 35.
+ * Alle dagen van het seizoen: van de eerste maandag op of na het begin tot en met de
+ * laatste zondag op of voor het einde. Zo bestaat het seizoen altijd uit hele weken --
+ * wat de even-onevenverdeling eenduidig maakt -- en loopt het nooit buiten de
+ * gekozen datums. Zonder grenzen is het maart tot en met oktober.
  */
-export function dagenInSeizoen(jaar: number): string[] {
-  const eersteMaart = `${jaar}-${String(SEIZOEN_START_MAAND).padStart(2, "0")}-01`;
-  let dag = maandagVanWeek(eersteMaart);
-  if (dag < eersteMaart) dag = plusDagen(dag, 7);
+export function dagenInSeizoen(
+  jaar: number,
+  grenzen: SeizoenGrenzen = standaardSeizoen(jaar),
+): string[] {
+  let dag = maandagVanWeek(grenzen.start);
+  if (dag < grenzen.start) dag = plusDagen(dag, 7);
 
-  const laatsteOktober = `${jaar}-${SEIZOEN_EIND_MAAND}-31`;
-  let laatsteZondag = plusDagen(maandagVanWeek(laatsteOktober), 6);
-  if (laatsteZondag > laatsteOktober)
-    laatsteZondag = plusDagen(laatsteZondag, -7);
+  let laatsteZondag = plusDagen(maandagVanWeek(grenzen.eind), 6);
+  if (laatsteZondag > grenzen.eind) laatsteZondag = plusDagen(laatsteZondag, -7);
 
   const dagen: string[] = [];
   while (dag <= laatsteZondag) {
@@ -86,6 +92,26 @@ export function dagenInSeizoen(jaar: number): string[] {
     dag = plusDagen(dag, 1);
   }
   return dagen;
+}
+
+/**
+ * Is dit een bruikbaar seizoen voor dit jaar? Beide datums in dat jaar, en minstens
+ * één hele week ertussen -- anders valt er niets te verdelen. Geeft de reden terug,
+ * of null als het goed is.
+ */
+export function seizoenFout(jaar: number, grenzen: SeizoenGrenzen): string | null {
+  const iso = /^\d{4}-\d{2}-\d{2}$/;
+  if (!iso.test(grenzen.start) || !iso.test(grenzen.eind)) {
+    return "Vul een begin- en einddatum in.";
+  }
+  if (!grenzen.start.startsWith(`${jaar}-`) || !grenzen.eind.startsWith(`${jaar}-`)) {
+    return `Begin en einde moeten allebei in ${jaar} vallen.`;
+  }
+  if (grenzen.eind <= grenzen.start) return "Het einde moet na het begin liggen.";
+  if (dagenInSeizoen(jaar, grenzen).length < 7) {
+    return "Daartussen past geen hele week (maandag tot en met zondag).";
+  }
+  return null;
 }
 
 const DAGNAMEN = [

@@ -1,4 +1,10 @@
-import { dagenInSeizoen, isoWeek, maandagVanWeek, plusDagen } from "./datum";
+import {
+  dagenInSeizoen,
+  isoWeek,
+  maandagVanWeek,
+  plusDagen,
+  type SeizoenGrenzen,
+} from "./datum";
 import { feestdagenIn, type FeestdagCode } from "./feestdagen";
 
 /**
@@ -39,6 +45,8 @@ export type Invoer = {
    * drie aaneengesloten zomerweken over het even-onevenpatroon heen.
    */
   overrides?: Record<string, { coupleId: number; naam?: string }>;
+  /** Eigen begin en einde van het seizoen; zonder is het maart tot en met oktober. */
+  grenzen?: SeizoenGrenzen;
 };
 
 export type Botsing = {
@@ -83,7 +91,7 @@ export function dagenVanFeestdag(van: string, tot: string): string[] {
 }
 
 export function maakSeizoensplanning(invoer: Invoer): Planning {
-  const dagen = dagenInSeizoen(invoer.jaar);
+  const dagen = dagenInSeizoen(invoer.jaar, invoer.grenzen);
   const inSeizoen = new Set(dagen);
 
   // 1. Basisregel: elke dag hoort bij de eigenaar van zijn ISO-week.

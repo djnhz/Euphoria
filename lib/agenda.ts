@@ -259,9 +259,14 @@ async function haalSeizoensAfspraken(
   const verbonden = await verbinding();
   if (!verbonden.ok) return { fout: verbonden.fout };
 
+  // Eigen afspraken van dit jaar zoeken we over het hele jaar, niet alleen binnen het
+  // seizoen: maak je het seizoen korter, dan staan er van een eerdere publicatie nog
+  // weken buiten de nieuwe grenzen, en die moeten óók weg. Ze dragen het merkteken van
+  // het jaar, dus breder zoeken raakt nooit iets anders. Alleen de telling van andere
+  // afspraken blijft beperkt tot het seizoen zelf.
   const query = new URLSearchParams({
-    timeMin: `${vanaf}T00:00:00Z`,
-    timeMax: `${volgendeDag(totEnMet)}T00:00:00Z`,
+    timeMin: `${jaar}-01-01T00:00:00Z`,
+    timeMax: `${jaar + 1}-01-01T00:00:00Z`,
     singleEvents: "true",
     maxResults: "2500",
   });
@@ -279,7 +284,10 @@ async function haalSeizoensAfspraken(
     if (eigen.bron === SEIZOEN_BRON && eigen.seizoen === String(jaar)) {
       vanSeizoen.push(item.id);
     } else {
-      overig++;
+      // Raakt deze afspraak het seizoen? Een dagafspraak eindigt op de dag erna.
+      const begin = item.start?.date;
+      const eind = item.end?.date;
+      if (!begin || !eind || (begin <= totEnMet && eind > vanaf)) overig++;
     }
   }
   return { vanSeizoen, overig };
