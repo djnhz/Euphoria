@@ -8,11 +8,17 @@ import { databaseUrl, PGLITE_MAP } from "./index";
  * gebeurd, dus dit is een grendel en geen waarschuwing.
  *
  * Met een echte DATABASE_URL speelt het niet: Postgres regelt meerdere schrijvers zelf.
+ *
+ * De standaardpoort moet gelijk blijven aan "port" in .claude/launch.json: dit script
+ * draait los van de dev-server en kent diens poort dus niet, behalve via die afspraak
+ * of een meegegeven PORT. Poort 3000 is bewust losgelaten -- te veel andere projecten
+ * gebruiken die ook, en dan ziet dit script "bezet" terwijl het een heel ander
+ * programma is.
  */
 export async function vereisGeenDraaiendeServer(): Promise<void> {
   if (databaseUrl()) return;
 
-  const poort = Number(process.env.PORT ?? 3000);
+  const poort = Number(process.env.PORT ?? 4100);
   if (!(await luistertIemand(poort))) return;
 
   console.error(

@@ -1,7 +1,17 @@
 // Geen `server-only` hier: dit bestand wordt ook door db/smoke.ts gedraaid, dat buiten
 // Next leeft. De barriere is `@/db` zelf, dat node-modules importeert en dus nooit in
 // een clientbundel past. De echte geheimen staan in lib/auth.ts, dat de guard wel heeft.
-import { and, asc, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gte,
+  inArray,
+  lte,
+  sql,
+  type SQL,
+} from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import {
   db,
@@ -20,6 +30,7 @@ import {
   type PostRegel,
 } from "./begroting";
 import { saldoCent, type SaldoRegel } from "./geld";
+import type { Deel } from "./kostenverdeling";
 import type { Sortering } from "./sorteren";
 
 /**
@@ -212,8 +223,7 @@ export type UitgaveFilter = {
 };
 
 /** De ORDER BY die bij een sortering hoort; het id erachter houdt hem stabiel. */
-function volgorde(sortering: Sortering) {
-  const totaal = sql`coalesce(sum(${expenseLines.bedragCent}), 0)`;
+function volgorde(sortering: Sortering, totaal: SQL) {
   switch (sortering) {
     case "datum-oud":
       return [asc(expenses.datum), asc(expenses.id)];
@@ -238,6 +248,21 @@ export async function uitgavenLijst(filter: UitgaveFilter = {}) {
     voorwaarden.push(eq(expenses.coupleId, filter.coupleId));
   }
 
+  // De post zit op regelniveau. Kies je een post, dan gaat het om de regels op die post
+  // (en bij een hoofdpost ook die van zijn subposten): een bon met een tuinslang en een
+  // keukenmesje hoort onder Exterieur alleen met de slang te staan, anders klopt het
+  // totaal hier niet met wat de begroting voor die post telt.
+  let postIds: number[] | undefined;
+  if (filter.postId !== undefined) {
+    const kinderen = await db
+      .select({ id: posten.id })
+      .from(posten)
+      .where(eq(posten.ouderId, filter.postId));
+    postIds = [filter.postId, ...kinderen.map((k) => k.id)];
+  }
+  const opPost = postIds ? inArray(expenseLines.postId, postIds) : sql`true`;
+  const totaal = sql`coalesce(sum(${expenseLines.bedragCent}) filter (where ${opPost}), 0)`;
+
   const rijen = await db
     .select({
       id: expenses.id,
@@ -249,49 +274,39 @@ export async function uitgavenLijst(filter: UitgaveFilter = {}) {
       coupleNaam: couples.naam,
       betaaldDoorA: sql<boolean>`${couples.volgorde} = 1`,
       invoerder: users.naam,
-      totaalCent: sql<number>`coalesce(sum(${expenseLines.bedragCent}), 0)::int`,
+      totaalCent: sql<number>`${totaal}::int`,
+      /** De hele bon, ook als de lijst op een post is gefilterd. */
+      bonTotaalCent: sql<number>`coalesce(sum(${expenseLines.bedragCent}), 0)::int`,
       regelCount: sql<number>`count(${expenseLines.id})::int`,
-      heeftBon: sql<boolean>`bool_or(${documents.id} is not null)`,
+      // Een subquery in plaats van een join: een bon met twee bijlagen telde anders elke
+      // regel dubbel mee.
+      heeftBon: sql<boolean>`exists (select 1 from ${documents} where ${documents.expenseId} = ${expenses.id})`,
     })
     .from(expenses)
     .innerJoin(couples, eq(expenses.coupleId, couples.id))
     .innerJoin(users, eq(expenses.userId, users.id))
     .leftJoin(expenseLines, eq(expenseLines.expenseId, expenses.id))
-    .leftJoin(documents, eq(documents.expenseId, expenses.id))
     .where(voorwaarden.length ? and(...voorwaarden) : undefined)
     .groupBy(expenses.id, couples.id, users.id)
-    .orderBy(...volgorde(filter.sortering ?? "datum-nieuw"));
+    // Alleen bonnen met minstens één regel op de gekozen post.
+    .having(
+      postIds
+        ? sql`count(*) filter (where ${opPost}) > 0`
+        : undefined,
+    )
+    .orderBy(...volgorde(filter.sortering ?? "datum-nieuw", totaal));
 
-  // De post zit op regelniveau; na het groeperen filteren houdt de query simpel. De
-  // sorteervolgorde blijft daarbij staan.
-  let gevonden = rijen;
-  if (filter.postId !== undefined) {
-    // Een hoofdpost betekent: ook alles wat op zijn subposten staat.
-    const kinderen = await db
-      .select({ id: posten.id })
-      .from(posten)
-      .where(eq(posten.ouderId, filter.postId));
-    const ids = [filter.postId, ...kinderen.map((k) => k.id)];
-
-    const metPost = new Set(
-      (
-        await db
-          .selectDistinct({ expenseId: expenseLines.expenseId })
-          .from(expenseLines)
-          .where(inArray(expenseLines.postId, ids))
-      ).map((r) => r.expenseId),
-    );
-    gevonden = gevonden.filter((r) => metPost.has(r.id));
-  }
-
-  return metHoofdpost(gevonden);
+  return metHoofdpost(rijen, postIds);
 }
 
 /**
  * Een uitgave kan regels op meerdere posten hebben. Voor het groeperen en voor het
  * label in de lijst telt de post waar het meeste geld naartoe ging.
  */
-async function metHoofdpost<T extends { id: number }>(rijen: T[]) {
+async function metHoofdpost<T extends { id: number }>(
+  rijen: T[],
+  postIds?: number[],
+) {
   const ids = rijen.map((r) => r.id);
   if (ids.length === 0) {
     return [] as (T & {
@@ -299,6 +314,7 @@ async function metHoofdpost<T extends { id: number }>(rijen: T[]) {
       postKleur: string;
       hoofdpost: string;
       hoofdpostKleur: string;
+      delen: Deel[];
     })[];
   }
 
@@ -315,7 +331,13 @@ async function metHoofdpost<T extends { id: number }>(rijen: T[]) {
     .from(expenseLines)
     .innerJoin(posten, eq(expenseLines.postId, posten.id))
     .leftJoin(ouder, eq(posten.ouderId, ouder.id))
-    .where(inArray(expenseLines.expenseId, ids))
+    .where(
+      and(
+        inArray(expenseLines.expenseId, ids),
+        // Gefilterd op een post telt alleen wat daarop staat, ook voor het label.
+        postIds ? inArray(expenseLines.postId, postIds) : undefined,
+      ),
+    )
     .groupBy(expenseLines.expenseId, posten.id, ouder.naam, ouder.kleur);
 
   const grootste = new Map<
@@ -333,12 +355,27 @@ async function metHoofdpost<T extends { id: number }>(rijen: T[]) {
     if (!huidig || rij.cent > huidig.cent) grootste.set(rij.expenseId, rij);
   }
 
+  const delenPerBon = new Map<number, Deel[]>();
+  for (const rij of perPost) {
+    const lijst = delenPerBon.get(rij.expenseId) ?? [];
+    lijst.push({
+      postNaam: rij.naam,
+      postKleur: rij.kleur,
+      hoofdpostNaam: rij.hoofdpost,
+      hoofdpostKleur: rij.hoofdpostKleur,
+      cent: rij.cent,
+    });
+    delenPerBon.set(rij.expenseId, lijst);
+  }
+
   return rijen.map((rij) => ({
     ...rij,
     post: grootste.get(rij.id)?.naam ?? "Zonder post",
     postKleur: grootste.get(rij.id)?.kleur ?? "#64748b",
     hoofdpost: grootste.get(rij.id)?.hoofdpost ?? "Zonder post",
     hoofdpostKleur: grootste.get(rij.id)?.hoofdpostKleur ?? "#64748b",
+    /** Waar het geld van deze bon naartoe ging, per post. */
+    delen: delenPerBon.get(rij.id) ?? [],
   }));
 }
 

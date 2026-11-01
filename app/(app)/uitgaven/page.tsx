@@ -11,6 +11,7 @@ import {
 } from "@/lib/data";
 import { isSortering } from "@/lib/sorteren";
 import { formatEuro } from "@/lib/geld";
+import { opgedeeld, perHoofdpost } from "@/lib/kostenverdeling";
 import { MAANDEN, formatDatum } from "@/lib/datum";
 import { HUISHOUDKLEUREN } from "@/lib/kleuren";
 import UitgaveFilters from "@/components/UitgaveFilters";
@@ -64,7 +65,14 @@ function groepsnaam(rij: Rij, groep: Groep): string {
 /** Groepen in de volgorde waarin de rijen binnenkomen; sorteren blijft zo leidend. */
 function groepeer(rijen: Rij[], groep: Groep) {
   const kaart = new Map<string, Rij[]>();
-  for (const rij of rijen) {
+  // Een bon met regels op twee posten staat bij "per post" in allebei de groepen, elk
+  // met zijn eigen bedrag; anders valt hij helemaal onder de grootste en kloppen de
+  // groepstotalen niet met de begroting.
+  const verdeeld =
+    groep === "post" || groep === "hoofdpost"
+      ? rijen.flatMap((rij) => opgedeeld(rij, groep))
+      : rijen;
+  for (const rij of verdeeld) {
     const naam = groepsnaam(rij, groep);
     kaart.set(naam, [...(kaart.get(naam) ?? []), rij]);
   }
@@ -221,18 +229,16 @@ export default async function UitgavenPagina({
  * kost meer ruimte en zegt minder.
  */
 function PerHoofdpost({ rijen, totaal }: { rijen: Rij[]; totaal: number }) {
-  // De kleur komt van de post zelf en niet van de plek in de rangschikking. Anders
-  // is Elektronica hier donkerblauw en op de begroting groen, en betekent kleur
-  // op het ene scherm iets anders dan op het andere.
-  const per = new Map<string, { cent: number; kleur: string }>();
-  for (const rij of rijen) {
-    const huidig = per.get(rij.hoofdpost);
-    per.set(rij.hoofdpost, {
-      cent: (huidig?.cent ?? 0) + rij.totaalCent,
-      kleur: rij.hoofdpostKleur,
-    });
-  }
-  const gesorteerd = [...per.entries()].sort((a, b) => b[1].cent - a[1].cent);
+  // Uit de regels zelf opgeteld, net als de begroting. De kleur komt van de post en
+  // niet van de plek in de rangschikking: anders is Elektronica hier donkerblauw en
+  // op de begroting groen, en betekent kleur op het ene scherm iets anders dan op het
+  // andere.
+  const gesorteerd = perHoofdpost(rijen).map(
+    (deel): [string, { cent: number; kleur: string }] => [
+      deel.naam,
+      { cent: deel.cent, kleur: deel.kleur },
+    ],
+  );
   if (gesorteerd.length < 2 || totaal === 0) return null;
 
   const top = gesorteerd.slice(0, 5);
@@ -380,6 +386,11 @@ function Lijst({
                 }`}
               >
                 {formatEuro(rij.totaalCent)}
+                {rij.bonTotaalCent !== rij.totaalCent && (
+                  <span className="block text-[10.5px] font-normal text-gedempt">
+                    van {formatEuro(rij.bonTotaalCent)}
+                  </span>
+                )}
               </span>
             </Link>
           </li>
