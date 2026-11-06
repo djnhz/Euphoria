@@ -52,6 +52,19 @@ export default async function DocumentenScherm({
     .sort((a, b) => a.naam.localeCompare(b.naam, "nl"));
   const pad = mapId === null ? [] : kruimelpad(mapId, alle);
 
+  // Alle mappen als boom, op volgorde van boven naar beneden: de keuzelijst bij
+  // "Verplaatsen" laat ze ingesprongen zien, net zoals je er doorheen klikt.
+  const boom: { id: number; naam: string; diepte: number }[] = [];
+  const voegToe = (ouderId: number | null, diepte: number) => {
+    for (const map of alle
+      .filter((m) => m.ouderId === ouderId)
+      .sort((a, b) => a.naam.localeCompare(b.naam, "nl"))) {
+      boom.push({ id: map.id, naam: map.naam, diepte });
+      voegToe(map.id, diepte + 1);
+    }
+  };
+  voegToe(null, 0);
+
   return (
     <>
       <Schermkop
@@ -95,6 +108,8 @@ export default async function DocumentenScherm({
 
         <DocumentUpload heeftBlob={heeftBlob()} mapId={mapId} />
         <DocumentLijst
+          mapId={mapId}
+          mappen={boom}
           rijen={rijen.map((rij) => ({
             ...rij,
             geuploadOp: rij.geuploadOp.toISOString(),

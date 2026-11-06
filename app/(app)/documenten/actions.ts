@@ -7,7 +7,7 @@ import { z } from "zod";
 import { db, documents } from "@/db";
 import { vereisGebruiker } from "@/lib/auth";
 import { maakVoorbeeld } from "@/lib/receipt";
-import { maakMap, hernoemMap, verwijderMap } from "@/lib/mappen";
+import { maakMap, hernoemMap, verwijderMap, haalMap } from "@/lib/mappen";
 
 const DocumentInvoer = z.object({
   url: z.string().min(1).max(2000),
@@ -54,9 +54,8 @@ export async function registreerDocumentAction(
   revalidatePath("/documenten");
 }
 
-export async function verwijderDocumentAction(formData: FormData) {
+export async function verwijderDocumentAction(id: number) {
   await vereisGebruiker();
-  const id = Number(formData.get("id"));
   if (!Number.isInteger(id)) return;
 
   const [rij] = await db.select().from(documents).where(eq(documents.id, id));
@@ -70,7 +69,24 @@ export async function verwijderDocumentAction(formData: FormData) {
   );
   await Promise.allSettled(teVerwijderen.map((url) => verwijderBestand(url)));
 
-  revalidatePath("/documenten");
+  revalidatePath("/documenten", "layout");
+}
+
+/** Een document naar een andere map, of naar het bovenste niveau met `mapId: null`. */
+export async function verplaatsDocumentAction(
+  id: number,
+  mapId: number | null,
+): Promise<MapState> {
+  await vereisGebruiker();
+  if (!Number.isInteger(id)) return { fout: "Onbekend document." };
+  if (mapId !== null) {
+    if (!Number.isInteger(mapId) || !(await haalMap(mapId))) {
+      return { fout: "Die map bestaat niet meer." };
+    }
+  }
+  await db.update(documents).set({ mapId }).where(eq(documents.id, id));
+  revalidatePath("/documenten", "layout");
+  return null;
 }
 
 export type MapState = { fout: string } | null;
