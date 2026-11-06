@@ -199,20 +199,11 @@ export function totaalBegroot(post: MetSubposten): number | null {
 }
 
 /**
- * Hoeveel maanden van een jaar er verstreken zijn, voor "gerealiseerd per maand". Een
- * voorbij jaar telt 12, een jaar dat nog moet komen 0, en het lopende jaar de maanden
- * die begonnen zijn: in november 11. Delen door 12 zou halverwege het jaar een veel te
- * laag maandbedrag geven.
+ * Per huishouden per maand: kosten gaan half om half, verdeeld over het hele jaar.
+ * Ook voor wat er al besteed is altijd door twaalf, niet door de maanden die voorbij
+ * zijn: bootkosten vallen grotendeels in het voorjaar, en zo vergelijk je het direct
+ * met het begrote bedrag per maand.
  */
-export function verstrekenMaanden(jaar: number, vandaag: string): number {
-  const nuJaar = Number(vandaag.slice(0, 4));
-  if (jaar < nuJaar) return 12;
-  if (jaar > nuJaar) return 0;
-  return Number(vandaag.slice(5, 7));
-}
-
-/** Per huishouden per maand: kosten gaan half om half. Null als er niets te delen valt. */
-export function perStelPerMaand(cent: number, maanden: number): number | null {
-  if (maanden <= 0) return null;
-  return Math.round(cent / 2 / maanden);
+export function perStelPerMaand(cent: number): number {
+  return Math.round(cent / 2 / 12);
 }

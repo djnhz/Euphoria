@@ -1,7 +1,7 @@
 import path from "node:path";
 import PDFDocument from "pdfkit";
 import type { BegrotingsPost } from "./begroting";
-import { perStelPerMaand, verstrekenMaanden } from "./begroting";
+import { perStelPerMaand } from "./begroting";
 import {
   overzichtRegels,
   overzichtTotalen,
@@ -118,7 +118,6 @@ export function tekenBegrotingPdf(
 ): Promise<Buffer> {
   const regels = overzichtRegels(posten);
   const { begrootCent, besteedCent } = overzichtTotalen(posten);
-  const maanden = verstrekenMaanden(jaar, vandaagIso);
   const gemaakt = formatDatum(vandaagIso);
 
   const doc = new PDFDocument({
@@ -195,9 +194,7 @@ export function tekenBegrotingPdf(
   y += 20;
 
   const over = begrootCent - besteedCent;
-  const metUitleg = maanden > 0 && maanden < 12;
-  const tegelHoogte =
-    begrootCent > 0 || besteedCent > 0 ? (metUitleg ? 198 : 184) : 86;
+  const tegelHoogte = begrootCent > 0 || besteedCent > 0 ? 184 : 86;
   doc.roundedRect(MARGE, y, BREEDTE, tegelHoogte, 14).fill(K.inkt);
   const tx = MARGE + 20;
   const tb = BREEDTE - 40;
@@ -260,8 +257,8 @@ export function tekenBegrotingPdf(
       ],
       [
         "Per stel per maand",
-        begrootCent > 0 ? bedrag(perStelPerMaand(begrootCent, 12)) : "—",
-        bedrag(perStelPerMaand(besteedCent, maanden)),
+        begrootCent > 0 ? formatEuro(perStelPerMaand(begrootCent)) : "—",
+        formatEuro(perStelPerMaand(besteedCent)),
         K.messing,
       ],
     ];
@@ -279,18 +276,6 @@ export function tekenBegrotingPdf(
         .text(a, kolA, ry, { lineBreak: false })
         .text(b, kolB, ry, { lineBreak: false });
     });
-    if (metUitleg) {
-      doc
-        .font("tekst")
-        .fontSize(7)
-        .fillColor(K.linnen65)
-        .text(
-          `Gerealiseerd per maand: gemiddelde over de ${maanden} ${maanden === 1 ? "maand" : "maanden"} van ${jaar} tot nu.`,
-          tx,
-          ly + 76,
-          { lineBreak: false },
-        );
-    }
   }
   y += tegelHoogte + 22;
 

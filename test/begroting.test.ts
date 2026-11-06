@@ -2,7 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   perStelPerMaand,
-  verstrekenMaanden,
   bedragVanPost,
   bouwBoom,
   heeftRegels,
@@ -251,17 +250,9 @@ test("regels tellen op, en een half getypte regel telt als nul", () => {
 
 // --- Per stel per maand --------------------------------------------------------------
 
-test("verstrekenMaanden: voorbij jaar 12, toekomstig jaar 0, lopend jaar de begonnen maanden", () => {
-  assert.equal(verstrekenMaanden(2025, "2026-11-06"), 12);
-  assert.equal(verstrekenMaanden(2027, "2026-11-06"), 0);
-  assert.equal(verstrekenMaanden(2026, "2026-11-06"), 11);
-  assert.equal(verstrekenMaanden(2026, "2026-01-01"), 1);
-});
-
-test("perStelPerMaand deelt door twee huishoudens en het aantal maanden", () => {
+test("perStelPerMaand deelt door twee huishoudens en twaalf maanden", () => {
   // De stand uit het scherm: 5.476,91 begroot is 228,20 per stel per maand.
-  assert.equal(perStelPerMaand(547691, 12), 22820);
-  // 4.267,77 besteed in elf maanden.
-  assert.equal(perStelPerMaand(426777, 11), 19399);
-  assert.equal(perStelPerMaand(10000, 0), null);
+  assert.equal(perStelPerMaand(547691), 22820);
+  // Ook wat al besteed is gaat door twaalf, hoe ver het jaar ook is.
+  assert.equal(perStelPerMaand(426777), 17782);
 });

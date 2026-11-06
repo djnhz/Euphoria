@@ -68,12 +68,9 @@ function useBreed(): boolean {
 export default function BegrotingScherm({
   jaar,
   posten,
-  maanden,
 }: {
   jaar: number;
   posten: BegrotingsPost[];
-  /** Verstreken maanden van dit jaar, voor het gerealiseerde bedrag per maand. */
-  maanden: number;
 }) {
   const alle = useMemo(() => plat(posten), [posten]);
   const breed = useBreed();
@@ -452,8 +449,6 @@ export default function BegrotingScherm({
           <Stand
             begroot={totalen.begroot}
             besteed={totalen.besteed}
-            jaar={jaar}
-            maanden={maanden}
           />
 
           <PostLijst
@@ -533,13 +528,9 @@ export default function BegrotingScherm({
 function Stand({
   begroot,
   besteed,
-  jaar,
-  maanden,
 }: {
   begroot: number;
   besteed: number;
-  jaar: number;
-  maanden: number;
 }) {
   const verschil = besteed - begroot;
   const over = verschil > 0;
@@ -548,8 +539,8 @@ function Stand({
     begroot > 0 && besteed > begroot
       ? Math.min(0.4, (besteed - begroot) / besteed)
       : 0;
-  const begrootPerMaand = perStelPerMaand(begroot, 12);
-  const besteedPerMaand = perStelPerMaand(besteed, maanden);
+  const begrootPerMaand = perStelPerMaand(begroot);
+  const besteedPerMaand = perStelPerMaand(besteed);
 
   return (
     <section className="rounded-2xl bg-inkt p-4 text-linnen lg:p-[18px]">
@@ -578,9 +569,8 @@ function Stand({
       )}
 
       {/* Begroot en gerealiseerd naast elkaar, als totaal en per huishouden per maand.
-          Begroot per maand is het jaarbedrag gedeeld door twaalf; gerealiseerd per
-          maand is het gemiddelde over de maanden die al voorbij zijn, zodat je je
-          echte tempo vergelijkt met wat je had afgesproken. */}
+          Allebei door twaalf gedeeld: dan loopt gerealiseerd per maand op naar het
+          begrote bedrag en zie je meteen hoeveel ruimte er nog is. */}
       {(begroot > 0 || besteed > 0) && (
         <div className="mt-3.5 border-t border-linnen/15 pt-3">
           <table className="w-full table-fixed text-left">
@@ -610,22 +600,14 @@ function Stand({
                   Per stel per maand
                 </th>
                 <td className="py-0.5 text-[14px] whitespace-nowrap sm:text-[15px] text-messing">
-                  {begrootPerMaand !== null && begroot > 0
-                    ? formatEuro(begrootPerMaand)
-                    : "—"}
+                  {begroot > 0 ? formatEuro(begrootPerMaand) : "—"}
                 </td>
                 <td className="py-0.5 text-[14px] whitespace-nowrap sm:text-[15px] text-messing">
-                  {besteedPerMaand !== null ? formatEuro(besteedPerMaand) : "—"}
+                  {formatEuro(besteedPerMaand)}
                 </td>
               </tr>
             </tbody>
           </table>
-          {maanden > 0 && maanden < 12 && (
-            <p className="mt-1.5 text-[10.5px] text-linnen/65 text-pretty">
-              Gerealiseerd per maand: gemiddelde over de {maanden}{" "}
-              {maanden === 1 ? "maand" : "maanden"} van {jaar} tot nu.
-            </p>
-          )}
         </div>
       )}
     </section>
