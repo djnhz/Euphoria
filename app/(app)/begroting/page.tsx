@@ -1,6 +1,8 @@
 import { vereisGebruiker } from "@/lib/auth";
 import { begroteJaren, beschikbareJaren, begroting } from "@/lib/data";
 import BegrotingScherm from "@/components/BegrotingScherm";
+import { verstrekenMaanden } from "@/lib/begroting";
+import { vandaag } from "@/lib/datum";
 import JaarKiezer from "@/components/JaarKiezer";
 import { Schermbody, Schermkop, Segment } from "@/components/Scherm";
 import { KOSTEN_TABS } from "@/components/kostenTabs";
@@ -36,7 +38,11 @@ export default async function BegrotingPagina({
         tabs={<Segment items={KOSTEN_TABS} actief="/begroting" />}
       />
       <Schermbody>
-        <BegrotingScherm jaar={jaar} posten={posten} />
+        <BegrotingScherm
+          jaar={jaar}
+          posten={posten}
+          maanden={verstrekenMaanden(jaar, vandaag())}
+        />
       </Schermbody>
     </>
   );

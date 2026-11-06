@@ -16,6 +16,7 @@ import { formatEuro, parseEuro } from "@/lib/geld";
 import {
   begrootVanOntwerp,
   ontwerpVan,
+  perStelPerMaand,
   type BegrotingsPost,
   type PostOntwerp,
 } from "@/lib/begroting";
@@ -67,9 +68,12 @@ function useBreed(): boolean {
 export default function BegrotingScherm({
   jaar,
   posten,
+  maanden,
 }: {
   jaar: number;
   posten: BegrotingsPost[];
+  /** Verstreken maanden van dit jaar, voor het gerealiseerde bedrag per maand. */
+  maanden: number;
 }) {
   const alle = useMemo(() => plat(posten), [posten]);
   const breed = useBreed();
@@ -445,7 +449,12 @@ export default function BegrotingScherm({
     <>
       <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[380px_minmax(0,1fr)] lg:items-start lg:gap-5">
         <div className="flex min-w-0 flex-col gap-4">
-          <Stand begroot={totalen.begroot} besteed={totalen.besteed} />
+          <Stand
+            begroot={totalen.begroot}
+            besteed={totalen.besteed}
+            jaar={jaar}
+            maanden={maanden}
+          />
 
           <PostLijst
             jaar={jaar}
@@ -521,7 +530,17 @@ export default function BegrotingScherm({
 }
 
 /** Het donkere blok bovenaan: staan we boven of onder de begroting? */
-function Stand({ begroot, besteed }: { begroot: number; besteed: number }) {
+function Stand({
+  begroot,
+  besteed,
+  jaar,
+  maanden,
+}: {
+  begroot: number;
+  besteed: number;
+  jaar: number;
+  maanden: number;
+}) {
   const verschil = besteed - begroot;
   const over = verschil > 0;
   const deel = begroot > 0 ? Math.min(1, besteed / begroot) : 0;
@@ -529,6 +548,8 @@ function Stand({ begroot, besteed }: { begroot: number; besteed: number }) {
     begroot > 0 && besteed > begroot
       ? Math.min(0.4, (besteed - begroot) / besteed)
       : 0;
+  const begrootPerMaand = perStelPerMaand(begroot, 12);
+  const besteedPerMaand = perStelPerMaand(besteed, maanden);
 
   return (
     <section className="rounded-2xl bg-inkt p-4 text-linnen lg:p-[18px]">
@@ -550,33 +571,62 @@ function Stand({ begroot, besteed }: { begroot: number; besteed: number }) {
           style={{ width: `${teveel * 100}%`, background: "var(--messing)" }}
         />
       </div>
-      <div className="cijfers mt-2 flex justify-between gap-3 text-[11px] text-linnen/65">
-        <span className="truncate">besteed {formatEuro(besteed)}</span>
-        {begroot > 0 && (
-          <span className="shrink-0">
-            {Math.round((besteed / begroot) * 100)}% van de begroting
-          </span>
-        )}
-      </div>
-
-      {/* Wat het jaar kost, en wat dat per huishouden per maand betekent: kosten gaan
-          half om half, dus het totaal gedeeld door twee en door twaalf. Zo kun je
-          een vast maandbedrag afspreken. */}
       {begroot > 0 && (
-        <dl className="mt-3.5 grid grid-cols-2 gap-3 border-t border-linnen/15 pt-3">
-          <div className="min-w-0">
-            <dt className="bovenschrift !text-linnen/65">Totaal begroot</dt>
-            <dd className="cijfers mt-0.5 truncate text-[17px]">
-              {formatEuro(begroot)}
-            </dd>
-          </div>
-          <div className="min-w-0">
-            <dt className="bovenschrift !text-linnen/65">Per stel per maand</dt>
-            <dd className="cijfers mt-0.5 truncate text-[17px] text-messing">
-              {formatEuro(Math.round(begroot / 2 / 12))}
-            </dd>
-          </div>
-        </dl>
+        <div className="cijfers mt-2 text-[11px] text-linnen/65">
+          {Math.round((besteed / begroot) * 100)}% van de begroting besteed
+        </div>
+      )}
+
+      {/* Begroot en gerealiseerd naast elkaar, als totaal en per huishouden per maand.
+          Begroot per maand is het jaarbedrag gedeeld door twaalf; gerealiseerd per
+          maand is het gemiddelde over de maanden die al voorbij zijn, zodat je je
+          echte tempo vergelijkt met wat je had afgesproken. */}
+      {(begroot > 0 || besteed > 0) && (
+        <div className="mt-3.5 border-t border-linnen/15 pt-3">
+          <table className="w-full table-fixed text-left">
+            <thead>
+              <tr className="bovenschrift !text-linnen/65">
+                <th className="w-[30%] pb-1 font-normal sm:w-[36%]">
+                  <span className="sr-only">Soort</span>
+                </th>
+                <th className="pb-1 font-normal">Begroot</th>
+                <th className="pb-1 font-normal">Gerealiseerd</th>
+              </tr>
+            </thead>
+            <tbody className="cijfers">
+              <tr>
+                <th className="py-0.5 text-[11.5px] font-normal text-linnen/65">
+                  Totaal
+                </th>
+                <td className="py-0.5 text-[14px] whitespace-nowrap sm:text-[15px]">
+                  {begroot > 0 ? formatEuro(begroot) : "—"}
+                </td>
+                <td className="py-0.5 text-[14px] whitespace-nowrap sm:text-[15px]">
+                  {formatEuro(besteed)}
+                </td>
+              </tr>
+              <tr>
+                <th className="py-0.5 text-[11.5px] leading-tight font-normal text-linnen/65">
+                  Per stel per maand
+                </th>
+                <td className="py-0.5 text-[14px] whitespace-nowrap sm:text-[15px] text-messing">
+                  {begrootPerMaand !== null && begroot > 0
+                    ? formatEuro(begrootPerMaand)
+                    : "—"}
+                </td>
+                <td className="py-0.5 text-[14px] whitespace-nowrap sm:text-[15px] text-messing">
+                  {besteedPerMaand !== null ? formatEuro(besteedPerMaand) : "—"}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          {maanden > 0 && maanden < 12 && (
+            <p className="mt-1.5 text-[10.5px] text-linnen/65 text-pretty">
+              Gerealiseerd per maand: gemiddelde over de {maanden}{" "}
+              {maanden === 1 ? "maand" : "maanden"} van {jaar} tot nu.
+            </p>
+          )}
+        </div>
       )}
     </section>
   );
