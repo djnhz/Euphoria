@@ -4,6 +4,7 @@ import BegrotingScherm from "@/components/BegrotingScherm";
 import { verstrekenMaanden } from "@/lib/begroting";
 import { vandaag } from "@/lib/datum";
 import JaarKiezer from "@/components/JaarKiezer";
+import BegrotingPdfKnop from "@/components/BegrotingPdfKnop";
 import { Schermbody, Schermkop, Segment } from "@/components/Scherm";
 import { KOSTEN_TABS } from "@/components/kostenTabs";
 
@@ -34,7 +35,12 @@ export default async function BegrotingPagina({
       <Schermkop
         titel="Begroting"
         onderschrift="per jaar, inclusief btw"
-        rechts={<JaarKiezer jaren={jaren} huidig={jaar} />}
+        rechts={
+          <div className="flex items-center gap-2">
+            <BegrotingPdfKnop jaar={jaar} />
+            <JaarKiezer jaren={jaren} huidig={jaar} />
+          </div>
+        }
         tabs={<Segment items={KOSTEN_TABS} actief="/begroting" />}
       />
       <Schermbody>

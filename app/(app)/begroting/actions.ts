@@ -14,6 +14,7 @@ import {
 import { db, budgets, expenseLines, expenses, posten } from "@/db";
 import { vereisGebruiker } from "@/lib/auth";
 import { parseEuro } from "@/lib/geld";
+import { begrotingPdf } from "@/lib/begrotingpdf";
 
 export type BegrotingState = {
   fout?: string;
@@ -422,4 +423,25 @@ export async function neemVorigJaarOverAction(
   revalidatePath("/begroting");
   revalidatePath("/");
   return { gelukt: `Overgenomen uit ${jaar - 1}.` };
+}
+
+/**
+ * De begroting van een jaar als PDF. Een server-actie in plaats van een losse route:
+ * dan hoort hij bij dezelfde pagina en dezelfde inlogcontrole als de rest van de
+ * begroting. Het bestand gaat als base64 terug; de knop maakt er een download van.
+ */
+export async function exporteerPdfAction(
+  jaar: number,
+): Promise<{ naam: string; base64: string } | { fout: string }> {
+  await vereisGebruiker();
+  if (!Number.isInteger(jaar) || jaar < 2000 || jaar > 2100) {
+    return { fout: "Ongeldig jaar." };
+  }
+  try {
+    const pdf = await begrotingPdf(jaar);
+    return { naam: `Begroting ${jaar}.pdf`, base64: pdf.toString("base64") };
+  } catch (fout) {
+    console.error("PDF van de begroting mislukt:", fout);
+    return { fout: "De PDF kon niet worden gemaakt. Probeer het nog eens." };
+  }
 }

@@ -14,6 +14,9 @@
     "db:migreer": "tsx db/migreer.ts"
   },
   "dependencies": {
+    "@fontsource/archivo": "^5.3.0",
+    "@fontsource/newsreader": "^5.3.0",
+    "@ibm/plex-mono": "^2.5.0",
     "@neondatabase/serverless": "^1.1.0",
     "@types/web-push": "^3.6.4",
     "@vercel/blob": "^2.8.0",
@@ -24,6 +27,7 @@
     "next": "^16.3.8",
     "openai": "^7.8.0",
     "pdfjs-dist": "^6.3.289",
+    "pdfkit": "^0.20.2",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "server-only": "^0.0.1",
@@ -35,6 +39,7 @@
     "@electric-sql/pglite": "^0.5.8",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/pdfkit": "^0.17.7",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "dotenv": "^17.4.2",
