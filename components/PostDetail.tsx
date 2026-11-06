@@ -45,6 +45,7 @@ export default function PostDetail({
   status,
   voegSubToe,
   verwijder,
+  haalUitJaar,
   terug,
 }: {
   post: BegrotingsPost;
@@ -56,6 +57,8 @@ export default function PostDetail({
   status: { bezig: boolean; fout: string | null; melding: string | null };
   voegSubToe: (naam: string, bedrag: string) => Promise<void>;
   verwijder: (postId: number) => Promise<void>;
+  /** Alleen uit de begroting van dit jaar; de post blijft voor andere jaren bestaan. */
+  haalUitJaar: (postId: number) => Promise<void>;
   /** Alleen op een telefoon: de weg terug naar de lijst. */
   terug?: () => void;
 }) {
@@ -286,17 +289,41 @@ export default function PostDetail({
               (status.melding ?? "Wijzigingen worden vanzelf opgeslagen.")
             )}
           </span>
-          <button
-            type="button"
-            onClick={() => {
-              if (confirm(`"${ontwerp.naam}" verwijderen?`)) {
-                void verwijder(post.id);
-              }
-            }}
-            className="min-h-11 shrink-0 text-[12.5px] text-slecht underline lg:min-h-0"
-          >
-            Post verwijderen…
-          </button>
+          {/* Een post geldt voor alle jaren. Wat je bij een nieuw jaar meestal wilt is
+              hem dit jaar niet meer begroten; helemaal weghalen kan alleen als er
+              nergens bonnen op staan, en is daarom de rustigere knop. */}
+          <div className="flex shrink-0 flex-wrap items-center gap-x-4">
+            <button
+              type="button"
+              onClick={() => {
+                if (
+                  confirm(
+                    `"${ontwerp.naam}" uit de begroting van ${jaar} halen? In andere jaren blijft hij staan.`,
+                  )
+                ) {
+                  void haalUitJaar(post.id);
+                }
+              }}
+              className="min-h-11 text-[12.5px] text-slecht underline lg:min-h-0"
+            >
+              Uit begroting {jaar} halen…
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (
+                  confirm(
+                    `"${ontwerp.naam}" helemaal verwijderen, uit alle jaren? Dat kan alleen als er nergens bonnen op staan.`,
+                  )
+                ) {
+                  void verwijder(post.id);
+                }
+              }}
+              className="min-h-11 text-[12.5px] text-gedempt underline lg:min-h-0"
+            >
+              Helemaal verwijderen…
+            </button>
+          </div>
         </div>
       </div>
     </div>

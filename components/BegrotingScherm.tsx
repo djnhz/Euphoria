@@ -24,6 +24,7 @@ import {
   neemVorigJaarOverAction,
   nieuwePostAction,
   verwijderPostAction,
+  haalUitBegrotingAction,
   zetBedragAction,
 } from "@/app/(app)/begroting/actions";
 
@@ -277,6 +278,17 @@ export default function BegrotingScherm({
     zetStatus({ bezig: false, fout: null, melding: uitkomst?.gelukt ?? null });
   }
 
+  async function haalUitJaar(postId: number) {
+    await leegMaken();
+    zetStatus({ bezig: true, fout: null, melding: null });
+    const uitkomst = await haalUitBegrotingAction(jaar, postId);
+    zetStatus({
+      bezig: false,
+      fout: uitkomst?.fout ?? null,
+      melding: uitkomst?.gelukt ?? null,
+    });
+  }
+
   async function neemOver() {
     await leegMaken();
     zetStatus({ bezig: true, fout: null, melding: null });
@@ -405,6 +417,7 @@ export default function BegrotingScherm({
           zetGekozenId(gekozen.id);
         }}
         verwijder={verwijder}
+        haalUitJaar={haalUitJaar}
         terug={breed ? undefined : () => zetMobielOpen(false)}
       />
     ) : null;

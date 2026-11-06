@@ -1,8 +1,17 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, count, eq, isNotNull, isNull } from "drizzle-orm";
-import { db, budgets, expenseLines, posten } from "@/db";
+import {
+  and,
+  count,
+  eq,
+  gte,
+  inArray,
+  isNotNull,
+  isNull,
+  lte,
+} from "drizzle-orm";
+import { db, budgets, expenseLines, expenses, posten } from "@/db";
 import { vereisGebruiker } from "@/lib/auth";
 import { parseEuro } from "@/lib/geld";
 
@@ -294,7 +303,7 @@ export async function verwijderPostAction(id: number): Promise<BegrotingState> {
   if (telling.aantal > 0) {
     const aantal = telling.aantal;
     return {
-      fout: `Er ${aantal === 1 ? "staat" : "staan"} ${aantal} bonregel${aantal === 1 ? "" : "s"} op ${post.naam}. Zet die eerst op een andere post, of vink hem uit zodat hij niet meer te kiezen is.`,
+      fout: `${post.naam} kan niet helemaal weg: er ${aantal === 1 ? "staat" : "staan"} ${aantal} bonregel${aantal === 1 ? "" : "s"} op, en een post geldt voor alle jaren. Wil je hem alleen niet meer in dit jaar, kies dan "Uit begroting halen".`,
     };
   }
 
@@ -304,6 +313,65 @@ export async function verwijderPostAction(id: number): Promise<BegrotingState> {
   revalidatePath("/uitgaven");
   revalidatePath("/");
   return { gelukt: `${post.naam} verwijderd.` };
+}
+
+/**
+ * Een post uit de begroting van één jaar halen. Een post geldt voor alle jaren --
+ * "verwijderen" gooit hem ook weg uit jaren waarin al bonnen op staan. Wat je bij een
+ * nieuw jaar meestal bedoelt is: dit jaar niet meer begroten. Dat zijn de bedragen en
+ * regels van dat jaar, ook die van zijn subposten; de post zelf en de bonnen in
+ * andere jaren blijven staan.
+ */
+export async function haalUitBegrotingAction(
+  jaar: number,
+  id: number,
+): Promise<BegrotingState> {
+  await vereisGebruiker();
+
+  if (!Number.isInteger(jaar) || jaar < 2000 || jaar > 2100) {
+    return { fout: "Ongeldig jaar." };
+  }
+  if (!Number.isInteger(id)) return { fout: "Onbekende post." };
+
+  const [post] = await db
+    .select({ naam: posten.naam })
+    .from(posten)
+    .where(eq(posten.id, id));
+  if (!post) return { fout: "Die post bestaat niet meer." };
+
+  const kinderen = await db
+    .select({ id: posten.id })
+    .from(posten)
+    .where(eq(posten.ouderId, id));
+  const ids = [id, ...kinderen.map((k) => k.id)];
+
+  await db
+    .delete(budgets)
+    .where(and(eq(budgets.jaar, jaar), inArray(budgets.postId, ids)));
+
+  // Staan er in dit jaar bonnen op, dan blijft hij in de lijst -- anders zou je niet
+  // meer zien waar dat geld heen ging. Dat zeggen we erbij, want anders lijkt het
+  // alsof het weghalen niet gelukt is.
+  const [geboekt] = await db
+    .select({ aantal: count() })
+    .from(expenseLines)
+    .innerJoin(expenses, eq(expenseLines.expenseId, expenses.id))
+    .where(
+      and(
+        inArray(expenseLines.postId, ids),
+        gte(expenses.datum, `${jaar}-01-01`),
+        lte(expenses.datum, `${jaar}-12-31`),
+      ),
+    );
+
+  revalidatePath("/begroting");
+  revalidatePath("/");
+  return {
+    gelukt:
+      geboekt.aantal > 0
+        ? `${post.naam} staat niet meer begroot voor ${jaar}. Hij blijft in de lijst omdat er in ${jaar} bonnen op geboekt zijn.`
+        : `${post.naam} is uit de begroting van ${jaar} gehaald. In andere jaren blijft hij staan.`,
+  };
 }
 
 /** Vorig jaar als startpunt overnemen; bestaande bedragen blijven staan. */
