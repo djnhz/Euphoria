@@ -39,11 +39,20 @@ function verbind(): Db {
   const { drizzle: drizzlePglite } = laad(
     "drizzle-orm/pglite",
   ) as typeof import("drizzle-orm/pglite");
-  console.warn(
-    `[db] Geen DATABASE_URL — lokale PGlite in ${PGLITE_MAP}. Alleen voor ontwikkeling.`,
-  );
+  // Eén PGlite per proces, niet per module. Next bundelt pagina's en route handlers
+  // (zoals /api/document) apart, elk met een eigen kopie van dit bestand. Kreeg elk
+  // daarvan een eigen PGlite op dezelfde map, dan zag de route nieuwe rijen niet en
+  // schreven twee databases door elkaar heen in één map -- tot hij "Aborted()" gaf.
+  // Op globalThis staat hij één keer voor alle bundels, en ook na een hot reload.
+  const gedeeld = globalThis as { __euphoriaPglite?: InstanceType<typeof PGlite> };
+  if (!gedeeld.__euphoriaPglite) {
+    console.warn(
+      `[db] Geen DATABASE_URL — lokale PGlite in ${PGLITE_MAP}. Alleen voor ontwikkeling.`,
+    );
+    gedeeld.__euphoriaPglite = new PGlite(PGLITE_MAP);
+  }
   // Beide drivers delen dezelfde PgDatabase-querybouwer; alleen het transport verschilt.
-  verbinding = drizzlePglite(new PGlite(PGLITE_MAP), { schema }) as unknown as Db;
+  verbinding = drizzlePglite(gedeeld.__euphoriaPglite, { schema }) as unknown as Db;
   return verbinding;
 }
 
