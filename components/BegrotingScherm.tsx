@@ -324,9 +324,16 @@ export default function BegrotingScherm({
   const heeftGebruikte = posten.some((post) => post.inGebruik);
   // Een jaar waarin nog niets staat zou anders leeg blijven zonder weg vooruit.
   const allesTonen = toonAlles || !heeftGebruikte;
-  const zichtbaar = allesTonen
-    ? posten
-    : posten.filter((post) => post.inGebruik || vers.includes(post.id));
+  // Subposten volgen dezelfde regel als hoofdposten: alleen wat dit jaar begroot of
+  // besteed is, of wat je net hebt aangemaakt. Anders bleef een subpost die je uit
+  // de begroting van dit jaar haalde gewoon onder zijn hoofdpost staan.
+  const subZichtbaar = (sub: BegrotingsPost) =>
+    allesTonen || sub.inGebruik || vers.includes(sub.id);
+  const zichtbaar = (
+    allesTonen
+      ? posten
+      : posten.filter((post) => post.inGebruik || vers.includes(post.id))
+  ).map((post) => ({ ...post, subposten: post.subposten.filter(subZichtbaar) }));
 
   const rijen: LijstRij[] = zichtbaar.map((post) => ({
     id: post.id,
@@ -370,7 +377,10 @@ export default function BegrotingScherm({
       (post) => post.id === id || post.subposten.some((sub) => sub.id === id),
     );
   const getoondId = inLijst(gekozenId) ? gekozenId : (zichtbaar[0]?.id ?? null);
-  const gekozen = alle.find((post) => post.id === getoondId) ?? null;
+  const gekozen =
+    zichtbaar.find((post) => post.id === getoondId) ??
+    alle.find((post) => post.id === getoondId) ??
+    null;
   const hoofdpostVan =
     gekozen?.ouderId != null
       ? (posten.find((post) => post.id === gekozen.ouderId) ?? null)
