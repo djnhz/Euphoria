@@ -361,7 +361,16 @@ export default function BegrotingScherm({
     return { begroot: iets ? begroot : 0, besteed };
   }, [alle, ontwerpen]);
 
-  const gekozen = alle.find((post) => post.id === gekozenId) ?? null;
+  // Rechts hoort een post te staan die links ook in de lijst staat. Bij het openen
+  // was dat de eerste van álle posten, en na "Uit begroting halen" bleef de weggehaalde
+  // open; valt de keuze buiten de lijst, dan opent de eerste die er wel staat.
+  const inLijst = (id: number | null) =>
+    id !== null &&
+    zichtbaar.some(
+      (post) => post.id === id || post.subposten.some((sub) => sub.id === id),
+    );
+  const getoondId = inLijst(gekozenId) ? gekozenId : (zichtbaar[0]?.id ?? null);
+  const gekozen = alle.find((post) => post.id === getoondId) ?? null;
   const hoofdpostVan =
     gekozen?.ouderId != null
       ? (posten.find((post) => post.id === gekozen.ouderId) ?? null)
@@ -431,7 +440,7 @@ export default function BegrotingScherm({
           <PostLijst
             jaar={jaar}
             rijen={rijen}
-            gekozenId={modus === "nieuw" ? null : gekozenId}
+            gekozenId={modus === "nieuw" ? null : getoondId}
             uitgeklapt={uitgeklapt}
             kies={kies}
             naarDetail={(postId) => {
@@ -532,9 +541,33 @@ function Stand({ begroot, besteed }: { begroot: number; besteed: number }) {
         />
       </div>
       <div className="cijfers mt-2 flex justify-between gap-3 text-[11px] text-linnen/65">
-        <span className="truncate">begroot {formatEuro(begroot)}</span>
         <span className="truncate">besteed {formatEuro(besteed)}</span>
+        {begroot > 0 && (
+          <span className="shrink-0">
+            {Math.round((besteed / begroot) * 100)}% van de begroting
+          </span>
+        )}
       </div>
+
+      {/* Wat het jaar kost, en wat dat per huishouden per maand betekent: kosten gaan
+          half om half, dus het totaal gedeeld door twee en door twaalf. Zo kun je
+          een vast maandbedrag afspreken. */}
+      {begroot > 0 && (
+        <dl className="mt-3.5 grid grid-cols-2 gap-3 border-t border-linnen/15 pt-3">
+          <div className="min-w-0">
+            <dt className="bovenschrift !text-linnen/65">Totaal begroot</dt>
+            <dd className="cijfers mt-0.5 truncate text-[17px]">
+              {formatEuro(begroot)}
+            </dd>
+          </div>
+          <div className="min-w-0">
+            <dt className="bovenschrift !text-linnen/65">Per stel per maand</dt>
+            <dd className="cijfers mt-0.5 truncate text-[17px] text-messing">
+              {formatEuro(Math.round(begroot / 2 / 12))}
+            </dd>
+          </div>
+        </dl>
+      )}
     </section>
   );
 }
