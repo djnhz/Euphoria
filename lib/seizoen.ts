@@ -27,7 +27,7 @@ export type Blok = {
   feestdag: FeestdagCode | null;
   /** Naam van de ingeplande vakantie, als die is meegegeven. */
   naam: string | null;
-  /** Gevuld bij een ingeplande vakantie: de maandag van de betrokken week. */
+  /** Gevuld bij een ingeplande vakantie: de dag waarop die vakantie begint. */
   sleutel: string | null;
   aantalDagen: number;
 };
@@ -41,12 +41,20 @@ export type Invoer = {
   /** Per feestdag welk huishouden hem krijgt. Ontbreekt een feestdag, dan geldt de gewone regel. */
   feestdagToewijzing: Partial<Record<FeestdagCode, number>>;
   /**
-   * Zelf ingeplande weken, per maandag van de betrokken week. Zo boek je bijvoorbeeld
-   * drie aaneengesloten zomerweken over het even-onevenpatroon heen.
+   * Zelf ingeplande vakanties, dwars door het patroon heen. `tot` is de wisseldag:
+   * de vakantie beslaat de nachten van `van` tot en met de dag ervoor, en op `tot`
+   * zelf is het vanaf 12:00 weer van de volgende.
    */
-  overrides?: Record<string, { coupleId: number; naam?: string }>;
+  vakanties?: readonly IngeplandeVakantie[];
   /** Eigen begin en einde van het seizoen; zonder is het maart tot en met oktober. */
   grenzen?: SeizoenGrenzen;
+};
+
+export type IngeplandeVakantie = {
+  van: string;
+  tot: string;
+  coupleId: number;
+  naam?: string;
 };
 
 export type Botsing = {
@@ -68,8 +76,8 @@ type DagEigenaar = {
   naam: string | null;
   /**
    * Alleen dagen met dezelfde sleutel mogen samengevoegd worden. Voor een ingeplande
-   * vakantie is dat de maandag van die week, zodat drie geboekte weken drie regels
-   * blijven in plaats van een blok van eenentwintig dagen.
+   * vakantie is dat zijn eerste dag, zodat twee vakanties die op elkaar aansluiten
+   * twee regels blijven, ook als ze van hetzelfde huishouden zijn.
    */
   sleutel: string | null;
 };
@@ -142,17 +150,17 @@ export function maakSeizoensplanning(invoer: Invoer): Planning {
     }
   }
 
-  // 3. Zelf ingeplande weken winnen van alles, inclusief de feestdagen.
-  for (const [maandag, wens] of Object.entries(invoer.overrides ?? {})) {
-    for (let i = 0; i < 7; i++) {
-      const dag = plusDagen(maandag, i);
+  // 3. Zelf ingeplande vakanties winnen van alles, inclusief de feestdagen. Per
+  //    nacht: de wisseldag zelf hoort al bij wie er daarna aan boord komt.
+  for (const vakantie of invoer.vakanties ?? []) {
+    for (let dag = vakantie.van; dag < vakantie.tot; dag = plusDagen(dag, 1)) {
       if (!inSeizoen.has(dag)) continue;
       eigenaars.set(dag, {
-        coupleId: wens.coupleId,
+        coupleId: vakantie.coupleId,
         reden: "handmatig",
         feestdag: null,
-        naam: wens.naam?.trim() ? wens.naam.trim() : null,
-        sleutel: maandag,
+        naam: vakantie.naam?.trim() ? vakantie.naam.trim() : null,
+        sleutel: vakantie.van,
       });
     }
   }

@@ -6,7 +6,13 @@ import { z } from "zod";
 import { db, couples, seizoenen } from "@/db";
 import { vereisGebruiker } from "@/lib/auth";
 import { publiceerSeizoen, seizoenStand } from "@/lib/agenda";
-import { dagenInSeizoen, seizoenFout, standaardSeizoen } from "@/lib/datum";
+import {
+  dagenInSeizoen,
+  formatDatumMetDag,
+  plusDagen,
+  seizoenFout,
+  standaardSeizoen,
+} from "@/lib/datum";
 import { maakSeizoensplanning } from "@/lib/seizoen";
 import { SeizoenPlan } from "@/lib/seizoenplan";
 
@@ -27,14 +33,17 @@ const PubliceerInvoer = z.object({
   onevenCoupleId: z.number().int().positive(),
   evenCoupleId: z.number().int().positive(),
   feestdagToewijzing: z.record(FeestdagCodes, z.number().int().positive()),
-  /** Zelf ingeplande weken, per maandag: welk huishouden en hoe die vakantie heet. */
-  overrides: z.record(
-    z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-    z.object({
-      coupleId: z.number().int().positive(),
-      naam: z.string().trim().max(80).optional(),
-    }),
-  ),
+  /** Zelf ingeplande vakanties; `tot` is de wisseldag (zaterdag 12:00). */
+  vakanties: z
+    .array(
+      z.object({
+        van: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        tot: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        coupleId: z.number().int().positive(),
+        naam: z.string().trim().max(80).optional(),
+      }),
+    )
+    .max(60),
   grenzen: z
     .object({
       start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -87,10 +96,15 @@ export async function publiceerAction(
       titel: blok.naam
         ? `${naamVan.get(blok.coupleId) ?? "Gereserveerd"} — ${blok.naam}`
         : (naamVan.get(blok.coupleId) ?? "Gereserveerd"),
+      // De agenda kent alleen hele dagen; bij een vakantie staat de wissel om 12:00
+      // er daarom in woorden bij. De laatste dag van het blok is de laatste nacht, de
+      // dag erna de wisseldag.
       opmerking:
         blok.reden === "feestdag"
           ? `Seizoensplanning ${invoer.jaar} — ${blok.feestdag}`
-          : `Seizoensplanning ${invoer.jaar}`,
+          : blok.reden === "handmatig"
+            ? `Seizoensplanning ${invoer.jaar} — van ${formatDatumMetDag(blok.van)} 12:00 tot ${formatDatumMetDag(plusDagen(blok.tot, 1))} 12:00`
+            : `Seizoensplanning ${invoer.jaar}`,
       coupleId: blok.coupleId,
     })),
     dagen[0],

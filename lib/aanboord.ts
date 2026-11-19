@@ -46,21 +46,15 @@ export async function komendeBeurten(limiet = 4): Promise<{
   const oneven = plan.onevenCoupleId;
   const even = huishoudens.find((h) => h.id !== oneven)?.id ?? oneven;
 
-  const overrides: Record<string, { coupleId: number; naam?: string }> = {};
-  for (const periode of plan.periodes) {
-    let maandag = periode.vanMaandag;
-    while (maandag <= periode.totMaandag) {
-      overrides[maandag] = { coupleId: periode.coupleId, naam: periode.naam };
-      maandag = verderMetEenWeek(maandag);
-    }
-  }
-
   const planning = maakSeizoensplanning({
     jaar,
     onevenCoupleId: oneven,
     evenCoupleId: even,
     feestdagToewijzing: plan.feestdagen as Record<string, number>,
-    overrides,
+    vakanties: plan.periodes,
+    // Hetzelfde seizoen als op het planningsscherm, anders telt dit scherm af naar
+    // weken die daar buiten het seizoen vallen.
+    grenzen: plan.start && plan.eind ? { start: plan.start, eind: plan.eind } : undefined,
   });
 
   const namen = new Map(huishoudens.map((h) => [h.id, h.naam]));
@@ -84,12 +78,6 @@ export async function komendeBeurten(limiet = 4): Promise<{
 /** De eerstvolgende beurt van jouw huishouden -- de aftelling bovenaan. */
 export function jouwBeurt(beurten: readonly Beurt[], coupleId: number) {
   return beurten.find((b) => b.coupleId === coupleId) ?? null;
-}
-
-function verderMetEenWeek(iso: string): string {
-  const d = new Date(`${iso}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + 7);
-  return d.toISOString().slice(0, 10);
 }
 
 function dagenTussen(van: string, tot: string): number {

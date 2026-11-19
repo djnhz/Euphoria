@@ -175,7 +175,7 @@ test("een handmatige wissel wint van alles", () => {
     onevenCoupleId: A,
     evenCoupleId: B,
     feestdagToewijzing: { hemelvaart: B },
-    overrides: { "2027-05-03": { coupleId: A } },
+    vakanties: [{ van: "2027-05-03", tot: "2027-05-10", coupleId: A }],
   });
   assert.deepEqual(eigenaarOp("2027-05-05", planning), {
     coupleId: A,
@@ -320,49 +320,61 @@ test("de zomervakantie begint pas te tellen in de week met vrije werkdagen", () 
   assert.equal(werkdagOverlap(zomer, "2027-08-30", "2027-09-05"), 0);
 });
 
-test("drie aaneengesloten weken blijven drie regels, dwars door even en oneven heen", () => {
+test("een vakantie van zaterdag tot zaterdag is zeven nachten; de wisseldag is van de volgende", () => {
+  // Za 17 juli 12:00 tot za 7 augustus 12:00, dwars door even en oneven heen.
   const planning = maakSeizoensplanning({
     jaar: 2027,
     onevenCoupleId: A,
     evenCoupleId: B,
     feestdagToewijzing: {},
-    overrides: {
-      "2027-07-19": { coupleId: B, naam: "Zomerweken" },
-      "2027-07-26": { coupleId: B, naam: "Zomerweken" },
-      "2027-08-02": { coupleId: B, naam: "Zomerweken" },
-    },
+    vakanties: [{ van: "2027-07-17", tot: "2027-08-07", coupleId: B, naam: "Zomer" }],
   });
-  // Drie geboekte weken blijven drie regels: samenvoegen maakt het overzicht juist
-  // onleesbaar, want dan zie je niet meer welke weken erin zitten.
-  const eigen = planning.blokken.filter((b) => b.naam === "Zomerweken");
-  assert.equal(eigen.length, 3);
+  const eigen = planning.blokken.filter((b) => b.naam === "Zomer");
+  // Eén vakantie is één blok, ook over drie weken: zo komt hij ook als één afspraak
+  // in de agenda.
   assert.deepEqual(
-    eigen.map((b) => [b.van, b.tot, b.aantalDagen]),
-    [
-      ["2027-07-19", "2027-07-25", 7],
-      ["2027-07-26", "2027-08-01", 7],
-      ["2027-08-02", "2027-08-08", 7],
-    ],
+    eigen.map((b) => [b.van, b.tot, b.aantalDagen, b.coupleId]),
+    [["2027-07-17", "2027-08-06", 21, B]],
   );
-  assert.ok(eigen.every((b) => b.coupleId === B));
-  // De week ervoor en erna volgen weer het gewone patroon.
-  assert.equal(eigenaarOp("2027-07-18", planning)?.reden, "even");
-  assert.equal(eigenaarOp("2027-08-09", planning)?.reden, "even");
+  // De vrijdag ervoor en de wisselzaterdag zelf volgen weer het patroon.
+  assert.notEqual(eigenaarOp("2027-07-16", planning)?.reden, "handmatig");
+  assert.notEqual(eigenaarOp("2027-08-07", planning)?.reden, "handmatig");
 });
 
-test("twee losse vakanties met verschillende namen blijven aparte blokken", () => {
+test("de ander kan op de wisselzaterdag meteen zijn eigen vakantie beginnen", () => {
   const planning = maakSeizoensplanning({
     jaar: 2027,
     onevenCoupleId: A,
     evenCoupleId: B,
     feestdagToewijzing: {},
-    overrides: {
-      "2027-05-10": { coupleId: A, naam: "Meiweek" },
-      "2027-05-17": { coupleId: A, naam: "Hemelvaartweek" },
-    },
+    vakanties: [
+      { van: "2027-07-17", tot: "2027-07-31", coupleId: A, naam: "Zomer A" },
+      { van: "2027-07-31", tot: "2027-08-14", coupleId: B, naam: "Zomer B" },
+    ],
   });
-  const namen = planning.blokken.map((b) => b.naam).filter(Boolean);
-  assert.deepEqual(namen, ["Meiweek", "Hemelvaartweek"]);
+  const vakantieblokken = planning.blokken.filter((b) => b.reden === "handmatig");
+  assert.deepEqual(
+    vakantieblokken.map((b) => [b.van, b.tot, b.coupleId, b.aantalDagen]),
+    [
+      ["2027-07-17", "2027-07-30", A, 14],
+      ["2027-07-31", "2027-08-13", B, 14],
+    ],
+  );
+});
+
+test("twee aansluitende vakanties van hetzelfde huishouden blijven aparte blokken", () => {
+  const planning = maakSeizoensplanning({
+    jaar: 2027,
+    onevenCoupleId: A,
+    evenCoupleId: B,
+    feestdagToewijzing: {},
+    vakanties: [
+      { van: "2027-05-08", tot: "2027-05-15", coupleId: A, naam: "Meiweek" },
+      { van: "2027-05-15", tot: "2027-05-22", coupleId: A, naam: "Meiweek" },
+    ],
+  });
+  const eigen = planning.blokken.filter((b) => b.reden === "handmatig");
+  assert.equal(eigen.length, 2);
 });
 
 test("een ingeplande vakantie wint ook van een toegewezen feestdag", () => {
@@ -371,7 +383,7 @@ test("een ingeplande vakantie wint ook van een toegewezen feestdag", () => {
     onevenCoupleId: A,
     evenCoupleId: B,
     feestdagToewijzing: { hemelvaart: A },
-    overrides: { "2027-05-03": { coupleId: B, naam: "Werkweek" } },
+    vakanties: [{ van: "2027-05-03", tot: "2027-05-10", coupleId: B, naam: "Werkweek" }],
   });
   assert.deepEqual(eigenaarOp("2027-05-05", planning), {
     coupleId: B,
@@ -437,4 +449,40 @@ test("seizoenFout keurt een onbruikbaar seizoen af en een goed seizoen goed", ()
   // Woensdag tot en met zondag: geen hele week.
   assert.match(seizoenFout(2027, { start: "2027-06-02", eind: "2027-06-06" }) ?? "", /hele week/);
   assert.match(seizoenFout(2027, { start: "", eind: "2027-06-06" }) ?? "", /Vul/);
+});
+
+// --- bewaarde plannen ---
+import { leesPlan } from "../lib/seizoenplan.ts";
+
+test("een plan met hele weken van vroeger wordt een vakantie met exacte datums", () => {
+  const plan = leesPlan(
+    JSON.stringify({
+      onevenCoupleId: A,
+      feestdagen: {},
+      periodes: [
+        {
+          id: "oud",
+          vanMaandag: "2027-07-19",
+          totMaandag: "2027-08-02",
+          coupleId: B,
+          naam: "Zomerweken",
+        },
+      ],
+    }),
+  );
+  // Maandag 19 juli tot en met de week van 2 augustus: tot de maandag erna.
+  assert.deepEqual(plan?.periodes, [
+    { id: "oud", van: "2027-07-19", tot: "2027-08-09", coupleId: B, naam: "Zomerweken" },
+  ]);
+});
+
+test("een vakantie waarvan de wisseldag niet na het begin ligt wordt niet bewaard", () => {
+  const plan = leesPlan(
+    JSON.stringify({
+      onevenCoupleId: A,
+      feestdagen: {},
+      periodes: [{ id: "x", van: "2027-07-17", tot: "2027-07-17", coupleId: B, naam: "" }],
+    }),
+  );
+  assert.equal(plan, null);
 });

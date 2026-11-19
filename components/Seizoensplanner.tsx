@@ -9,7 +9,7 @@ import {
   type Feestdag,
   type FeestdagCode,
 } from "@/lib/feestdagen";
-import type { SeizoenPlan } from "@/lib/seizoenplan";
+import type { SeizoenPlan, VakantiePeriode } from "@/lib/seizoenplan";
 import {
   vakantiesRakend,
   werkdagen,
@@ -21,6 +21,7 @@ import {
   seizoenFout,
   standaardSeizoen,
   formatDatum,
+  MAANDEN,
   formatDatumMetDag,
   dagnaam,
   isoWeek,
@@ -48,7 +49,7 @@ const REDEN_TEKST: Record<Blok["reden"], string> = {
   oneven: "oneven week",
   even: "even week",
   feestdag: "feestdag",
-  handmatig: "handmatig gezet",
+  handmatig: "vakantie",
 };
 
 export default function Seizoensplanner({
@@ -158,37 +159,23 @@ export default function Seizoensplanner({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jaar, grenzen.start, grenzen.eind]);
 
-  // Een periode is een reeks weken; de planner wil ze per maandag.
-  const overrides = useMemo(() => {
-    const kaart: Record<string, { coupleId: number; naam?: string }> = {};
-    for (const periode of periodes) {
-      for (const week of weken) {
-        if (
-          week.maandag >= periode.vanMaandag &&
-          week.maandag <= periode.totMaandag
-        ) {
-          kaart[week.maandag] = {
-            coupleId: periode.coupleId,
-            naam: periode.naam,
-          };
-        }
-      }
-    }
-    return kaart;
-  }, [periodes, weken]);
-
   const invoer = {
     jaar,
     onevenCoupleId,
     evenCoupleId,
     feestdagToewijzing: toewijzing,
-    overrides,
+    vakanties: periodes.map(({ van, tot, coupleId, naam }) => ({
+      van,
+      tot,
+      coupleId,
+      naam,
+    })),
     grenzen,
   };
   const planning = useMemo(
     () => maakSeizoensplanning(invoer),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [jaar, onevenCoupleId, evenCoupleId, toewijzing, overrides, grenzen.start, grenzen.eind],
+    [jaar, onevenCoupleId, evenCoupleId, toewijzing, periodes, grenzen.start, grenzen.eind],
   );
   const cijfers = telling(
     planning,
@@ -214,34 +201,30 @@ export default function Seizoensplanner({
     return weken;
   }
 
-  /** Een blok omzetten is gewoon een periode van een of meer weken. */
+  /** Een blok omzetten is gewoon een vakantie voor de ander over precies die dagen. */
   function wisselBlok(blok: Blok) {
     const ander = huishoudens.find((h) => h.id !== blok.coupleId)?.id;
     if (ander === undefined) return;
     voegPeriodeToe({
-      vanMaandag: maandagVanWeek(blok.van),
-      totMaandag: maandagVanWeek(blok.tot),
+      van: blok.van,
+      tot: plusDagen(blok.tot, 1),
       coupleId: ander,
       naam: "",
     });
   }
 
   /**
-   * Een nieuwe periode overschrijft wat er op die weken al was ingepland. Bewerk je
-   * er een, dan gaat het oude exemplaar er sowieso uit -- ook als je hem naar heel
-   * andere weken verschuift.
+   * Een nieuwe vakantie vervangt wat er op die nachten al was ingepland. Aansluiten
+   * mag: eindigt de een op zaterdag, dan kan de ander op die zaterdag beginnen. Bewerk
+   * je er een, dan gaat het oude exemplaar er sowieso uit -- ook als je hem naar heel
+   * andere datums verschuift.
    */
   function voegPeriodeToe(nieuw: Omit<Periode, "id">, vervangtId?: string) {
     setPeriodes((huidig) => [
       ...huidig.filter(
-        (p) =>
-          p.id !== vervangtId &&
-          (p.totMaandag < nieuw.vanMaandag || p.vanMaandag > nieuw.totMaandag),
+        (p) => p.id !== vervangtId && (p.tot <= nieuw.van || p.van >= nieuw.tot),
       ),
-      {
-        ...nieuw,
-        id: `${nieuw.vanMaandag}-${nieuw.totMaandag}-${nieuw.coupleId}`,
-      },
+      { ...nieuw, id: `${nieuw.van}-${nieuw.tot}-${nieuw.coupleId}` },
     ]);
     setBewerkt(null);
   }
@@ -403,15 +386,18 @@ export default function Seizoensplanner({
 
       <section className="rounded-2xl border border-rand bg-paneel p-4">
         <h2 className="bovenschrift">Vakanties inplannen</h2>
-        <p className="mb-3 text-xs text-gedempt">
-          Aaneengesloten weken dwars door het patroon heen. Een nieuwe periode
-          vervangt een bestaande waar ze elkaar overlappen.
+        <p className="mb-3 text-xs text-gedempt text-pretty">
+          Een vakantie loopt van zaterdag 12:00 tot zaterdag 12:00, dwars door het
+          patroon heen. Op de wisseldag kan de ander vanaf 12:00 weer aan boord, ook
+          voor een eigen vakantie. Een nieuwe vakantie vervangt een bestaande waar
+          ze elkaar overlappen.
         </p>
         {/* Sleutel op de bewerkte periode: zo begint het formulier opnieuw met de
             waarden van die periode in plaats van te blijven staan waar het stond. */}
         <VakantieFormulier
           key={bewerkt?.id ?? "nieuw"}
-          weken={weken}
+          eersteDag={weken[0]?.maandag ?? grenzen.start}
+          laatsteWisseldag={plusDagen(weken.at(-1)?.zondag ?? grenzen.eind, 1)}
           huishoudens={huishoudens}
           vakanties={vakanties}
           bewerkt={bewerkt}
@@ -422,14 +408,9 @@ export default function Seizoensplanner({
         {periodes.length > 0 && (
           <ul className="mt-3 flex flex-col gap-2">
             {[...periodes]
-              .sort((a, b) => a.vanMaandag.localeCompare(b.vanMaandag))
+              .sort((a, b) => a.van.localeCompare(b.van))
               .map((periode) => {
-                const eind = plusDagen(periode.totMaandag, 6);
-                const aantalWeken = weken.filter(
-                  (w) =>
-                    w.maandag >= periode.vanMaandag &&
-                    w.maandag <= periode.totMaandag,
-                ).length;
+                const nachten = dagenTussen(periode.van, periode.tot);
                 return (
                   <li
                     key={periode.id}
@@ -439,11 +420,11 @@ export default function Seizoensplanner({
                       className="inline-block h-3 w-3 shrink-0 rounded"
                       style={{ background: kleurVan.get(periode.coupleId) }}
                     />
-                    <span className="cijfers min-w-0 flex-1 truncate">
-                      {formatDatum(periode.vanMaandag)} t/m {formatDatum(eind)}
+                    <span className="cijfers min-w-0 flex-1">
+                      {wisselmoment(periode.van)} – {wisselmoment(periode.tot)}
                     </span>
                     <span className="cijfers text-xs text-gedempt">
-                      {aantalWeken} {aantalWeken === 1 ? "week" : "weken"}
+                      {nachten} {nachten === 1 ? "nacht" : "nachten"}
                     </span>
                     <span className="truncate">
                       {naamVan.get(periode.coupleId)}
@@ -563,10 +544,18 @@ export default function Seizoensplanner({
                   {/* De weekdag alleen tonen bij blokken die geen hele maandag-zondagweek
                     zijn; daar zit het lange weekend en dat is wat je wilt zien. */}
                   <span className="cijfers min-w-0 flex-1">
-                    {heelWeek(blok) ? "" : `${dagnaam(blok.van)} `}
-                    {formatDatum(blok.van)}
-                    {blok.tot !== blok.van &&
-                      ` t/m ${heelWeek(blok) ? "" : `${dagnaam(blok.tot)} `}${formatDatum(blok.tot)}`}
+                    {/* Een vakantie met zijn wisselmomenten; het eind is de dag na de
+                        laatste nacht. Bij de rest de dagen tot en met. */}
+                    {ingepland ? (
+                      `${wisselmoment(blok.van)} – ${wisselmoment(plusDagen(blok.tot, 1))}`
+                    ) : (
+                      <>
+                        {heelWeek(blok) ? "" : `${dagnaam(blok.van)} `}
+                        {formatDatum(blok.van)}
+                        {blok.tot !== blok.van &&
+                          ` t/m ${heelWeek(blok) ? "" : `${dagnaam(blok.tot)} `}${formatDatum(blok.tot)}`}
+                      </>
+                    )}
                   </span>
                   <span className="cijfers shrink-0 text-xs text-gedempt">
                     {weekLabel(blok)}
@@ -631,7 +620,10 @@ export default function Seizoensplanner({
                     )}
                   </span>
                   <span className="text-xs text-gedempt">
-                    {REDEN_TEKST[blok.reden]} · {blok.aantalDagen} dg
+                    {REDEN_TEKST[blok.reden]} ·{" "}
+                    {ingepland
+                      ? `${blok.aantalDagen} ${blok.aantalDagen === 1 ? "nacht" : "nachten"}`
+                      : `${blok.aantalDagen} dg`}
                   </span>
                   <button
                     type="button"
@@ -720,95 +712,119 @@ function heelWeek(blok: Blok): boolean {
   );
 }
 
-export type Periode = {
-  id: string;
-  /** Maandag van de eerste week. */
-  vanMaandag: string;
-  /** Maandag van de laatste week. */
-  totMaandag: string;
-  coupleId: number;
-  naam: string;
-};
+export type Periode = VakantiePeriode;
 
-type Week = { maandag: string; week: number; zondag: string };
+/** Hoe laat er gewisseld wordt; de afspraak tussen de huishoudens. */
+const WISSELTIJD = "12:00";
+
+/** "za 11 jul 12:00": het moment waarop een vakantie begint of overgaat. */
+function wisselmoment(iso: string): string {
+  return `${dagnaam(iso).slice(0, 2)} ${Number(iso.slice(8))} ${MAANDEN[Number(iso.slice(5, 7)) - 1]} ${WISSELTIJD}`;
+}
+
+function dagenTussen(van: string, tot: string): number {
+  return Math.round(
+    (Date.parse(`${tot}T00:00:00Z`) - Date.parse(`${van}T00:00:00Z`)) /
+      86_400_000,
+  );
+}
+
+/** De eerste zaterdag op of na deze dag. */
+function zaterdagVanaf(iso: string): string {
+  let dag = iso;
+  while (dagnaam(dag) !== "zaterdag") dag = plusDagen(dag, 1);
+  return dag;
+}
 
 /**
- * Een periode kiezen als reeks weken in plaats van losse datums: het seizoen is per
- * week verdeeld, dus zo kun je geen halve week boeken. De keuzelijst noemt het
- * weeknummer, de datums en of er vakantie is, want dat is wat je wilt weten.
+ * Een vakantie kiezen met exacte datums: de dag waarop je aan boord komt en de
+ * wisseldag waarop je om 12:00 weer van boord gaat. Standaard zaterdag tot zaterdag,
+ * want dat is de afspraak; een andere dag mag, maar dan zegt het formulier het.
  */
 function VakantieFormulier({
-  weken,
+  eersteDag,
+  laatsteWisseldag,
   huishoudens,
   vakanties,
   bewerkt,
   onToevoegen,
   onAnnuleren,
 }: {
-  weken: Week[];
+  /** Eerste dag van het seizoen. */
+  eersteDag: string;
+  /** De dag na de laatste seizoensdag: later van boord gaan kan niet. */
+  laatsteWisseldag: string;
   huishoudens: { id: number; naam: string }[];
   vakanties: Vakantie[];
-  /** Gevuld als je een bestaande periode aanpast in plaats van een nieuwe maakt. */
+  /** Gevuld als je een bestaande vakantie aanpast in plaats van een nieuwe maakt. */
   bewerkt: Periode | null;
   onToevoegen: (periode: Omit<Periode, "id">, vervangtId?: string) => void;
   onAnnuleren: () => void;
 }) {
-  const [vanMaandag, setVan] = useState(
-    bewerkt?.vanMaandag ?? weken[0]?.maandag ?? "",
-  );
-  const [totMaandag, setTot] = useState(
-    bewerkt?.totMaandag ?? weken[0]?.maandag ?? "",
-  );
+  const eersteZaterdag = zaterdagVanaf(eersteDag);
+  const [van, setVan] = useState(bewerkt?.van ?? eersteZaterdag);
+  const [tot, setTot] = useState(bewerkt?.tot ?? plusDagen(eersteZaterdag, 7));
   const [coupleId, setCouple] = useState(
     bewerkt?.coupleId ?? huishoudens[0]?.id ?? 0,
   );
   const [naam, setNaam] = useState(bewerkt?.naam ?? "");
   const vuil =
     bewerkt !== null &&
-    (vanMaandag !== bewerkt.vanMaandag ||
-      totMaandag !== bewerkt.totMaandag ||
+    (van !== bewerkt.van ||
+      tot !== bewerkt.tot ||
       coupleId !== bewerkt.coupleId ||
       naam !== (bewerkt.naam ?? ""));
 
-  function label(week: Week): string {
-    const raakt = vakantiesRakend(vakanties, week.maandag, week.zondag).filter(
-      (vakantie) =>
-        werkdagOverlap(vakantie, week.maandag, week.zondag) ===
-        werkdagen(week.maandag, week.zondag),
-    );
-    const staart = raakt.length > 0 ? ` · ${raakt[0].naam}` : "";
-    return `wk ${week.week} — ${formatDatum(week.maandag)} t/m ${formatDatum(week.zondag)}${staart}`;
+  const geldig = /^\d{4}-\d{2}-\d{2}$/;
+  const fout = !geldig.test(van) || !geldig.test(tot)
+    ? "Vul beide datums in."
+    : tot <= van
+      ? "De wisseldag moet na de eerste dag liggen."
+      : van < eersteDag || tot > laatsteWisseldag
+        ? `Kies datums binnen het seizoen (${formatDatum(eersteDag)} tot ${formatDatum(laatsteWisseldag)}).`
+        : null;
+  const nachten = fout ? 0 : dagenTussen(van, tot);
+  const geenZaterdag = [van, tot].filter(
+    (dag) => geldig.test(dag) && dagnaam(dag) !== "zaterdag",
+  );
+  // Welke schoolvakantie of bouwvak er in valt: dat is meestal waarom je hem boekt.
+  const raakt = fout
+    ? []
+    : vakantiesRakend(vakanties, van, plusDagen(tot, -1)).filter(
+        (vakantie) => werkdagOverlap(vakantie, van, plusDagen(tot, -1)) > 0,
+      );
+
+  /** Begin verschuiven en de lengte behouden, zodat je niet twee velden hoeft te zetten. */
+  function kiesVan(nieuw: string) {
+    const lengte = !fout ? nachten : 7;
+    setVan(nieuw);
+    if (geldig.test(nieuw)) setTot(plusDagen(nieuw, Math.max(1, lengte)));
   }
 
   return (
-    // min-w-0 op elk vak: zonder dat rekt een keuzelijst op tot zijn langste optie
-    // en loopt de rij buiten het paneel.
+    // min-w-0 op elk vak: zonder dat rekt een veld op tot zijn inhoud en loopt de
+    // rij buiten het paneel.
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <label className="flex min-w-0 flex-col gap-1 text-sm">
-        <span className="text-gedempt">Van week</span>
-        <Keuzelijst
-          label="Van week"
-          waarde={vanMaandag}
-          opties={weken.map((week) => ({
-            waarde: week.maandag,
-            label: label(week),
-          }))}
-          onKies={(maandag) => {
-            setVan(maandag);
-            // Einde meeschuiven zodat je nooit een omgekeerde periode kunt kiezen.
-            if (maandag > totMaandag) setTot(maandag);
-          }}
+        <span className="text-gedempt">Aan boord vanaf ({WISSELTIJD})</span>
+        <input
+          type="date"
+          value={van}
+          min={eersteDag}
+          max={plusDagen(laatsteWisseldag, -1)}
+          onChange={(e) => kiesVan(e.target.value)}
+          className={`${invoerKlasse} min-w-0`}
         />
       </label>
       <label className="flex min-w-0 flex-col gap-1 text-sm">
-        <span className="text-gedempt">Tot en met week</span>
-        <Keuzelijst
-          label="Tot en met week"
-          waarde={totMaandag}
-          opties={weken
-            .filter((week) => week.maandag >= vanMaandag)
-            .map((week) => ({ waarde: week.maandag, label: label(week) }))}
-          onKies={setTot}
+        <span className="text-gedempt">Van boord op ({WISSELTIJD})</span>
+        <input
+          type="date"
+          value={tot}
+          min={geldig.test(van) ? plusDagen(van, 1) : eersteDag}
+          max={laatsteWisseldag}
+          onChange={(e) => setTot(e.target.value)}
+          className={`${invoerKlasse} min-w-0`}
         />
       </label>
       <label className="flex min-w-0 flex-col gap-1 text-sm">
@@ -831,17 +847,60 @@ function VakantieFormulier({
         />
       </label>
 
+      <div className="flex flex-col gap-1.5 sm:col-span-2 lg:col-span-4">
+        {/* Snel een hele week of meer: de lengte telt vanaf de gekozen begindag. */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-gedempt">Duur:</span>
+          {[1, 2, 3].map((weken) => {
+            const aan = !fout && nachten === weken * 7;
+            return (
+              <button
+                key={weken}
+                type="button"
+                disabled={!geldig.test(van)}
+                onClick={() => setTot(plusDagen(van, weken * 7))}
+                className={`min-h-9 rounded-lg border px-2.5 text-xs transition ${
+                  aan
+                    ? "border-inkt bg-inkt text-linnen"
+                    : "border-rand-sterk text-inkt hover:border-inkt"
+                }`}
+              >
+                {weken} {weken === 1 ? "week" : "weken"}
+              </button>
+            );
+          })}
+        </div>
+        {fout ? (
+          <p className="text-xs text-slecht">{fout}</p>
+        ) : (
+          <p className="text-xs text-gedempt text-pretty">
+            <span className="cijfers">
+              {wisselmoment(van)} – {wisselmoment(tot)}
+            </span>{" "}
+            · {nachten} {nachten === 1 ? "nacht" : "nachten"}
+            {raakt.length > 0 && ` · ${raakt.map((v) => v.naam).join(", ")}`}
+          </p>
+        )}
+        {!fout && geenZaterdag.length > 0 && (
+          <p className="text-xs text-messing-inkt text-pretty">
+            Let op: de afspraak is wisselen op zaterdag.{" "}
+            {geenZaterdag.length === 2
+              ? "Beide datums vallen"
+              : `${dagnaam(geenZaterdag[0])} ${formatDatum(geenZaterdag[0])} valt`}{" "}
+            op een andere dag.
+          </p>
+        )}
+      </div>
+
       <div className="flex flex-wrap items-center gap-3 sm:col-span-2 lg:col-span-4">
         <button
           type="button"
+          disabled={fout !== null}
           onClick={() => {
-            onToevoegen(
-              { vanMaandag, totMaandag, coupleId, naam },
-              bewerkt?.id,
-            );
+            onToevoegen({ van, tot, coupleId, naam }, bewerkt?.id);
             setNaam("");
           }}
-          className="rounded-xl bg-inkt px-4 py-2.5 text-sm font-semibold text-linnen"
+          className="rounded-xl bg-inkt px-4 py-2.5 text-sm font-semibold text-linnen disabled:opacity-50"
         >
           {bewerkt ? "Bijwerken" : "Inplannen"}
         </button>
