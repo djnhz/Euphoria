@@ -29,8 +29,12 @@ export type Blok = {
   naam: string | null;
   /** Gevuld bij een ingeplande vakantie: de dag waarop die vakantie begint. */
   sleutel: string | null;
+  /** Wisseltijden van een vakantie; null bij hele dagen, zoals een omgezette week. */
+  tijden: Wisseltijden | null;
   aantalDagen: number;
 };
+
+export type Wisseltijden = { van: string; tot: string };
 
 export type Invoer = {
   jaar: number;
@@ -55,6 +59,7 @@ export type IngeplandeVakantie = {
   tot: string;
   coupleId: number;
   naam?: string;
+  tijden?: Wisseltijden | null;
 };
 
 export type Botsing = {
@@ -80,6 +85,7 @@ type DagEigenaar = {
    * twee regels blijven, ook als ze van hetzelfde huishouden zijn.
    */
   sleutel: string | null;
+  tijden: Wisseltijden | null;
 };
 
 /**
@@ -112,6 +118,7 @@ export function maakSeizoensplanning(invoer: Invoer): Planning {
       feestdag: null,
       naam: null,
       sleutel: null,
+      tijden: null,
     });
   }
 
@@ -138,6 +145,7 @@ export function maakSeizoensplanning(invoer: Invoer): Planning {
         feestdag: feestdag.code,
         naam: feestdag.naam,
         sleutel: null,
+        tijden: null,
       });
       geraakt.push(dag);
     }
@@ -161,6 +169,7 @@ export function maakSeizoensplanning(invoer: Invoer): Planning {
         feestdag: null,
         naam: vakantie.naam?.trim() ? vakantie.naam.trim() : null,
         sleutel: vakantie.van,
+        tijden: vakantie.tijden ?? null,
       });
     }
   }
@@ -191,6 +200,7 @@ export function maakSeizoensplanning(invoer: Invoer): Planning {
       feestdag: eigenaar.feestdag,
       naam: eigenaar.naam,
       sleutel: eigenaar.sleutel,
+      tijden: eigenaar.tijden,
       aantalDagen: 1,
     });
   }

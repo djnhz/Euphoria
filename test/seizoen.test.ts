@@ -472,8 +472,87 @@ test("een plan met hele weken van vroeger wordt een vakantie met exacte datums",
   );
   // Maandag 19 juli tot en met de week van 2 augustus: tot de maandag erna.
   assert.deepEqual(plan?.periodes, [
-    { id: "oud", van: "2027-07-19", tot: "2027-08-09", coupleId: B, naam: "Zomerweken" },
+    {
+      id: "oud",
+      van: "2027-07-19",
+      tot: "2027-08-09",
+      coupleId: B,
+      naam: "Zomerweken",
+      tijden: null,
+    },
   ]);
+});
+
+test("periodes met datums maar zonder tijden: zaterdag tot zaterdag krijgt 12:00, de rest hele dagen", () => {
+  const plan = leesPlan(
+    JSON.stringify({
+      onevenCoupleId: A,
+      feestdagen: {},
+      periodes: [
+        { id: "vakantie", van: "2027-07-17", tot: "2027-07-24", coupleId: B, naam: "" },
+        { id: "omgezet", van: "2027-05-03", tot: "2027-05-10", coupleId: A, naam: "" },
+      ],
+    }),
+  );
+  assert.deepEqual(
+    plan?.periodes.map((p) => [p.id, p.tijden]),
+    [
+      ["vakantie", { van: "12:00", tot: "12:00" }],
+      ["omgezet", null],
+    ],
+  );
+});
+
+test("eigen wisseltijden blijven bewaard en komen in het blok terecht", () => {
+  const plan = leesPlan(
+    JSON.stringify({
+      onevenCoupleId: A,
+      feestdagen: {},
+      periodes: [
+        {
+          id: "v",
+          van: "2027-07-17",
+          tot: "2027-07-24",
+          coupleId: B,
+          naam: "Zomer",
+          tijden: { van: "10:00", tot: "16:30" },
+        },
+      ],
+    }),
+  );
+  assert.deepEqual(plan?.periodes[0].tijden, { van: "10:00", tot: "16:30" });
+
+  const planning = maakSeizoensplanning({
+    jaar: 2027,
+    onevenCoupleId: A,
+    evenCoupleId: B,
+    feestdagToewijzing: {},
+    vakanties: plan!.periodes,
+  });
+  const blok = planning.blokken.find((b) => b.naam === "Zomer");
+  assert.deepEqual(blok?.tijden, { van: "10:00", tot: "16:30" });
+  // Gewone weken hebben geen wisseltijd.
+  assert.ok(planning.blokken.filter((b) => b.reden !== "handmatig").every((b) => b.tijden === null));
+});
+
+test("een ongeldige tijd wordt niet bewaard", () => {
+  const plan = leesPlan(
+    JSON.stringify({
+      onevenCoupleId: A,
+      feestdagen: {},
+      periodes: [
+        {
+          id: "v",
+          van: "2027-07-17",
+          tot: "2027-07-24",
+          coupleId: B,
+          naam: "",
+          tijden: { van: "25:00", tot: "12:00" },
+        },
+      ],
+    }),
+  );
+  assert.equal(plan, null);
 });
 
 test("een vakantie waarvan de wisseldag niet na het begin ligt wordt niet bewaard", () => {

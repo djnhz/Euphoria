@@ -3,26 +3,38 @@ import { plusDagen } from "./datum";
 
 const Iso = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
+/** Een klokmoment, "12:00". */
+export const Tijd = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
+
+/** Hoe laat er bij een vakantie gewisseld wordt: de afspraak, aan te passen. */
+export const STANDAARD_WISSELTIJD = "12:00";
+
+function isZaterdag(iso: unknown): boolean {
+  return (
+    typeof iso === "string" &&
+    Iso.safeParse(iso).success &&
+    new Date(`${iso}T00:00:00Z`).getUTCDay() === 6
+  );
+}
+
 /**
- * Een ingeplande vakantie. `van` is de dag waarop je aan boord komt, `tot` de dag
- * waarop je weer van boord gaat -- de wisseldag. De afspraak is van zaterdag 12:00
- * tot zaterdag 12:00, dus op de wisseldag kan de ander vanaf 12:00 meteen weer aan
- * boord, ook voor een eigen vakantie. Gerekend wordt in nachten: de vakantie is van
- * `van` tot en met de dag vóór `tot`.
+ * Een ingeplande periode. `van` is de eerste dag, `tot` de dag erna waarop het weer
+ * van een ander is: gerekend wordt in nachten, van `van` tot en met de dag vóór `tot`.
+ *
+ * Een vakantie heeft `tijden`: wanneer je aan boord komt en wanneer je op `tot` weer
+ * van boord gaat, standaard zaterdag 12:00 tot zaterdag 12:00. Op die wisseldag kan
+ * de ander vanaf dat moment meteen weer aan boord. Zonder `tijden` -- een omgezette
+ * week -- gaat het gewoon om hele dagen, zonder wisselmoment.
  */
 export const VakantiePeriode = z.preprocess(
   (ruw) => {
+    if (!ruw || typeof ruw !== "object") return ruw;
+    const rij = { ...(ruw as Record<string, unknown>) };
     // Plannen van voor de exacte datums kenden alleen hele weken: van de maandag van
     // de eerste week tot en met de maandag van de laatste. Dat zijn precies de nachten
-    // van die maandag tot de maandag na de laatste week.
-    if (
-      ruw &&
-      typeof ruw === "object" &&
-      "vanMaandag" in ruw &&
-      "totMaandag" in ruw &&
-      !("van" in ruw)
-    ) {
-      const { vanMaandag, totMaandag, ...rest } = ruw as Record<string, unknown>;
+    // van die maandag tot de maandag na de laatste week, in hele dagen.
+    if ("vanMaandag" in rij && "totMaandag" in rij && !("van" in rij)) {
+      const { vanMaandag, totMaandag, ...rest } = rij;
       return {
         ...rest,
         van: vanMaandag,
@@ -30,9 +42,18 @@ export const VakantiePeriode = z.preprocess(
           typeof totMaandag === "string" && Iso.safeParse(totMaandag).success
             ? plusDagen(totMaandag, 7)
             : totMaandag,
+        tijden: null,
       };
     }
-    return ruw;
+    // Kort bestonden er periodes met datums maar nog zonder tijden. Zaterdag tot
+    // zaterdag was een vakantie met de wissel om 12:00; de rest kwam van "omzetten".
+    if (!("tijden" in rij)) {
+      rij.tijden =
+        isZaterdag(rij.van) && isZaterdag(rij.tot)
+          ? { van: STANDAARD_WISSELTIJD, tot: STANDAARD_WISSELTIJD }
+          : null;
+    }
+    return rij;
   },
   z
     .object({
@@ -41,8 +62,9 @@ export const VakantiePeriode = z.preprocess(
       tot: Iso,
       coupleId: z.number().int().positive(),
       naam: z.string().max(80),
+      tijden: z.object({ van: Tijd, tot: Tijd }).nullable(),
     })
-    .refine((p) => p.tot > p.van, "De wisseldag moet na de eerste dag liggen."),
+    .refine((p) => p.tot > p.van, "De laatste dag moet na de eerste dag liggen."),
 );
 
 export type VakantiePeriode = z.infer<typeof VakantiePeriode>;

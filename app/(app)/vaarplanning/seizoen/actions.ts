@@ -14,7 +14,7 @@ import {
   standaardSeizoen,
 } from "@/lib/datum";
 import { maakSeizoensplanning } from "@/lib/seizoen";
-import { SeizoenPlan } from "@/lib/seizoenplan";
+import { SeizoenPlan, Tijd } from "@/lib/seizoenplan";
 
 const FeestdagCodes = z.enum([
   "pasen",
@@ -41,6 +41,7 @@ const PubliceerInvoer = z.object({
         tot: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
         coupleId: z.number().int().positive(),
         naam: z.string().trim().max(80).optional(),
+        tijden: z.object({ van: Tijd, tot: Tijd }).nullable().optional(),
       }),
     )
     .max(60),
@@ -96,14 +97,14 @@ export async function publiceerAction(
       titel: blok.naam
         ? `${naamVan.get(blok.coupleId) ?? "Gereserveerd"} — ${blok.naam}`
         : (naamVan.get(blok.coupleId) ?? "Gereserveerd"),
-      // De agenda kent alleen hele dagen; bij een vakantie staat de wissel om 12:00
+      // De agenda kent alleen hele dagen; bij een vakantie staan de wisseltijden
       // er daarom in woorden bij. De laatste dag van het blok is de laatste nacht, de
       // dag erna de wisseldag.
       opmerking:
         blok.reden === "feestdag"
           ? `Seizoensplanning ${invoer.jaar} — ${blok.feestdag}`
-          : blok.reden === "handmatig"
-            ? `Seizoensplanning ${invoer.jaar} — van ${formatDatumMetDag(blok.van)} 12:00 tot ${formatDatumMetDag(plusDagen(blok.tot, 1))} 12:00`
+          : blok.tijden
+            ? `Seizoensplanning ${invoer.jaar} — van ${formatDatumMetDag(blok.van)} ${blok.tijden.van} tot ${formatDatumMetDag(plusDagen(blok.tot, 1))} ${blok.tijden.tot}`
             : `Seizoensplanning ${invoer.jaar}`,
       coupleId: blok.coupleId,
     })),

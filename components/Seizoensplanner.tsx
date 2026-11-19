@@ -9,7 +9,11 @@ import {
   type Feestdag,
   type FeestdagCode,
 } from "@/lib/feestdagen";
-import type { SeizoenPlan, VakantiePeriode } from "@/lib/seizoenplan";
+import {
+  STANDAARD_WISSELTIJD,
+  type SeizoenPlan,
+  type VakantiePeriode,
+} from "@/lib/seizoenplan";
 import {
   vakantiesRakend,
   werkdagen,
@@ -42,6 +46,7 @@ import {
   type StandState,
 } from "@/app/(app)/vaarplanning/seizoen/actions";
 import Keuzelijst from "./Keuzelijst";
+import Schakelaar from "./Schakelaar";
 
 const KLEUREN = HUISHOUDKLEUREN;
 
@@ -49,7 +54,7 @@ const REDEN_TEKST: Record<Blok["reden"], string> = {
   oneven: "oneven week",
   even: "even week",
   feestdag: "feestdag",
-  handmatig: "vakantie",
+  handmatig: "omgezet",
 };
 
 export default function Seizoensplanner({
@@ -164,11 +169,12 @@ export default function Seizoensplanner({
     onevenCoupleId,
     evenCoupleId,
     feestdagToewijzing: toewijzing,
-    vakanties: periodes.map(({ van, tot, coupleId, naam }) => ({
+    vakanties: periodes.map(({ van, tot, coupleId, naam, tijden }) => ({
       van,
       tot,
       coupleId,
       naam,
+      tijden,
     })),
     grenzen,
   };
@@ -201,7 +207,10 @@ export default function Seizoensplanner({
     return weken;
   }
 
-  /** Een blok omzetten is gewoon een vakantie voor de ander over precies die dagen. */
+  /**
+   * Een blok omzetten geeft de ander precies die dagen, als hele dagen: de wissel om
+   * 12:00 hoort bij een vakantie, niet bij een week die je ruilt.
+   */
   function wisselBlok(blok: Blok) {
     const ander = huishoudens.find((h) => h.id !== blok.coupleId)?.id;
     if (ander === undefined) return;
@@ -210,6 +219,7 @@ export default function Seizoensplanner({
       tot: plusDagen(blok.tot, 1),
       coupleId: ander,
       naam: "",
+      tijden: null,
     });
   }
 
@@ -410,7 +420,7 @@ export default function Seizoensplanner({
             {[...periodes]
               .sort((a, b) => a.van.localeCompare(b.van))
               .map((periode) => {
-                const nachten = dagenTussen(periode.van, periode.tot);
+                const aantal = dagenTussen(periode.van, periode.tot);
                 return (
                   <li
                     key={periode.id}
@@ -421,10 +431,12 @@ export default function Seizoensplanner({
                       style={{ background: kleurVan.get(periode.coupleId) }}
                     />
                     <span className="cijfers min-w-0 flex-1">
-                      {wisselmoment(periode.van)} – {wisselmoment(periode.tot)}
+                      {periodeTekst(periode)}
                     </span>
                     <span className="cijfers text-xs text-gedempt">
-                      {nachten} {nachten === 1 ? "nacht" : "nachten"}
+                      {periode.tijden
+                        ? `${aantal} ${aantal === 1 ? "nacht" : "nachten"}`
+                        : `${aantal} ${aantal === 1 ? "dag" : "dagen"}`}
                     </span>
                     <span className="truncate">
                       {naamVan.get(periode.coupleId)}
@@ -545,9 +557,10 @@ export default function Seizoensplanner({
                     zijn; daar zit het lange weekend en dat is wat je wilt zien. */}
                   <span className="cijfers min-w-0 flex-1">
                     {/* Een vakantie met zijn wisselmomenten; het eind is de dag na de
-                        laatste nacht. Bij de rest de dagen tot en met. */}
-                    {ingepland ? (
-                      `${wisselmoment(blok.van)} – ${wisselmoment(plusDagen(blok.tot, 1))}`
+                        laatste nacht. Bij de rest, ook een omgezette week, de dagen
+                        tot en met. */}
+                    {blok.tijden ? (
+                      `${wisselmoment(blok.van, blok.tijden.van)} – ${wisselmoment(plusDagen(blok.tot, 1), blok.tijden.tot)}`
                     ) : (
                       <>
                         {heelWeek(blok) ? "" : `${dagnaam(blok.van)} `}
@@ -620,8 +633,8 @@ export default function Seizoensplanner({
                     )}
                   </span>
                   <span className="text-xs text-gedempt">
-                    {REDEN_TEKST[blok.reden]} ·{" "}
-                    {ingepland
+                    {blok.tijden ? "vakantie" : REDEN_TEKST[blok.reden]} ·{" "}
+                    {blok.tijden
                       ? `${blok.aantalDagen} ${blok.aantalDagen === 1 ? "nacht" : "nachten"}`
                       : `${blok.aantalDagen} dg`}
                   </span>
@@ -714,12 +727,27 @@ function heelWeek(blok: Blok): boolean {
 
 export type Periode = VakantiePeriode;
 
-/** Hoe laat er gewisseld wordt; de afspraak tussen de huishoudens. */
-const WISSELTIJD = "12:00";
+function kortDatum(iso: string): string {
+  return `${dagnaam(iso).slice(0, 2)} ${Number(iso.slice(8))} ${MAANDEN[Number(iso.slice(5, 7)) - 1]}`;
+}
 
 /** "za 11 jul 12:00": het moment waarop een vakantie begint of overgaat. */
-function wisselmoment(iso: string): string {
-  return `${dagnaam(iso).slice(0, 2)} ${Number(iso.slice(8))} ${MAANDEN[Number(iso.slice(5, 7)) - 1]} ${WISSELTIJD}`;
+function wisselmoment(iso: string, tijd: string): string {
+  return `${kortDatum(iso)} ${tijd}`;
+}
+
+/**
+ * Een periode in woorden: een vakantie met zijn wisselmomenten, hele dagen (een
+ * omgezette week) als "tot en met" de laatste dag.
+ */
+function periodeTekst(periode: Pick<Periode, "van" | "tot" | "tijden">): string {
+  if (periode.tijden) {
+    return `${wisselmoment(periode.van, periode.tijden.van)} – ${wisselmoment(periode.tot, periode.tijden.tot)}`;
+  }
+  const laatste = plusDagen(periode.tot, -1);
+  return laatste === periode.van
+    ? kortDatum(periode.van)
+    : `${kortDatum(periode.van)} t/m ${kortDatum(laatste)}`;
 }
 
 function dagenTussen(van: string, tot: string): number {
@@ -736,10 +764,13 @@ function zaterdagVanaf(iso: string): string {
   return dag;
 }
 
+const ISO = /^\d{4}-\d{2}-\d{2}$/;
+const KLOK = /^([01]\d|2[0-3]):[0-5]\d$/;
+
 /**
- * Een vakantie kiezen met exacte datums: de dag waarop je aan boord komt en de
- * wisseldag waarop je om 12:00 weer van boord gaat. Standaard zaterdag tot zaterdag,
- * want dat is de afspraak; een andere dag mag, maar dan zegt het formulier het.
+ * Een vakantie kiezen met exacte datums. Standaard met een wisselmoment -- zaterdag
+ * 12:00 tot zaterdag 12:00, de afspraak -- maar beide tijden zijn aan te passen, en
+ * zonder wisseltijd gaat het om hele dagen tot en met de laatste dag.
  */
 function VakantieFormulier({
   eersteDag,
@@ -763,30 +794,45 @@ function VakantieFormulier({
 }) {
   const eersteZaterdag = zaterdagVanaf(eersteDag);
   const [van, setVan] = useState(bewerkt?.van ?? eersteZaterdag);
+  /** Altijd de dag ná de laatste nacht, ook als het veld "tot en met" toont. */
   const [tot, setTot] = useState(bewerkt?.tot ?? plusDagen(eersteZaterdag, 7));
+  const [metTijd, setMetTijd] = useState(bewerkt ? bewerkt.tijden !== null : true);
+  const [tijdVan, setTijdVan] = useState(
+    bewerkt?.tijden?.van ?? STANDAARD_WISSELTIJD,
+  );
+  const [tijdTot, setTijdTot] = useState(
+    bewerkt?.tijden?.tot ?? STANDAARD_WISSELTIJD,
+  );
   const [coupleId, setCouple] = useState(
     bewerkt?.coupleId ?? huishoudens[0]?.id ?? 0,
   );
   const [naam, setNaam] = useState(bewerkt?.naam ?? "");
+
+  const tijden = metTijd ? { van: tijdVan, tot: tijdTot } : null;
   const vuil =
     bewerkt !== null &&
     (van !== bewerkt.van ||
       tot !== bewerkt.tot ||
       coupleId !== bewerkt.coupleId ||
-      naam !== (bewerkt.naam ?? ""));
+      naam !== (bewerkt.naam ?? "") ||
+      JSON.stringify(tijden) !== JSON.stringify(bewerkt.tijden));
 
-  const geldig = /^\d{4}-\d{2}-\d{2}$/;
-  const fout = !geldig.test(van) || !geldig.test(tot)
-    ? "Vul beide datums in."
-    : tot <= van
-      ? "De wisseldag moet na de eerste dag liggen."
-      : van < eersteDag || tot > laatsteWisseldag
-        ? `Kies datums binnen het seizoen (${formatDatum(eersteDag)} tot ${formatDatum(laatsteWisseldag)}).`
-        : null;
-  const nachten = fout ? 0 : dagenTussen(van, tot);
-  const geenZaterdag = [van, tot].filter(
-    (dag) => geldig.test(dag) && dagnaam(dag) !== "zaterdag",
-  );
+  const fout =
+    !ISO.test(van) || !ISO.test(tot)
+      ? "Vul beide datums in."
+      : tot <= van
+        ? metTijd
+          ? "De dag van boord moet na de eerste dag liggen."
+          : "De laatste dag kan niet voor de eerste liggen."
+        : van < eersteDag || tot > laatsteWisseldag
+          ? `Kies datums binnen het seizoen (${formatDatum(eersteDag)} tot en met ${formatDatum(plusDagen(laatsteWisseldag, -1))}).`
+          : metTijd && (!KLOK.test(tijdVan) || !KLOK.test(tijdTot))
+            ? "Vul beide tijden in."
+            : null;
+  const aantal = fout ? 0 : dagenTussen(van, tot);
+  const geenZaterdag = metTijd
+    ? [van, tot].filter((dag) => ISO.test(dag) && dagnaam(dag) !== "zaterdag")
+    : [];
   // Welke schoolvakantie of bouwvak er in valt: dat is meestal waarom je hem boekt.
   const raakt = fout
     ? []
@@ -796,9 +842,9 @@ function VakantieFormulier({
 
   /** Begin verschuiven en de lengte behouden, zodat je niet twee velden hoeft te zetten. */
   function kiesVan(nieuw: string) {
-    const lengte = !fout ? nachten : 7;
+    const lengte = fout ? 7 : aantal;
     setVan(nieuw);
-    if (geldig.test(nieuw)) setTot(plusDagen(nieuw, Math.max(1, lengte)));
+    if (ISO.test(nieuw)) setTot(plusDagen(nieuw, Math.max(1, lengte)));
   }
 
   return (
@@ -806,26 +852,59 @@ function VakantieFormulier({
     // rij buiten het paneel.
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <label className="flex min-w-0 flex-col gap-1 text-sm">
-        <span className="text-gedempt">Aan boord vanaf ({WISSELTIJD})</span>
-        <input
-          type="date"
-          value={van}
-          min={eersteDag}
-          max={plusDagen(laatsteWisseldag, -1)}
-          onChange={(e) => kiesVan(e.target.value)}
-          className={`${invoerKlasse} min-w-0`}
-        />
+        <span className="text-gedempt">
+          {metTijd ? "Aan boord vanaf" : "Eerste dag"}
+        </span>
+        <span className="flex min-w-0 gap-1.5">
+          <input
+            type="date"
+            value={van}
+            min={eersteDag}
+            max={plusDagen(laatsteWisseldag, -1)}
+            onChange={(e) => kiesVan(e.target.value)}
+            className={`${invoerKlasse} min-w-0 flex-1`}
+          />
+          {metTijd && (
+            <input
+              type="time"
+              value={tijdVan}
+              onChange={(e) => setTijdVan(e.target.value)}
+              aria-label="Tijd aan boord"
+              className={`${invoerKlasse} w-[88px] shrink-0`}
+            />
+          )}
+        </span>
       </label>
       <label className="flex min-w-0 flex-col gap-1 text-sm">
-        <span className="text-gedempt">Van boord op ({WISSELTIJD})</span>
-        <input
-          type="date"
-          value={tot}
-          min={geldig.test(van) ? plusDagen(van, 1) : eersteDag}
-          max={laatsteWisseldag}
-          onChange={(e) => setTot(e.target.value)}
-          className={`${invoerKlasse} min-w-0`}
-        />
+        <span className="text-gedempt">
+          {metTijd ? "Van boord op" : "Tot en met"}
+        </span>
+        <span className="flex min-w-0 gap-1.5">
+          {/* Met wisseltijd is dit de wisseldag zelf; bij hele dagen de laatste dag,
+              dus een dag eerder dan wat er bewaard wordt. */}
+          <input
+            type="date"
+            value={metTijd || !ISO.test(tot) ? tot : plusDagen(tot, -1)}
+            min={
+              ISO.test(van) ? (metTijd ? plusDagen(van, 1) : van) : eersteDag
+            }
+            max={metTijd ? laatsteWisseldag : plusDagen(laatsteWisseldag, -1)}
+            onChange={(e) => {
+              const waarde = e.target.value;
+              setTot(metTijd || !ISO.test(waarde) ? waarde : plusDagen(waarde, 1));
+            }}
+            className={`${invoerKlasse} min-w-0 flex-1`}
+          />
+          {metTijd && (
+            <input
+              type="time"
+              value={tijdTot}
+              onChange={(e) => setTijdTot(e.target.value)}
+              aria-label="Tijd van boord"
+              className={`${invoerKlasse} w-[88px] shrink-0`}
+            />
+          )}
+        </span>
       </label>
       <label className="flex min-w-0 flex-col gap-1 text-sm">
         <span className="text-gedempt">Voor</span>
@@ -848,36 +927,41 @@ function VakantieFormulier({
       </label>
 
       <div className="flex flex-col gap-1.5 sm:col-span-2 lg:col-span-4">
-        {/* Snel een hele week of meer: de lengte telt vanaf de gekozen begindag. */}
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-xs text-gedempt">Duur:</span>
-          {[1, 2, 3].map((weken) => {
-            const aan = !fout && nachten === weken * 7;
-            return (
-              <button
-                key={weken}
-                type="button"
-                disabled={!geldig.test(van)}
-                onClick={() => setTot(plusDagen(van, weken * 7))}
-                className={`min-h-9 rounded-lg border px-2.5 text-xs transition ${
-                  aan
-                    ? "border-inkt bg-inkt text-linnen"
-                    : "border-rand-sterk text-inkt hover:border-inkt"
-                }`}
-              >
-                {weken} {weken === 1 ? "week" : "weken"}
-              </button>
-            );
-          })}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+          <Schakelaar checked={metTijd} onChange={setMetTijd}>
+            Met wisseltijd
+          </Schakelaar>
+          {/* Snel een hele week of meer: de lengte telt vanaf de gekozen begindag. */}
+          <span className="flex flex-wrap items-center gap-1.5">
+            <span className="text-xs text-gedempt">Duur:</span>
+            {[1, 2, 3].map((weken) => {
+              const aan = !fout && aantal === weken * 7;
+              return (
+                <button
+                  key={weken}
+                  type="button"
+                  disabled={!ISO.test(van)}
+                  onClick={() => setTot(plusDagen(van, weken * 7))}
+                  className={`min-h-9 rounded-lg border px-2.5 text-xs transition ${
+                    aan
+                      ? "border-inkt bg-inkt text-linnen"
+                      : "border-rand-sterk text-inkt hover:border-inkt"
+                  }`}
+                >
+                  {weken} {weken === 1 ? "week" : "weken"}
+                </button>
+              );
+            })}
+          </span>
         </div>
         {fout ? (
           <p className="text-xs text-slecht">{fout}</p>
         ) : (
           <p className="text-xs text-gedempt text-pretty">
-            <span className="cijfers">
-              {wisselmoment(van)} – {wisselmoment(tot)}
-            </span>{" "}
-            · {nachten} {nachten === 1 ? "nacht" : "nachten"}
+            <span className="cijfers">{periodeTekst({ van, tot, tijden })}</span> ·{" "}
+            {metTijd
+              ? `${aantal} ${aantal === 1 ? "nacht" : "nachten"}`
+              : `${aantal} ${aantal === 1 ? "dag" : "dagen"}`}
             {raakt.length > 0 && ` · ${raakt.map((v) => v.naam).join(", ")}`}
           </p>
         )}
@@ -897,7 +981,7 @@ function VakantieFormulier({
           type="button"
           disabled={fout !== null}
           onClick={() => {
-            onToevoegen({ van, tot, coupleId, naam }, bewerkt?.id);
+            onToevoegen({ van, tot, coupleId, naam, tijden }, bewerkt?.id);
             setNaam("");
           }}
           className="rounded-xl bg-inkt px-4 py-2.5 text-sm font-semibold text-linnen disabled:opacity-50"
